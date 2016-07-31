@@ -1,0 +1,23 @@
+\documentclass[11pt]{article}
+
+\begin{document}
+    
+$I(t) = N_{\mathrm{paths}}I_{\mathrm{paths}}$ \\ \\
+$N_{\mathrm{paths}} = dN_{\mathrm{total}}$    
+
+$N_{\mathrm{total}} = \frac{\pi ab}{dx^2}$ \\
+
+$t = \sqrt{(x+a)^2 + z_s^2} + \sqrt{(x+a-x_d)^2 + z_d^2}$ \\ \\
+$t = \sqrt{x^2 + b^2 + z_s^2} + \sqrt{(x-x_d)^2 + b^2 + z_d^2}$\\ 
+
+
+$x = x_d \frac{zs}{zs+zd}$  \\
+
+$$I(t) = \sum_{\mathrm{chunks}} \left( \frac{z_s dx^2}{4 \pi (x^2 + y^2 + z_s^2)^{\frac{3}{2}}} 
+    \frac{dx^2}{2 \pi((x-x_d)^2 + y^2 + z_d^2)} \right)$$
+    
+$(0, 0, z_s)$
+$(x_d, 0, z_d)$    
+$(x, 0, 0)$
+    
+\end{document}

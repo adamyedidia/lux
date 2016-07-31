@@ -1,0 +1,5 @@
+Integrate[Sqrt[c^2t^2/x^2 - 1], t]
+(% /. t -> (x/c) + delta) - (% /. t -> (x/c))
+-%
+f = %
+f

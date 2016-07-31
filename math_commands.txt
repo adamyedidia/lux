@@ -1,0 +1,5 @@
+Integrate[Sqrt[t^2 - x^2], t]
+(% /. t -> (x)) - (% /. t -> x + delta)
+-%
+f = %
+f

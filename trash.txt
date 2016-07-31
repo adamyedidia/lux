@@ -1,0 +1,8 @@
+from jack3d import *
+import numpy as np
+from math import sqrt, pi
+
+w = Wall(0,0,1,0,np.array([1,0,0]), np.array([0,1,0]))
+
+p = w.reflectThroughWall(Point(2,-2,-1))
+print p

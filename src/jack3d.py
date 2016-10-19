@@ -4,11 +4,11 @@ import matplotlib.pyplot as p
 import random
 from scipy.optimize import fmin_bfgs
 
-TIME_STEP = 0.02
+TIME_STEP = 0.1
 MIN_TIME = 0.
-MAX_TIME = 18.
+MAX_TIME = 10.
 
-SPACE_EPS = 0.01
+SPACE_EPS = 0.1
 DIV0_EPS = 1e-8
 
 TIME_LIGHT_ARRAY = [0.] * int(MAX_TIME/TIME_STEP - MIN_TIME/TIME_STEP)
@@ -102,9 +102,10 @@ class Wall:
 
         tla = point.personalTLA
 
-        reflectedPoint = point
+        reflectedPoint = Point(newPointVec[0], newPointVec[1], newPointVec[2])
+        reflectedPoint.personalTLA = tla
 
-        return Point(newPointVec[0], newPointVec[1], newPointVec[2])
+        return reflectedPoint
 
 def convertTLAIndexToTime(tlaIndex):
     # Assumes MIN_TIME = 0
@@ -1112,7 +1113,7 @@ def gradientDescent(errorFunc, guess, tolerance, learnRate, candidateTLAFunc):
 #        (approxFuncB, "r-")],
 #        T, "two_point_plane.png")
 
-doSpherePointExperiment()
+#doSpherePointExperiment()
 #doDoubleWallExperiment()
 
 #doTwoPointPlaneExperiment()

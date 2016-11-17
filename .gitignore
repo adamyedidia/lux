@@ -5,3 +5,5 @@
 trash*
 src/*.png
 *.pyc
+*.p
+log.txt

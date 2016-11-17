@@ -4,7 +4,7 @@ import matplotlib.pyplot as p
 import random
 from scipy.optimize import fmin_bfgs
 
-TIME_STEP = 0.1
+TIME_STEP = 0.001
 MIN_TIME = 0.
 MAX_TIME = 10.
 
@@ -40,7 +40,7 @@ class Point:
 
 class Wall:
     def __init__(self, a, b, c, d, unitVector1, unitVector2,
-        lambertianReflectance=1.0, specularReflectance=0.0):
+        lambertianReflectance=1.0, specularReflectance=0.0, name="w"):
         # The wall is a plane characterized by the equation ax+by+cz=d
         self.a = a
         self.b = b
@@ -57,13 +57,15 @@ class Wall:
         self.lambertianReflectance = lambertianReflectance
         self.specularReflectance = specularReflectance
 
+        self.name = name
+
     def __str__(self):
-        return str(self.a) + "x + " + \
+        return "Wall " + self.name + ": " + str(self.a) + "x + " + \
             str(self.b) + "y + " + \
             str(self.c) + "z = " + \
             str(self.d)
 
-    def getListOfPoints(self, squareRadius, exampleVector):
+    def getListOfPoints(self, squareRadius, examplePointOnWallInVectorForm):
         listOfPoints = []
 
         adjustedSquareRadius = int(squareRadius/SPACE_EPS)
@@ -76,7 +78,7 @@ class Wall:
 
                 resultVector = uvFactor1*self.unitVector1 + \
                     uvFactor2*self.unitVector2 + \
-                    exampleVector
+                    examplePointOnWallInVectorForm
 
                 listOfPoints.append(Point(resultVector[0], resultVector[1],
                     resultVector[2]))
@@ -84,7 +86,8 @@ class Wall:
         return listOfPoints
 
     def getRandomExampleVector(self):
-        randomVector = np.random.random(3)
+#        randomVector = np.random.random(3)
+        randomVector = np.array([ 0.11480026,  0.31741417,  0.27275809])
 
         return np.cross(randomVector, self.normalVector)
 
@@ -118,7 +121,8 @@ def generateWall(normalVector, point):
     c = normalVector[2]
     d = a*point.x + b*point.y + c*point.z
 
-    randomVector = np.random.random(3)
+#    randomVector = np.random.random(3)
+    randomVector = np.array([ 0.61383678,  0.04041214,  0.34736099])
     spanVector1 = np.cross(randomVector, normalVector)
     unitVector1 = spanVector1 / np.linalg.norm(spanVector1)
 
@@ -367,7 +371,6 @@ def doTwoPointPlaneExperimentWallDetect(d, T, nu, phi):
     plotArray(model)
 
     p.show()
-
 #    p.clf()
 #    print "hello"
 #    observationsWithoutGlanceFactor = [i/(j+DIV0_EPS)*(j!=0) for i, j in zip(observationArray, averageGlanceFactorsArray)]
@@ -385,9 +388,9 @@ def doTwoPointPlaneExperiment():
     # ys = 0. (ASSUMED WLOG)
     zs = 1. #+0.5*SPACE_EPS
 
-    xd = 3. #+0.5*SPACE_EPS
+    xd = 1. #+0.5*SPACE_EPS
     # yd = 0. (ASSUMED WLOG)
-    zd = 3. #+0.5*SPACE_EPS
+    zd = 1. #+0.5*SPACE_EPS
 
     x = xd*(zs/(zd+zs))
 
@@ -395,6 +398,7 @@ def doTwoPointPlaneExperiment():
     detectorPoint = Point(xd,0.,zd)
 
     # We know the location of the target because we did a knowledge inversion
+    # z = 0
     targetWall = Wall(0.,0.,1.,0., \
         np.array([1.,0.,0.]),
         np.array([0.,1.,0.]))
@@ -1067,7 +1071,7 @@ def getErrorMaker(d, T):
     return getError
 
 def gradientDescent(errorFunc, guess, tolerance, learnRate, candidateTLAFunc):
-    error = float("ixnf")
+    error = float("inf")
 
     numIterations = 0.
 
@@ -1103,10 +1107,11 @@ def gradientDescent(errorFunc, guess, tolerance, learnRate, candidateTLAFunc):
 
     return currentAngles
 
+#p.show()
+#print "hi"
 
+#doTwoPointPlaneExperimentWallDetect(1, 4, pi/2, pi/2)
 
-
-#doTwoPointPlaneExperimentWallDetect(1, 4, pi/4, pi/4)
 
 #    plotTimeLightArrayAndApproximation(
 #        [(approxFuncAverageA, "g-"),
@@ -1116,7 +1121,7 @@ def gradientDescent(errorFunc, guess, tolerance, learnRate, candidateTLAFunc):
 #doSpherePointExperiment()
 #doDoubleWallExperiment()
 
-#doTwoPointPlaneExperiment()
+doTwoPointPlaneExperiment()
 
 #guess = np.array([pi*random.random(), 2*pi*random.random()])
 

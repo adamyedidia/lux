@@ -1,17 +1,30 @@
+from __future__ import division
 from math import sqrt, pi, sin, cos, cosh, sinh, acosh, asinh
 import numpy as np
 import matplotlib.pyplot as p
 import random
 from scipy.optimize import fmin_bfgs
 
-TIME_STEP = 0.001
-MIN_TIME = 0.
-MAX_TIME = 10.
+TIME_STEP = 0.03
+MIN_TIME = 1.
+MAX_TIME = 20.
 
-SPACE_EPS = 0.1
-DIV0_EPS = 1e-8
+SPACE_EPS = 0.003
+DIV0_EPS = 1e-7
 
 TIME_LIGHT_ARRAY = [0.] * int(MAX_TIME/TIME_STEP - MIN_TIME/TIME_STEP)
+
+def normalize(vec):
+    return vec/np.linalg.norm(vec)
+
+def stringIntersect(s1, s2):
+    result = ""
+
+    for char in s1:
+        if char in s2:
+            result += char
+
+    return result
 
 class Point:
     def __init__(self, x, y, z):
@@ -26,6 +39,10 @@ class Point:
     def __str__(self):
         return "(" + str(self.x) + "," + str(self.y) + "," + str(self.z) + ")"
 
+    @classmethod
+    def vectorForm(cls, vec):
+        return cls(vec[0], vec[1], vec[2])
+
     def distanceToPoint(self, otherPoint):
         return sqrt((self.x-otherPoint.x)*(self.x-otherPoint.x) \
                     +(self.y-otherPoint.y)*(self.y-otherPoint.y) \
@@ -37,6 +54,149 @@ class Point:
     def signedDistanceToWall(self, wall):
         return -(self.x*wall.a + self.y*wall.b + self.z*wall.c + wall.d) / \
                 sqrt(wall.a*wall.a + wall.b*wall.b + wall.c*wall.c)
+
+class LineSegment:
+    def __init__(self, startLocation, stopLocation, normalVector):
+        self.startLocation = startLocation
+        self.stopLocation = stopLocation
+        self.normalVector = normalVector
+        self.startToStopVector = stopLocation - startLocation
+        self.lineLength = np.linalg.norm(self.startToStopVector)
+
+    def getListOfPoints(self):
+        listOfPoints = []
+
+        normalizedStartToStopVector = self.startToStopVector/self.lineLength
+        numPoints = int(self.lineLength/SPACE_EPS)
+
+        for pointNum in range(numPoints):
+            pointVec = self.startLocation + pointNum * \
+                SPACE_EPS * normalizedStartToStopVector
+
+            listOfPoints.append(Point.vectorForm(pointVec))
+
+        return listOfPoints
+
+class Triangle:
+    def __init__(self, v0, v1, v2):
+        self.triangleDict = {}
+
+        self.v0 = v0
+        self.v1 = v1
+        self.v2 = v2
+
+        self.triangleDict["0"] = self.v0
+        self.triangleDict["1"] = self.v1
+        self.triangleDict["2"] = self.v2
+
+        x0 = v0[0]
+        y0 = v0[1]
+        z0 = v0[2]
+
+        x1 = v1[0]
+        y1 = v1[1]
+        z1 = v1[2]
+
+        x2 = v2[0]
+        y2 = v2[1]
+        z2 = v2[2]
+
+        self.edge01 = self.v1 - self.v0
+        self.edge02 = self.v2 - self.v0
+        self.edge12 = self.v2 - self.v1
+
+        self.triangleDict["01"] = self.edge01
+        self.triangleDict["02"] = self.edge02
+        self.triangleDict["12"] = self.edge12
+
+        # edges of the triangle sorted by increasing length
+        self.edgesByLength = sorted(["01", "02", "12"],
+            key = lambda s: np.linalg.norm(self.triangleDict[s]))
+
+
+        self.normalVector = normalize(np.cross(v1-v0, v2-v1))
+
+        self.intercept = np.dot(self.v0, self.normalVector)
+
+        assert abs(np.dot(self.v1, self.normalVector) - self.intercept) < DIV0_EPS
+        assert abs(np.dot(self.v2, self.normalVector) - self.intercept) < DIV0_EPS
+
+        self.planeConditions = [self.generatePlaneCondition(self.v0, self.v1, self.v2), \
+            self.generatePlaneCondition(self.v2, self.v0, self.v1), \
+            self.generatePlaneCondition(self.v1, self.v2, self.v0)]
+
+    def __str__(self):
+        return "Triangle with the following vertices: \n" + str(self.v0) + \
+            + "\n" + str(self.v1) + "\n" + str(self.v2)
+
+    def generatePlaneCondition(self, v0, v1, v2):
+
+        planeNormal = np.cross(v1-v0, np.random.random(3))
+
+        intercept = np.dot(planeNormal, v0)
+        assert abs(np.dot(planeNormal, v1) - intercept) < DIV0_EPS
+
+        resultOnV2 = np.dot(planeNormal, v2)
+
+        if resultOnV2 >= intercept:
+            print v0, v1, planeNormal, ">="
+            return lambda v: np.dot(planeNormal, v) >= intercept
+
+        elif resultOnV2 < intercept:
+            print v0, v1, planeNormal, "<"
+            return lambda v: np.dot(planeNormal, v) < intercept
+
+        else:
+            raise
+
+
+    def testVectorForMembership(self, vec):
+
+#        print np.dot(vec, self.normalVector), self.intercept
+
+        if abs(np.dot(vec, self.normalVector) - self.intercept) < DIV0_EPS:
+            for planeCondition in self.planeConditions:
+                if not planeCondition(vec):
+                    return False
+            return True
+        return False
+
+    def getListOfPoints(self):
+        listOfPoints = []
+
+        e01 = self.triangleDict["01"]
+        e02 = self.triangleDict["02"]
+
+        v0 = self.triangleDict["0"]
+        v2 = self.triangleDict["2"]
+
+        e02ProjectionOntoE01 = e01 * np.dot(e01, e02) / \
+            (np.linalg.norm(e01) * np.linalg.norm(e02))
+
+        heightBase = v0 + e02ProjectionOntoE01
+        heightVec = v2 - heightBase
+        height = np.linalg.norm(heightVec)
+        longLength = np.linalg.norm(e01)
+
+        print self.normalVector
+
+        print np.dot(heightVec, self.normalVector)
+        print np.dot(e01, self.normalVector)
+
+        adjustedHeight = int(height / SPACE_EPS)
+        adjustedLongLength = int(longLength / SPACE_EPS)
+
+        for longVectorLarge in range(adjustedLongLength):
+#            print str(longVectorLarge) + " / " + str(adjustedLongLength)
+            longVectorRegular = longVectorLarge*SPACE_EPS*normalize(e01)
+            for heightVectorLarge in range(adjustedHeight):
+                heightVectorRegular = heightVectorLarge*SPACE_EPS*normalize(heightVec)
+
+                vec = v0 + longVectorRegular + heightVectorRegular
+                if self.testVectorForMembership(vec):
+                    listOfPoints.append(Point.vectorForm(vec))
+
+        return listOfPoints
 
 class Wall:
     def __init__(self, a, b, c, d, unitVector1, unitVector2,
@@ -228,6 +388,26 @@ def plotTimeLightArrayAndApproximation(approxFuncList, T, fileName):
     p.savefig(fileName)
     p.show()
 
+def plotTimeLightArrayAndApproximationNoBigT(approxFuncList, fileName):
+    plotTimeLightArray(fileName)
+
+    for approxTuple in approxFuncList:
+        approxFunc = approxTuple[0]
+        decoration = approxTuple[1]
+
+        tlaApprox = []
+        tApprox = []
+
+        for rawT in range(int(MIN_TIME/TIME_STEP),int(MAX_TIME/TIME_STEP)):
+            t = rawT*TIME_STEP
+            tlaApprox.append(approxFunc(t))
+            tApprox.append(t)
+
+        p.plot(tApprox, tlaApprox, decoration)
+
+    p.savefig(fileName)
+    p.show()
+
 def plotArray(array):
     p.plot([i*TIME_STEP for i in range(int(MIN_TIME/TIME_STEP), int(MAX_TIME/TIME_STEP))], array, "b-")
 
@@ -265,6 +445,35 @@ def doSpherePointExperiment():
 
     plotTimeLightArrayAndApproximation([(approxFunc, "r-")], T, "spherepoint.png")
 
+def doSpherePointExperimentBothWays():
+    T=1
+
+    sourcePoint = Point(0,0,T)
+
+    # Wall at z=0
+    wall = Wall(0,0,1.,0, \
+        np.array([1.,0,0]), \
+        np.array([0,1.,0]))
+
+    wallPoints = wall.getListOfPoints(5., np.array([0,0,0]))
+
+    for wallPoint in wallPoints:
+        time = timeOfLeg(sourcePoint, wallPoint)
+        lightAmount = lightFactorWallToWall(sourcePoint, wallPoint, wall)
+
+        addToTimeLightArray(time, lightAmount**2)
+        # squaring it because of the both legs
+
+#        addToTimeLightArray(time, 1)
+
+    def approxFunc(t):
+        if t < 0.:
+            return 0.
+
+        return T*TIME_STEP/((T+t)*(T+t)) * (T*SPACE_EPS*SPACE_EPS)/ \
+            (2*pi*(T+t)*(T+t)*(T+t))
+
+    plotTimeLightArrayAndApproximation([(approxFunc, "r-")], T, "spherepoint.png")
 
 def doDoubleWallExperiment():
     T=2.
@@ -372,7 +581,6 @@ def doTwoPointPlaneExperimentWallDetect(d, T, nu, phi):
 
     p.show()
 #    p.clf()
-#    print "hello"
 #    observationsWithoutGlanceFactor = [i/(j+DIV0_EPS)*(j!=0) for i, j in zip(observationArray, averageGlanceFactorsArray)]
 #    modelWithoutGlanceFactor = [i/(j+DIV0_EPS)*(j!=0) for i, j in zip(model, modelGlanceFactors)]
 
@@ -760,8 +968,6 @@ def approxFuncMaker():
         glanceFactor = abs(np.dot(wallPointToDetectorVec, normalVec) / \
             np.linalg.norm(wallPointToDetectorVec))
 
-#        print glanceFactor,  Point(xb-aOfT, 0, 0), Point(xd, 0, zd)
-
         return SPACE_EPS*SPACE_EPS*glanceFactor / (2*pi*((xb-aOfT-xd)**2 + \
             zd*zd)), glanceFactor
 
@@ -910,6 +1116,280 @@ def getCandidateTLA(params, targetWall, T, normalVec, approxFunc):
 #    p.clf()
 
     return tla, modelGlanceFactorTLA
+
+# normal vector is oriented
+def bounceFactorOriented(sourceVec, targetVec, normalVec):
+    incomingVector = targetVec - sourceVec
+    incVecLength = np.linalg.norm(incomingVector)
+    areaFraction = SPACE_EPS*SPACE_EPS/(2*pi*incVecLength*incVecLength)
+    glanceFactor = -np.dot(incomingVector / incVecLength, normalVec)
+    return max(glanceFactor*areaFraction, 0)
+
+def bounceFactor(sourceVec, targetVec, normalVec):
+    incomingVector = targetVec - sourceVec
+    incVecLength = np.linalg.norm(incomingVector)
+    areaFraction = SPACE_EPS*SPACE_EPS/(2*pi*incVecLength*incVecLength)
+    glanceFactor = -np.dot(incomingVector / incVecLength, normalVec)
+    return abs(glanceFactor*areaFraction)
+
+def computeK(xd, v0, v1, t):
+    x0 = v0[0]
+    x1 = v1[0]
+    y0 = v0[1]
+    y1 = v1[1]
+    z0 = v0[2]
+    z1 = v1[2]
+
+    xDiff = x1-x0
+    yDiff = y1-y0
+    zDiff = z1-z0
+
+    xDestDiff = 2*x0-xd
+    xd2x0xd = xd*xDestDiff
+
+    xDiffProd = xDiff*xDestDiff
+    yDiffProd = yDiff*2*y0
+    zDiffProd = zDiff*2*z0
+
+    normSquared = xDiff*xDiff + yDiff*yDiff + zDiff*zDiff
+    tSquaredNormSquared = t*t*normSquared
+
+    # (x0 - x1) (2 x0 - xd) xd^2
+    num1 = -xDiffProd*xd*xd
+    # t^2 ((-x0 + x1) (2 x0 - xd) + 2 y0 (-y0 + y1) + 2 z0 (-z0 + z1))
+    num2 = t*t*(xDiffProd+yDiffProd+zDiffProd)
+    numSum = num1+num2
+
+    # t^4 + (-2 x0 xd + xd^2)^2
+    rad1Prod1 = t**4 + xd2x0xd*xd2x0xd
+    # 2 t^2 (2 x0^2 - 2 x0 xd + xd^2 + 2 (y0^2 + z0^2))
+    rad2Prod1 = -2*t*t*(2*x0*x0 - xd2x0xd + 2*(y0*y0 + z0*z0))
+    # -(x0 - x1)^2 xd^2
+    rad1Prod2 = -xDiff*xDiff*xd*xd
+    radProd2 = rad1Prod2+tSquaredNormSquared
+
+    radProd = (rad1Prod1+rad2Prod1) * radProd2
+
+    # (x0 - x1) (2 x0 - xd) xd^2
+#            rad1Square = num1
+    radSquare = numSum*numSum
+
+    num = numSum + sqrt(radProd + radSquare)
+
+    return num / (2*radProd2)
+
+def getPointFromK(k, v0, v1):
+    return v0 + k*(v0-v1)
+
+def getDistanceBetweenPoints(v0, v1):
+    return np.linalg.norm(v0-v1)
+
+def lineCumNumPaths(xd, v0, v1):
+    def approxFunc(t):
+        source = np.array([0,0,0])
+        detector = np.array([xd,0,0])
+
+        startTime = getDistanceBetweenPoints(v0, source) + \
+            getDistanceBetweenPoints(v0, detector)
+
+        if t < startTime:
+            return 0.
+        else:
+            k = computeK(xd, v0, v1, t)
+            dist = getDistanceBetweenPoints(v0, getPointFromK(k, v0, v1))
+            return dist/SPACE_EPS
+    return approxFunc
+
+def computeCumNumPathsFromK(k, xd, v0, v1):
+    dist = getDistanceBetweenPoints(v0, getPointFromK(k, v0, v1))
+    return dist/SPACE_EPS
+
+def lineCumNumPathsOld(xd, v0, v1):
+    def approxFunc(t):
+        x0 = v0[0]
+        x1 = v1[0]
+
+        norm = np.linalg.norm(v0-v1)
+
+        tMinusTPlus = (t-xd)*(t+xd)
+        x0x1xd = (x0-x1)*xd
+        nonRadNum = x0x1xd*tMinusTPlus
+        tSquaredNormSquared = t*t*norm*norm
+        radNum = tMinusTPlus*tMinusTPlus*tSquaredNormSquared
+        denom = 2*(tSquaredNormSquared - x0x1xd*x0x1xd)
+
+        return (nonRadNum + sqrt(radNum)) * norm / (denom*SPACE_EPS)
+    return approxFunc
+
+def lineNumPathsOld(xd, v0, v1):
+    def approxFunc(t):
+        x0 = v0[0]
+        y0 = v0[1]
+        z0 = v0[2]
+
+        x1 = v1[0]
+        y1 = v1[1]
+        z1 = v1[2]
+
+        norm = np.linalg.norm(v0-v1)
+        x0x1xd = (x0-x1)*xd
+        tSquaredNormSquared = t*t*norm*norm
+        yzNormSquared = (y0-y1)**2+(z0-z1)**2
+
+        num1 = -2 * t * x0x1xd * xd*xd * yzNormSquared
+        num2 = -x0x1xd*x0x1xd * xd*xd * norm
+        num3 = t*t * xd*xd * (2*(x0-x1)**2 - yzNormSquared) * norm
+        num4 = -tSquaredNormSquared * t*t * norm
+
+        denom = 2 * (x0x1xd*x0x1xd - tSquaredNormSquared)**2
+
+        return -(num1 + num2 + num3 + num4) * norm / (denom * SPACE_EPS)
+    return approxFunc
+
+
+def lineNumPathsNumericDeriv(xd, v0, v1):
+    def approxFunc(t):
+        cumFunc = lineCumNumPaths(xd, v0, v1)
+        return (cumFunc(t+TIME_STEP) - cumFunc(t))/TIME_STEP
+    return approxFunc
+
+def lineResponse(xd, v0, v1, lineNormal, detectorNormal):
+    def approxFunc(t):
+        source = np.array([0,0,0])
+        detector = np.array([xd,0,0])
+
+        startTime = getDistanceBetweenPoints(v0, source) + \
+            getDistanceBetweenPoints(v0, detector)
+
+        if t-TIME_STEP < startTime:
+            return 0.
+
+        kPrevious = computeK(xd, v0, v1, t-TIME_STEP)
+        k = computeK(xd, v0, v1, t)
+
+        if k > 1.:
+            return 0.
+
+        previousPointFromK = getPointFromK(kPrevious, v0, v1)
+        pointFromK = getPointFromK(k, v0, v1)
+
+        numPaths = (getDistanceBetweenPoints(v0, pointFromK) - \
+            getDistanceBetweenPoints(v0, previousPointFromK)) / SPACE_EPS
+
+        leg1ipp = bounceFactor(source, pointFromK, lineNormal)
+        leg2ipp = bounceFactor(pointFromK, detector, detectorNormal)
+
+        return numPaths * leg1ipp * leg2ipp
+
+    return approxFunc
+
+def triangleResponse(xd, v0, v1, v2, detectorNormal):
+    def approxFunc(t):
+        source = np.array([0,0,0])
+        detector = np.array([xd,0,0])
+
+def doLineExperiment():
+    # xs = 0. (ASSUMED WLOG)
+    # ys = 0. (ASSUMED WLOG)
+    # zs = 0. (ASSUMED WLOG)
+
+    xd = 1. #+0.5*SPACE_EPS
+    # yd = 0. (ASSUMED WLOG)
+    # zd = 0. (ASSUMED WLOG)
+
+    sourcePoint = Point(0.,0.,0.)
+    detectorPoint = Point(xd,0.,0.)
+
+    detectorNormalVec = np.array([0.,0.,1.])
+
+    targetLineStartLocation = np.array([3.,0.,0.])
+    targetLineStopLocation = np.array([3.,5.,5.])
+
+    targetLineNormalVec = np.array([0.,0.,-1.])
+
+    targetLine = LineSegment(targetLineStartLocation, targetLineStopLocation, \
+        targetLineNormalVec)
+
+
+    targetLinePoints = targetLine.getListOfPoints()
+
+    for i, linePoint in enumerate(targetLinePoints):
+        time = timeOfLeg(sourcePoint, linePoint) + \
+            timeOfLeg(linePoint, detectorPoint)
+
+        leg1 = bounceFactor(sourcePoint.vec, linePoint.vec, targetLineNormalVec)
+        leg2 = bounceFactor(linePoint.vec, detectorPoint.vec, detectorNormalVec)
+
+        lightAmount = leg1 * leg2
+
+#        cumulativeAddToTimeLightArray(time, 1)
+#        cumulativeAddToTimeLightArray(time, lightAmount)
+#        addToTimeLightArray(time, 1)
+        addToTimeLightArray(time, lightAmount)
+
+        if i % 10000 == 0:
+            print i
+
+#    print TIME_LIGHT_ARRAY
+
+
+#    plotTimeLightArrayAndApproximationNoBigT([(lineNumPaths(xd, \
+#        targetLineStartLocation, targetLineStopLocation), "r-"), \
+#        (lineNumPathsNumericDeriv(xd, targetLineStartLocation, \
+#        targetLineStopLocation), "g-")], "line_result.png")
+
+#    plotTimeLightArrayAndApproximationNoBigT([(lineCumNumPaths(xd, \
+#        targetLineStartLocation, targetLineStopLocation), "r-")], \
+#        "line_result.png")
+
+#    plotTimeLightArrayAndApproximationNoBigT([(lineNumPathsNumericDeriv(xd, \
+#        targetLineStartLocation, targetLineStopLocation), "r-")], \
+#        "line_result.png")
+
+    plotTimeLightArrayAndApproximationNoBigT([(lineResponse(xd, \
+        targetLineStartLocation, targetLineStopLocation, targetLineNormalVec, \
+        detectorNormalVec), "r-")], "line_result.png")
+
+def doTriangleExperiment():
+    # xs = 0. (ASSUMED WLOG)
+    # ys = 0. (ASSUMED WLOG)
+    # zs = 0. (ASSUMED WLOG)
+
+    xd = 1. #+0.5*SPACE_EPS
+    # yd = 0. (ASSUMED WLOG)
+    # zd = 0. (ASSUMED WLOG)
+
+    sourcePoint = Point(0.,0.,0.)
+    detectorPoint = Point(xd,0.,0.)
+
+    detectorNormalVec = np.array([0.,0.,1.])
+
+    v0 = np.array([1,1,1])
+    v1 = np.array([1,2,2])
+    v2 = np.array([3,2,3])
+
+    triangle = Triangle(v0, v1, v2)
+
+    trianglePoints = triangle.getListOfPoints()
+
+    for i, trianglePoint in enumerate(trianglePoints):
+        time = timeOfLeg(sourcePoint, trianglePoint) + \
+            timeOfLeg(trianglePoint, detectorPoint)
+
+        leg1 = bounceFactor(sourcePoint.vec, trianglePoint.vec, triangle.normalVector)
+        leg2 = bounceFactor(trianglePoint.vec, detectorPoint.vec, detectorNormalVec)
+
+        lightAmount = leg1 * leg2
+
+#        cumulativeAddToTimeLightArray(time, 1)
+#        cumulativeAddToTimeLightArray(time, lightAmount)
+#        addToTimeLightArray(time, 1)
+        addToTimeLightArray(time, lightAmount)
+
+        if i % 10000 == 0:
+            print i
+
+    plotTimeLightArray("triangle_response.png")
 
 def computeL1TLADiff(candidateTLA):
     diffTLA = [abs(i-j)**1.0 for i, j in zip(candidateTLA, TIME_LIGHT_ARRAY)]
@@ -1118,10 +1598,32 @@ def gradientDescent(errorFunc, guess, tolerance, learnRate, candidateTLAFunc):
 #        (approxFuncB, "r-")],
 #        T, "two_point_plane.png")
 
-#doSpherePointExperiment()
+#ls = LineSegment(np.array([1,1,1]), np.array([2,3,4]), 0)
+#print [str(i) for i in ls.getListOfPoints()]
+
+#doLineExperiment()
+
+#v1 = np.array([-1,1,1])
+#v2 = np.array([-1,-1,1])
+#v0 = np.array([3,4,1])
+
+#t = Triangle(v0, v1, v2)
+
+#listOfPoints = t.getListOfPoints()
+#print len([str(point) for point in listOfPoints])
+#print 2 / (SPACE_EPS*SPACE_EPS)
+
+#for point in listOfPoints:
+#    p.plot(point.x, point.y, "bo")
+
+#p.show()
+
+doTriangleExperiment()
+
+#doSpherePointExperimentBothWays()
 #doDoubleWallExperiment()
 
-doTwoPointPlaneExperiment()
+#doTwoPointPlaneExperiment()
 
 #guess = np.array([pi*random.random(), 2*pi*random.random()])
 

@@ -32,5 +32,6 @@ jold = reshape( cord(2,:)./cord(3,:), size(jjj));
 % interpolate the image to be rectified. 
 [jj, ii] = ndgrid(1:h, 1:w); 
 [rectified_img] = rectify_image(caliImg, iold, jold, ii, jj);
+end
 
 

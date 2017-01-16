@@ -31,3 +31,4 @@ else
     [U, ~, ~] = svd(h, 'econ');
 end
 v = (reshape(U(:,9), 3, 3)).';
+end

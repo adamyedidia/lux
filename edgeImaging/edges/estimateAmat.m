@@ -1,10 +1,10 @@
 addpath(genpath('rectify'));
 
-datafolder = '../data/testvideos/experiment_2';
-%datafolder = '/Users/klbouman/Downloads';
+%datafolder = '../data/testvideos/experiment_2';
+datafolder = '/Users/klbouman/Downloads';
 
 gridfile = sprintf('%s/calibrationgrid.MOV', datafolder);
-do_rectify = 0;
+do_rectify = 1;
 moviefile = sprintf('%s/dark_MovieLines_green1.MOV', datafolder);
 
 v = VideoReader(moviefile);
@@ -14,7 +14,7 @@ if do_rectify == 1
     v = VideoReader(gridfile);
     caliImg = read(v,100);
     [iold, jold, ii, jj, rectified_img] = rectify_image_solve(caliImg);
-    #figure;imagesc(rectified_img./max(rectified_img(:)))
+    %figure;imagesc(rectified_img./max(rectified_img(:)))
     frame1 = rectify_image(frame1, iold, jold, ii, jj);
 end
 
@@ -24,7 +24,7 @@ imagesc(frame1(:,:,1));
 corner = ginput(1);
 hold on; plot(corner(1), corner(2), 'ro');
 
-vout = VideoWriter(sprintf('%s/out_red1.MOV', datafolder));
+vout = VideoWriter(sprintf('%s/out_green1.MOV', datafolder));
 vout.FrameRate = 10;
 minclip = 0;
 maxclip = 1;

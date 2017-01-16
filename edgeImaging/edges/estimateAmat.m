@@ -5,14 +5,14 @@ datafolder = '/Users/klbouman/Downloads';
 
 gridfile = sprintf('%s/calibrationgrid.MOV', datafolder);
 do_rectify = 1;
-moviefile = sprintf('%s/dark_MovieLines_green1.MOV', datafolder);
+moviefile = sprintf('%s/dark_MovieLines_greenred1.MOV', datafolder);
 
 v = VideoReader(moviefile);
 frame1 = double(read(v,1));
 
 if do_rectify == 1
-    v = VideoReader(gridfile);
-    caliImg = read(v,100);
+    vcali = VideoReader(gridfile);
+    caliImg = read(vcali,100);
     [iold, jold, ii, jj, rectified_img] = rectify_image_solve(caliImg);
     %figure;imagesc(rectified_img./max(rectified_img(:)))
     frame1 = rectify_image(frame1, iold, jold, ii, jj);
@@ -24,13 +24,13 @@ imagesc(frame1(:,:,1));
 corner = ginput(1);
 hold on; plot(corner(1), corner(2), 'ro');
 
-vout = VideoWriter(sprintf('%s/out_green1.MOV', datafolder));
+vout = VideoWriter(sprintf('%s/out_greenred2.MOV', datafolder));
 vout.FrameRate = 10;
 minclip = 0;
 maxclip = 1;
 open(vout)
 
-for n=1:500
+for n=1:10:500
     n
     
     % read the nth frame

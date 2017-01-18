@@ -5,12 +5,12 @@
 % that we know exist:
 % --------------------------------
 
-path('../pyr', path);
 path('../utils', path);
-path('../utils/gr', path);
+path('../utils/pyr', path);
+% path('../utils/gr', path);
 path('../utils/ut', path);
 
-grInit;
-grSetPrinting(0);
+% grInit;
+% grSetPrinting(0);
 
 

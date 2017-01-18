@@ -8,13 +8,13 @@ gridfile = sprintf('%s/calibrationgrid.MOV', datafolder);
 do_rectify = 0;
 calfile = sprintf('%s/dark_calibration.MOV', datafolder);
 v = VideoReader(calfile);
-background = double(read(v, 1));
+background = imresize(double(read(v, 1)), 0.25);
 
 moviefile = sprintf('%s/dark_MovieLines_greenred1.MOV', datafolder);
 
 v = VideoReader(moviefile);
 nframes = v.NumberOfFrames;
-frame1 = double(read(v, 1));
+frame1 = imresize(double(read(v, 1)), 0.25);
 
 if do_rectify == 1
     vcali = VideoReader(gridfile);
@@ -37,7 +37,7 @@ maxr = min(size(frame1, 2) - corner(1), size(frame1, 1) - corner(2)) - 1;
 vout = VideoWriter('mask_vid');
 vout.FrameRate = 10;
 open(vout);
-[yy, xx] = ndgrid(1:size(frame, 1), 1:size(frame, 2));
+[yy, xx] = ndgrid(1:size(frame1, 1), 1:size(frame1, 2));
 x0 = xx - corner(1);
 y0 = yy - corner(2);
 % zero out pixels that are more than max_r from corner
@@ -61,7 +61,7 @@ open(vout)
 for n=1:10:nframes
     n
     % read the nth frame
-    framen = double(read(v, n)) - background;
+    framen = imresize(double(read(v, n)), 0.25) - background;
     if do_rectify == 1
         framen = rectify_image(framen, iold, jold, ii, jj);
     end

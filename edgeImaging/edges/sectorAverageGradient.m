@@ -24,7 +24,7 @@ for c = 1:nchans
     for i = 2:nsamples
         mask2 = double(theta <= angles(i));
         mask1 = double(theta <= angles(i-1));
-        mask = (mask2 - mask1) ./ (1 + rr);
+        mask = (mask2 - mask1) ./ rr;
         mask = mask / sum(mask(:));
 %         imagesc(mask); pause(0.1);
         avg_diffs(i, c) = sum(sum(pxdiffs .* mask));

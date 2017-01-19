@@ -1,6 +1,6 @@
-function [pixel_avg, diffs] = estimatedGradient(frame, corner, nsamples, maxr)
+function [pixel_avg, diffs, sums] = estimatedGradient(frame, corner, nsamples, minr, maxr)
 [nrows, ncols, nchans] = size(frame);
-rate = 0.1;
+rate = 1/10;
 [yy, xx] = ndgrid(1:rate:nrows, 0:rate:ncols-1); % indexing by top-left corner
 x0 = xx - corner(1);
 y0 = yy - corner(2);
@@ -8,6 +8,7 @@ y0 = yy - corner(2);
 [yy, xx] = ndgrid(1:nrows, 1:ncols);
 rr = sqrt((xx - corner(1)).^2 + (yy - corner(2)).^2);
 rmask = rr <= maxr;
+rmask = rmask .* (rr >= minr);
 theta = atan2(y0, x0);
 angles = linspace(0, 3*pi/8, nsamples+2);
 angles = angles(2:end-1);
@@ -15,12 +16,14 @@ pixel_avg = zeros([nsamples, nchans]);
 % v = VideoWriter('mask_vid_frac');
 % v.FrameRate = 10;
 % open(v);
+sums = zeros([nsamples, nchans]);
 for c = 1:nchans
-    color = frame(:,:,c) .* rmask;
+    color = frame(:,:,c);
     for i = 2:nsamples
         mask2 = double(theta <= angles(i));
         mask1 = double(theta <= angles(i-1));
-        mask = imresize(mask2 - mask1, rate, 'box') ./ rr;
+        mask = (imresize(mask2 - mask1, rate, 'box') .* rmask) ./ rr;
+        sums(i,c) = sum(mask(:));
         mask = mask / sum(mask(:));
 %         imagesc(mask);
 %         frame = getframe(gcf);

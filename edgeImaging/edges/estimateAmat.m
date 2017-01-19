@@ -7,19 +7,17 @@ datafolder = '../data/testvideos/experiment_2';
 % datafolder = '/Users/klbouman/Downloads';
 
 gridfile = sprintf('%s/calibrationgrid.MOV', datafolder);
-do_rectify = 0;
 calfile = sprintf('%s/dark_calibration.MOV', datafolder);
-% v = VideoReader(calfile);
-% background = imresize(double(read(v, 1)), 0.25);
-
 moviefile = sprintf('%s/dark_MovieLines_greenred1.MOV', datafolder);
 outfile = sprintf('%s/out_greenred_revert.MOV', datafolder);
+% v = VideoReader(calfile);
+% background = imresize(double(read(v, 1)), 0.25);
 
 v = VideoReader(moviefile);
 nframes = v.NumberOfFrames;
 
 frame1 = imresize(double(read(v, 1)), 0.25);
-
+do_rectify = 0;
 if do_rectify == 1
     vcali = VideoReader(gridfile);
     caliImg = readFrame(vcali);
@@ -51,6 +49,7 @@ for n=1:10:500
     if do_rectify == 1
         framen = rectify_image(framen, iold, jold, ii, jj);
     end
+%     framen = blurDnClr(framen, 3, binomialFilter(5));
     
     rs = 10:2:30;
     for i = 1:length(rs)
@@ -60,14 +59,15 @@ for n=1:10:500
 
     %compute the average frame from all the circle differences
 %     [pixel_avg, diffs] = anglesAveragePixel(framen, corner, nsamples, maxr);
+%     [pixel_avg, diffs] = estimatedGradient(framen, corner, nsamples, maxr);
+%     diffs = sectorAverageGradient(framen, corner, nsamples, maxr);
 %     outframe(1,:,:) = diffs;
-    
+
     %write out the video
     outframe(outframe<minclip) = minclip;
     outframe(outframe>maxclip) = maxclip;
-    
+
     writeVideo(vout, (repmat(outframe, [100 1]) -minclip)./(maxclip-minclip));
 end
 
 close(vout);
-

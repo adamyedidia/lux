@@ -11,7 +11,6 @@ end
 
 diffs = diff(rgbq);
 
-
 % out = repmat(reshape(rgbq, [1, nsamples, 3]), [nsamples, 1, 1]);
 % % figure; imagesc(uint8(out)); title(sprintf('r=%d stripe'));
 % diffs = diff(rgbq);

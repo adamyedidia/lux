@@ -44,10 +44,6 @@ if ~subtract_background
     backgroundframe = zeros(size(backgroundframe)); 
 end
 
-frame1 = blurDnClr(frame1, downlevs, binomialFilter(5));
-% frame1 = imresize(frame1, 0.5^downlevs);
-imagesc(frame1(:,:,1));
-
 corner = ginput(1);
 hold on; plot(corner(1), corner(2), 'ro');
 maxr = min(size(frame1, 2) - corner(1), size(frame1, 1) - corner(2)) - 1;
@@ -73,17 +69,19 @@ for n=startframe:delta:endframe
     n
     
     % read the nth frame
-    framen = double(read(v,n));
+    framen = double(read(v,n)) - background;
     if do_rectify == 1
         framen = rectify_image(framen, iold, jold, ii, jj);
     end
     %framen = framen  - backgroundframe; 
     framen = blurDnClr(framen, downlevs, binomialFilter(5));
-%     framen = imresize(framen, 0.5^downlevs);
+%     imagesc(framen(:,:,1));
     
-    rs = 10:2:80;
+    rs = 10:2:30;
+    angles = linspace(0, pi/2, 100);
     for i = 1:length(rs)
-        [rgbq(:,:,:,i), diffs(:,:,:,i)] = gradientAlongCircle(rs(i), nsamples, framen, corner);
+%         hold on; plot(corner(1) + rs(i) * cos(angles), corner(2) + rs(i) * sin(angles));
+        [rgbq(:,:,:,i), diffs(:,:,:,i)] = gradientAlongCircle(framen, corner, rs(i), nsamples);
     end
     
     %compute the average frame from all the circle differences
@@ -108,12 +106,10 @@ vout.FrameRate = v.FrameRate/delta;
 open(vout)
 
 for n=startframe:delta:endframe
-    
     outframe = outframes(:,:,:,n); 
     %write out the video
     outframe(outframe<minclip) = minclip;
     outframe(outframe>maxclip) = maxclip;
-    
     writeVideo(vout, (repmat(outframe, [nsamples/2, 1]) -minclip)./(maxclip-minclip));
 
 end

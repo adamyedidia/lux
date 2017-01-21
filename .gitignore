@@ -1,6 +1,6 @@
 *.swp
 *.m~
-*/**/.DS_Store
+*.DS_Store
 
 *.MOV
 *.avi

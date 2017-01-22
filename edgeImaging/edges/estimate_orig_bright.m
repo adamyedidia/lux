@@ -48,6 +48,10 @@ vout = VideoWriter(outfile);
 vout.FrameRate = 10;
 open(vout);
 clear outframe rgbq diffs
+[nrows, ncols, ~] = size(frame1);
+
+rs = 10:2:30;
+angles = linspace(0, pi/2, 100);
 for n=start:step:800
     n
     
@@ -59,8 +63,6 @@ for n=start:step:800
     framen = blurDnClr(framen, downlevs, binomialFilter(5));
 %     imagesc(framen(:,:,1));
     
-    rs = 10:2:30;
-    angles = linspace(0, pi/2, 100);
     for i = 1:length(rs)
 %         hold on; plot(corner(1) + rs(i) * cos(angles), corner(2) + rs(i) * sin(angles));
         [rgbq(:,:,:,i), diffs(:,:,:,i)] = gradientAlongCircle(framen, corner, rs(i), nsamples);
@@ -82,4 +84,9 @@ for n=start:step:800
 end
 
 close(vout);
+
+amat = zeros([nsamples-1, nrows*ncols]);
+for i = 1:length(rs)
+    amat = amat + interpAmat(nrows, ncols, rs(i), nsamples);
+end
 

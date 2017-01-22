@@ -28,21 +28,28 @@ i21 = sub2ind(size(interpmat), iy1, ix2,(1:nsamples));
 i12 = sub2ind(size(interpmat), iy2, ix1, (1:nsamples));
 i22 = sub2ind(size(interpmat), iy2, ix2, (1:nsamples));
 % pixel midpoints are (ix - 0.5, iy - 0.5)
-interpmat(i11) = (ix2-0.5 - xq) .* (iy2-0.5 - yq);
-interpmat(i21) = (xq - (ix1-0.5)) .* (iy2-0.5 - yq);
-interpmat(i12) = (ix2-0.5 - xq) .* (yq - (iy1-0.5));
-interpmat(i22) = (xq - (ix1-0.5)) .* (yq - (iy1-0.5));
+delta = 0.5;
+interpmat(i11) = (ix2-delta - xq) .* (iy2-delta - yq);
+interpmat(i21) = (xq - (ix1-delta)) .* (iy2-delta - yq);
+interpmat(i12) = (ix2-delta - xq) .* (yq - (iy1-delta));
+interpmat(i22) = (xq - (ix1-delta)) .* (yq - (iy1-delta));
 
-for i = 1:nsamples
-    imagesc(interpmat(:,:,i)); pause(0.2);
-end
+frame = reshape(1:nrows*ncols, [nrows, ncols]);
+check = interp2(frame, xq, yq);
+flat = reshape(interpmat, [nrows*ncols, nsamples])';
+out = flat * reshape(frame, [nrows*ncols, 1]);
+figure; plot(abs(check' - out));
 
 % amat is difference between the interped vals at successive angles
 amat = diff(interpmat, 1, 3);
-size(amat)
 amat = reshape(amat, [nrows*ncols, nsamples-1])';
+% testAmat(amat, nrows, ncols, nsamples-1);
 end
 
-function testAmat(amat)
-unflattened = reshape(amat, [nsamples-1, nrows, ncols]);
+function testAmat(amat, nrows, ncols, nsamples)
+unflattened = reshape(amat', [nrows, ncols, nsamples]);
+figure;
+for i = 1:nsamples
+    imagesc(unflattened(:,:,i)); colorbar; pause;
+end
 end

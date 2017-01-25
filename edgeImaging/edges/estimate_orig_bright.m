@@ -13,9 +13,7 @@ start = 1;
 do_rectify = 0;
 downlevs = 3;
 
-readall = 1;
-
-if readall == 0
+if ~exist('frame1', 'var')
     v = VideoReader(backfile);
     background = double(read(v, 1));
 
@@ -63,10 +61,7 @@ for n=start:step:800
     framen = blurDnClr(framen, downlevs, binomialFilter(5));
 %     imagesc(framen(:,:,1));
     
-    for i = 1:length(rs)
-%         hold on; plot(corner(1) + rs(i) * cos(angles), corner(2) + rs(i) * sin(angles));
-        [rgbq(:,:,:,i), diffs(:,:,:,i)] = gradientAlongCircle(framen, corner, rs(i), nsamples);
-    end
+    [rgbq, diffs(1,:,:,:)] = gradientAlongCircle(framen, corner, rs, nsamples);
     
     %compute the average frame from all the circle differences
     outframe(1,:,:) = mean(diffs, 4);
@@ -87,6 +82,6 @@ close(vout);
 
 amat = zeros([nsamples-1, nrows*ncols]);
 for i = 1:length(rs)
-    amat = amat + interpAmat(nrows, ncols, rs(i), nsamples);
+    amat = amat + inverseAmat(nrows, ncols, rs(i), nsamples);
 end
 

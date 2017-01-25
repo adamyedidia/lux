@@ -1,17 +1,21 @@
-function [rgbq, diffs] = gradientAlongCircle(frame, corner, r, nsamples,...
+function [rgbq, diffs] = gradientAlongCircle(frame, corner, rs, nsamples,...
                                                 theta_lim)
 if nargin < 5
     theta_lim = [0, pi/2];
 end
-angles = linspace(theta_lim(1), theta_lim(2), nsamples);
-xq = corner(1) + r * cos(angles);
-yq = corner(2) + r * sin(angles);
+if size(rs, 1) ~= 1 % not a row vector
+    rs = rs';
+end
+angles = linspace(theta_lim(1), theta_lim(2), nsamples)';
+xq = corner(1) + cos(angles) * rs;
+yq = corner(2) + sin(angles) * rs;
 
-[yy, xx] = ndgrid(1:size(frame, 1), 1:size(frame, 2));
-rgbq = zeros([nsamples, size(frame, 3)]);
-for i = 1:size(rgbq,2)
-    rgbq(:,i) = interp2(xx, yy, frame(:,:,i), xq, yq);
+[nrows, ncols, nchans] = size(frame);
+[yy, xx] = ndgrid(1:nrows, 1:ncols);
+rgbq = zeros([nsamples, nchans, length(rs)]);
+for i = 1:nchans
+    rgbq(:,i,:) = interp2(xx, yy, frame(:,:,i), xq, yq);
 end
 
-diffs = diff(rgbq);%/ (200/nsamples);
+diffs = diff(rgbq)/ (100/nsamples);
 end

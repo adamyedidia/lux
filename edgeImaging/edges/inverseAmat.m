@@ -1,4 +1,7 @@
-function amat = interpAmat(nrows, ncols, r, nsamples, theta_lim)
+function amat = inverseAmat(nrows, ncols, r, nsamples, theta_lim, delta)
+if nargin < 6
+    delta = 0;
+end
 % the transfer matrix we infer through interpolation
 % we assume the corner is at (1/2, 1/2)
 % we use points in the middle of the pixel, (x+1/2, y+1/2)
@@ -27,18 +30,17 @@ i11 = sub2ind(size(interpmat), iy1, ix1, (1:nsamples));
 i21 = sub2ind(size(interpmat), iy1, ix2,(1:nsamples));
 i12 = sub2ind(size(interpmat), iy2, ix1, (1:nsamples));
 i22 = sub2ind(size(interpmat), iy2, ix2, (1:nsamples));
-% pixel midpoints are (ix - 0.5, iy - 0.5)
-delta = 0.5;
+% pixel midpoints are (ix - delta, iy - delta)
 interpmat(i11) = (ix2-delta - xq) .* (iy2-delta - yq);
 interpmat(i21) = (xq - (ix1-delta)) .* (iy2-delta - yq);
 interpmat(i12) = (ix2-delta - xq) .* (yq - (iy1-delta));
 interpmat(i22) = (xq - (ix1-delta)) .* (yq - (iy1-delta));
 
-frame = reshape(1:nrows*ncols, [nrows, ncols]);
-check = interp2(frame, xq, yq);
-flat = reshape(interpmat, [nrows*ncols, nsamples])';
-out = flat * reshape(frame, [nrows*ncols, 1]);
-figure; plot(abs(check' - out));
+% frame = reshape(1:nrows*ncols, [nrows, ncols]);
+% check = interp2(frame, xq, yq);
+% flat = reshape(interpmat, [nrows*ncols, nsamples])';
+% out = flat * reshape(frame, [nrows*ncols, 1]);
+% figure; plot(abs(check' - out));
 
 % amat is difference between the interped vals at successive angles
 amat = diff(interpmat, 1, 3);

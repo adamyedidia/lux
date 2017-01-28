@@ -2,16 +2,26 @@ addpath(genpath('../utils/pyr'));
 addpath(genpath('rectify'));
 
 
-datafolder = '../data/testvideos/experiment_2';
-% datafolder = '/Users/klbouman/Downloads';
-gridfile = sprintf('%s/calibrationgrid.MOV', datafolder);
-backfile = sprintf('%s/dark_calibration.MOV', datafolder);
-moviefile = sprintf('%s/dark_MovieLines_greenred1.MOV', datafolder);
-outfile = sprintf('%s/out_dark_greenred_400_0.MOV', datafolder);
-nsamples = 400;
-start = 1;
-do_rectify = 0;
+datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/testvideos_Jan22';
+expfolder = sprintf('%s/experiments', datafolder);
+resfolder = sprintf('%s/results', datafolder);
+gridfile = sprintf('%s/grid_greenscreen.MOV', expfolder);
+backfile = sprintf('%s/calibration_dark_greenscreen.MOV', expfolder);
+moviefile = sprintf('%s/red_dark_greenscreen.MOV', expfolder);
+outfile = sprintf('%s/out_red_dark_greenscreen_0.MOV', resfolder);
+
+theta_lim = [pi, pi/2];
+minclip = 0;
+maxclip = 0.5;
+nsamples = 200;
+step = 5;
+sub_background = 0;
+start = 60*5;
+do_rectify = 1;
 downlevs = 3;
+
+rs = 10:2:30;
+
 
 if ~exist('frame1', 'var')
     v = VideoReader(backfile);
@@ -38,21 +48,15 @@ if ~exist('frame1', 'var')
     maxr = min(size(frame1, 2) - corner(1), size(frame1, 1) - corner(2)) - 1;
 end
 
-minclip = 0;
-maxclip = 1;
-step = 10;
-frames = zeros([1 + floor((nframes - start)/step), nsamples-1, 3]);
 vout = VideoWriter(outfile);
-vout.FrameRate = 10;
+vout.FrameRate = v.FrameRate/step;
 open(vout);
 clear outframe rgbq diffs
 [nrows, ncols, ~] = size(frame1);
 
-rs = 10:2:30;
-angles = linspace(0, pi/2, 100);
-for n=start:step:800
-    n
-    
+for n=start:step:nframes/2
+    fprintf('Iteration %i\n', n);
+
     % read the nth frame
     framen = double(read(v,n)) - background;
     if do_rectify == 1
@@ -61,12 +65,10 @@ for n=start:step:800
     framen = blurDnClr(framen, downlevs, binomialFilter(5));
 %     imagesc(framen(:,:,1));
     
-    [rgbq, diffs(1,:,:,:)] = gradientAlongCircle(framen, corner, rs, nsamples);
+    [rgbq, diffs(1,:,:,:)] = gradientAlongCircle(framen, corner, rs, nsamples, theta_lim);
     
     %compute the average frame from all the circle differences
     outframe(1,:,:) = mean(diffs, 4);
-%     frames(n,:,:) = mean(diffs, 4);
-%     sum(frames(:))
     
 %     diffs = sectorAverageGradient(framen, corner, nsamples, maxr);
 %     [pixel_avg, diffs] = estimatedGradient(framen, corner, nsamples, 10, 30);
@@ -79,9 +81,3 @@ for n=start:step:800
 end
 
 close(vout);
-
-amat = zeros([nsamples-1, nrows*ncols]);
-for i = 1:length(rs)
-    amat = amat + inverseAmat(nrows, ncols, rs(i), nsamples);
-end
-

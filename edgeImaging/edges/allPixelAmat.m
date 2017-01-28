@@ -15,8 +15,8 @@ end
 xmax = (maxr - 1) * xdir;
 ymax = (maxr - 1) * ydir;
 [yy, xx] = ndgrid(0:ydir:ymax, 0:xdir:xmax);
-x0 = xx + floor(corner(1));
-y0 = yy + floor(corner(2));
+x0 = xx + int32(corner(1));
+y0 = yy + int32(corner(2));
 
 % find the angle each point makes with the wall and corner
 theta = atan2(double(yy), double(xx));

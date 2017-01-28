@@ -5,21 +5,28 @@ addpath(genpath('rectify'));
 datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/testvideos_Jan22';
 expfolder = sprintf('%s/experiments', datafolder);
 resfolder = sprintf('%s/results', datafolder);
+% gridfile = sprintf('%s/calibrationgrid.MOV', expfolder);
+% backfile = sprintf('%s/dark_calibration.MOV', expfolder);
+% moviefile = sprintf('%s/dark_MovieLines_greenred1.MOV', expfolder);
+% outfile = sprintf('%s/out_dark_greenred_kalman_all', resfolder);
+
 gridfile = sprintf('%s/grid_greenscreen.MOV', expfolder);
 backfile = sprintf('%s/calibration_dark_greenscreen.MOV', expfolder);
 moviefile = sprintf('%s/red_dark_greenscreen.MOV', expfolder);
-outfile = sprintf('%s/out_red_dark_greenscreen_kalman_new.MOV', resfolder);
+outfile = sprintf('%s/out_red_dark_greenscreen_kalman_all.MOV', resfolder);
 
 theta_lim = [pi/2, 0];
+% theta_lim = [0, pi/2];
 minclip = 0;
 maxclip = 1;
 nsamples = 50;
+smooth_up = 4;
 step = 5;
 sub_background = 0;
 start = 60*5;
 do_rectify = 1;
-downlevs = 3;
-outr = 30;
+downlevs = 2;
+outr = 40;
 
 filt = binomialFilter(5);
 
@@ -37,7 +44,7 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
     if do_rectify == 1
         vcali = VideoReader(gridfile);
         caliImg = read(vcali,100);
-        [iold, jold, ii, jj, rectified_img] = rectify_image_solve(caliImg);
+        [iold, jold, ii, jj, rectified_img] = rectify_image_solve(caliImg, 1);
         %figure;imagesc(rectified_img./max(rectified_img(:)))
         frame1 = rectify_image(frame1, iold, jold, ii, jj);
         background = rectify_image(background, iold, jold, ii, jj);
@@ -45,7 +52,7 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
 
     frame1 = blurDnClr(frame1, downlevs, filt);
     % frame1 = imresize(frame1, 0.5^downlevs);
-    imagesc(frame1(:,:,1));
+    figure; imagesc(frame1(:,:,1));
 
     corner = ginput(1);
     hold on; plot(corner(1), corner(2), 'ro');
@@ -59,7 +66,7 @@ crop_idx = sub2ind(size(frame1), y0, x0);
 % spatial prior
 bmat = eye(nsamples) - diag(ones([nsamples-1,1]), 1);
 lambda = 20; % pixel noise
-sigma = 20; % prior
+sigma = 1; % prior
 alpha = 5e-3; % process noise
 
 % transition prior
@@ -89,9 +96,9 @@ for i = 1:nout
     n = frame(i);
     fprintf('Iteration %i\n', n);
     % read the nth frame
-    framen = double(read(v,n)) - background;
+    framen = double(read(v,n));
     if do_rectify == 1
-        framen = rectify_image(framen, iold, jold, ii, jj);
+        framen = rectify_image(framen, iold, jold, ii, jj) - background;
     end
     framen = blurDnClr(framen, downlevs, filt);
     
@@ -112,10 +119,10 @@ for i = 1:nout
     end
     toc;
 
-    %write out the video
-    out1(1,:,:) = cur_mean;
+    % write out the video
+    out1(1,:,:) = smoothSamples(cur_mean, smooth_up);
     out1(out1<minclip) = minclip;
     out1(out1>maxclip) = maxclip;
-    writeVideo(vout, (repmat(out1, [nsamples/2, 1])-minclip)./(maxclip-minclip));
+    writeVideo(vout, (repmat(out1, [size(out1,2), 1])-minclip)./(maxclip-minclip));
 end
 close(vout);

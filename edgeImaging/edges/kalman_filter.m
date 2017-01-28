@@ -8,12 +8,13 @@ resfolder = sprintf('%s/results', datafolder);
 gridfile = sprintf('%s/grid_greenscreen.MOV', expfolder);
 backfile = sprintf('%s/calibration_dark_greenscreen.MOV', expfolder);
 moviefile = sprintf('%s/red_dark_greenscreen.MOV', expfolder);
-outfile = sprintf('%s/out_red_dark_greenscreen_kalman_80.MOV', resfolder);
+outfile = sprintf('%s/out_red_dark_greenscreen_kalman_100_4.MOV', resfolder);
 
 theta_lim = [pi/2, 0];
 minclip = 0;
-maxclip = 0.5;
-nsamples = 80;
+maxclip = 1;
+nsamples = 100;
+smooth_up = 4;
 step = 5;
 sub_background = 0;
 start = 60*5;
@@ -47,7 +48,7 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
 
     frame1 = blurDnClr(frame1, downlevs, filt);
     % frame1 = imresize(frame1, 0.5^downlevs);
-    imagesc(frame1(:,:,1));
+    figure; imagesc(frame1(:,:,1));
 
     corner = ginput(1);
     hold on; plot(corner(1), corner(2), 'ro');
@@ -64,9 +65,9 @@ end
 
 % spatial prior
 bmat = eye(nsamples) - diag(ones([nsamples-1,1]), 1);
-lambda = 1; % pixel noise
+lambda = 10; % pixel noise
 sigma = 1; % prior
-alpha = 5e-3; % process noise
+alpha = 5e-2; % process noise
 
 % transition prior
 fmat = eye(nsamples); % stationary for now
@@ -76,7 +77,7 @@ vout.FrameRate = 10;
 open(vout);
 
 clear out1 rgbq diffs
-frame = start:step:endframe;
+frame = start:step:endframe/2;
 nout = length(frame);
 nchans = size(frame1, 3);
 
@@ -95,9 +96,9 @@ for i = 1:nout
     n = frame(i);
     fprintf('Iteration %i\n', n);
     % read the nth frame
-    framen = double(read(v,n)) - background;
+    framen = double(read(v,n));
     if do_rectify == 1
-        framen = rectify_image(framen, iold, jold, ii, jj);
+        framen = rectify_image(framen, iold, jold, ii, jj) - background;
     end
     framen = blurDnClr(framen, downlevs, filt);
     
@@ -119,10 +120,10 @@ for i = 1:nout
     end
     toc;
 
-    %write out the video
-    out1(1,:,:) = cur_mean;
+    % write out the video
+    out1(1,:,:) = smoothSamples(cur_mean, smooth_up);
     out1(out1<minclip) = minclip;
     out1(out1>maxclip) = maxclip;
-    writeVideo(vout, (repmat(out1, [nsamples/2, 1])-minclip)./(maxclip-minclip));
+    writeVideo(vout, (repmat(out1, [size(out1,2), 1])-minclip)./(maxclip-minclip));
 end
 close(vout);

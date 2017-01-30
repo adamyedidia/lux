@@ -18,7 +18,7 @@ outfile = sprintf('%s/out_red_dark_greenscreen_kalman_all.MOV', resfolder);
 theta_lim = [pi/2, 0];
 % theta_lim = [0, pi/2];
 minclip = 0;
-maxclip = 1;
+maxclip = 2;
 nsamples = 50;
 smooth_up = 4;
 step = 5;
@@ -26,7 +26,7 @@ sub_background = 0;
 start = 60*5;
 do_rectify = 1;
 downlevs = 2;
-outr = 40;
+outr = 50;
 
 filt = binomialFilter(5);
 
@@ -59,14 +59,13 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
     maxr = min(size(frame1, 2) - corner(1), size(frame1, 1) - corner(2)) - 1;
 end
 
-
 [amat, x0, y0] = allPixelAmat(corner, outr, nsamples, theta_lim);
 crop_idx = sub2ind(size(frame1), y0, x0);
 
 % spatial prior
 bmat = eye(nsamples) - diag(ones([nsamples-1,1]), 1);
-lambda = 20; % pixel noise
-sigma = 1; % prior
+lambda = 15; % pixel noise
+sigma = 0.4; % prior
 alpha = 5e-3; % process noise
 
 % transition prior
@@ -91,16 +90,16 @@ rmat = lambda * eye(size(amat,1)); % independent pixel noise
 qmat = alpha * eye(nsamples); % independent process noise
 
 tic;
-% nout = 1;
+nout = 50;
 for i = 1:nout
     n = frame(i);
     fprintf('Iteration %i\n', n);
     % read the nth frame
     framen = double(read(v,n));
     if do_rectify == 1
-        framen = rectify_image(framen, iold, jold, ii, jj) - background;
+        framen = rectify_image(framen, iold, jold, ii, jj);
     end
-    framen = blurDnClr(framen, downlevs, filt);
+    framen = blurDnClr(framen - background, downlevs, filt);
     
     % kalman forward filtering
     for c = 1:nchans
@@ -123,6 +122,6 @@ for i = 1:nout
     out1(1,:,:) = smoothSamples(cur_mean, smooth_up);
     out1(out1<minclip) = minclip;
     out1(out1>maxclip) = maxclip;
-    writeVideo(vout, (repmat(out1, [size(out1,2), 1])-minclip)./(maxclip-minclip));
+    writeVideo(vout, (repmat(out1, [round(size(out1,2)/2), 1])-minclip)./(maxclip-minclip));
 end
 close(vout);

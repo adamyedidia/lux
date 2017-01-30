@@ -15,8 +15,8 @@ end
 xmax = (maxr - 1) * xdir;
 ymax = (maxr - 1) * ydir;
 [yy, xx] = ndgrid(0:ydir:ymax, 0:xdir:xmax);
-x0 = xx + int32(corner(1));
-y0 = yy + int32(corner(2));
+x0 = xx + round(corner(1));
+y0 = yy + round(corner(2));
 
 % find the angle each point makes with the wall and corner
 theta = atan2(double(yy), double(xx));
@@ -32,9 +32,12 @@ for i = 1:nrows*ncols
     else
         idx = sum(angles >= theta(i)); % idx of smallest angle > theta(i)
     end
-    amat(i,1:idx) = 1;
+    d = (theta(i) - angles(idx))/adelta;
+    amat(i,1:idx-1) = 1;
+    amat(i,idx) = 0.5*(2-d)*d + 0.5;
     if idx < nsamples
-        amat(i,idx+1) = (theta(i) - angles(idx))/adelta;
+        amat(i,idx+1) = 0.5*d^2;
     end
 end
+amat = amat / (40/nsamples);
 end

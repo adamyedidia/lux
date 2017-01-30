@@ -98,9 +98,9 @@ for i = 1:nout
     % read the nth frame
     framen = double(read(v,n));
     if do_rectify == 1
-        framen = rectify_image(framen, iold, jold, ii, jj) - background;
+        framen = rectify_image(framen, iold, jold, ii, jj);
     end
-    framen = blurDnClr(framen, downlevs, filt);
+    framen = blurDnClr(framen - background, downlevs, filt);
     
     [rgbq, diffs] = gradientAlongCircle(framen, corner, rs, nsamples, theta_lim);
     % rgbq is nsamples x nchans x length(rs)

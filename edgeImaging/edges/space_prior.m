@@ -26,15 +26,28 @@ outr = 50;
 filt = binomialFilter(5);
 
 if ~exist('frame1', 'var')
-    v = VideoReader(backfile);
-    background = double(read(v, 1));
-    if ~sub_background
-        background = zeros(size(background));
-    end
+%     v = VideoReader(backfile);
+%     background = double(read(v, 1));
+%     if ~sub_background
+%         background = zeros(size(background));
+%     end
 
     v = VideoReader(moviefile);
     nframes = v.NumberOfFrames;
     frame1 = double(read(v,start));
+    
+    background = zeros(size(frame1));
+    count = 0;
+    for n = start:endframe
+        background = background + double(read(v,n))/(count+1);
+        count = count + 1;
+    end
+    background = background / count;
+    if ~sub_background
+        background = zeros(size(background));
+    end
+    mean_pixel = mean(mean(background, 1), 2);
+
 
     if do_rectify == 1
         vcali = VideoReader(gridfile);
@@ -46,6 +59,7 @@ if ~exist('frame1', 'var')
     end
 
     frame1 = blurDnClr(frame1, downlevs, filt);
+    mean_pixel = repmat(mean_pixel, [size(frame1,1), size(frame1,2)]);
     figure; imagesc(frame1(:,:,1));
 
     corner = ginput(1);
@@ -83,7 +97,7 @@ for n=start:step:nframes/2
     if do_rectify == 1
         framen = rectify_image(framen, iold, jold, ii, jj);
     end
-    framen = blurDnClr(framen - background, downlevs, filt);
+    framen = blurDnClr(framen - background, downlevs, filt) - mean_pixel;
     
 %     [rgbq, diffs] = gradientAlongCircle(framen, corner, rs, nsamples, theta_lim);
 %     % rgbq is nsamples x nchans x length(rs)

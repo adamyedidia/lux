@@ -17,5 +17,5 @@ for i = 1:nchans
     rgbq(:,i,:) = interp2(xx, yy, frame(:,:,i), xq, yq);
 end
 
-diffs = diff(rgbq)/ (100/nsamples);
+diffs = diff(rgbq)/ (200/nsamples);
 end

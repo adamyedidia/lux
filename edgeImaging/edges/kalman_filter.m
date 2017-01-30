@@ -5,18 +5,23 @@ addpath(genpath('rectify'));
 datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/testvideos_Jan29';
 expfolder = sprintf('%s/experiments', datafolder);
 resfolder = sprintf('%s/results', datafolder);
-gridfile = sprintf('%s/grid_location2.MOV', expfolder);
-backfile = sprintf('%s/calibration_location2.MOV', expfolder);
-moviefile = sprintf('%s/residual_blue_location2_circular.avi', expfolder);
-outfile = sprintf('%s/out_residual_blue_loc2_kal_circles', resfolder);
+gridfile = sprintf('%s/grid_location3.MOV', expfolder);
+backfile = sprintf('%s/calibration_location3.MOV', expfolder);
+moviefile = sprintf('%s/blue_location3.MOV', expfolder);
+outfile = sprintf('%s/out_blue_loc3_kal2', resfolder);
 
-theta_lim = [pi/2, 0];
+% gridfile = sprintf('%s/grid_greenscreen.MOV', expfolder);
+% backfile = sprintf('%s/calibration_dark_greenscreen.MOV', expfolder);
+% moviefile = sprintf('%s/red_dark_greenscreen.MOV', expfolder);
+% outfile = sprintf('%s/out_red_dark_greenscreen_kal_nomean.MOV', resfolder);
+
+theta_lim = [0, pi/2];
 minclip = 0;
-maxclip = 0.1;
+maxclip = 0.2;
 nsamples = 200;
 smooth_up = 4;
 step = 5;
-sub_background = 0;
+sub_background = 1;
 start = 60*5;
 do_rectify = 1;
 downlevs = 3;
@@ -33,8 +38,8 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
     endframe = v.NumberOfFrames;
     frame1 = double(read(v,start));
     
-    vback = VideoReader(backfile);
-    frame1 = double(read(vback, 1));
+%     vback = VideoReader(backfile);
+%     frame1 = double(read(vback, 1));
 %     background = double(read(vback, 1));
 %     if ~sub_background
 %         background = zeros(size(background));
@@ -42,10 +47,9 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
     
     background = zeros(size(frame1));
     if sub_background
-        background = zeros(size(frame1));
         count = 0;
         for n = start:endframe
-            background = background + double(read(v,n))/(count+1);
+            background = background + double(read(v,n));
             count = count + 1;
         end
         background = background / count;
@@ -63,9 +67,8 @@ if ~(exist('corner', 'var') && exist('frame1', 'var'))
 
     frame1 = blurDnClr(frame1, downlevs, filt);
     mean_pixel = repmat(mean_pixel, [size(frame1, 1), size(frame1, 2)]);
-    % frame1 = imresize(frame1, 0.5^downlevs);
+    
     figure; imagesc(frame1(:,:,1));
-
     corner = ginput(1);
     hold on; plot(corner(1), corner(2), 'ro');
     maxr = min(size(frame1, 2) - corner(1), size(frame1, 1) - corner(2)) - 1;
@@ -103,7 +106,7 @@ qmat = alpha * eye(nsamples); % independent process noise
 % vout = VideoWriter(outfile);
 % vout.FrameRate = 10;
 % open(vout);
-out = zeros([(nsamples-1)*smooth_up+1, nout, nchans]);
+out = zeros([nout, (nsamples-1)*smooth_up+1, nchans]);
 tic;
 % nout = 1;
 for i = 1:nout
@@ -115,6 +118,7 @@ for i = 1:nout
         framen = rectify_image(framen, iold, jold, ii, jj);
     end
     framen = blurDnClr(framen - background, downlevs, filt) + mean_pixel;
+%     writeVideo(vout, (framen-min(framen(:)))/(max(framen(:))-min(framen(:))));
     
     [rgbq, diffs] = gradientAlongCircle(framen, corner, rs, nsamples, theta_lim);
     % rgbq is nsamples x nchans x length(rs)
@@ -136,10 +140,10 @@ for i = 1:nout
 
     % write out the video
 %     out1(1,:,:) = smoothSamples(cur_mean, smooth_up);
-    out1 = smoothSamples(cur_mean, smooth_up);
+    out1 = 40*smoothSamples(cur_mean, smooth_up);
     out1(out1<minclip) = minclip;
     out1(out1>maxclip) = maxclip;
-    out(:,i,:) = (out1 - minclip) ./ (maxclip - minclip);
+    out(i,:,:) = (out1 - minclip) ./ (maxclip - minclip);
 %     writeVideo(vout, (repmat(out1, [round(size(out1,2)/2), 1])-minclip)./(maxclip-minclip));
 end
 % close(vout);

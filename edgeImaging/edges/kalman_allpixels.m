@@ -19,14 +19,14 @@ theta_lim = [pi/2, 0];
 % theta_lim = [0, pi/2];
 minclip = 0;
 maxclip = 2;
-nsamples = 50;
+nsamples = 20;
 smooth_up = 4;
 step = 5;
 sub_background = 0;
 start = 60*5;
 do_rectify = 1;
 downlevs = 2;
-outr = 50;
+outr = 80;
 
 filt = binomialFilter(5);
 
@@ -90,7 +90,8 @@ rmat = lambda * eye(size(amat,1)); % independent pixel noise
 qmat = alpha * eye(nsamples); % independent process noise
 
 tic;
-nout = 50;
+nout = 10;
+all_gains = zeros([nsamples, size(amat,1), nout]);
 for i = 1:nout
     n = frame(i);
     fprintf('Iteration %i\n', n);
@@ -111,6 +112,7 @@ for i = 1:nout
         gain = pred_cov(:,:,c) * amat' * inv(amat*pred_cov(:,:,c)*amat' + rmat);
         cur_mean(:,c) = pred_mean(:,c) + gain * (y - amat * pred_mean(:,c));
         cur_cov(:,:,c) = pred_cov(:,:,c) - gain * amat * pred_cov(:,:,c);
+        all_gains(:,:,i) = gain;
         
         % next predict step
         pred_mean(:,c) = fmat * cur_mean(:,c);

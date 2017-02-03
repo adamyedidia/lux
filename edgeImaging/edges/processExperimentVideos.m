@@ -1,6 +1,7 @@
 function processExperimentVideos(moviefile, gridfile, backfile)
 v = VideoReader(moviefile);
 endframe = v.NumberOfFrames;
+frame1 = double(read(v,start));
 if nargin < 3
     % use the mean of the moviefile for the background
     background = zeros(size(frame1));

@@ -1,17 +1,20 @@
-function [door1, door2, door_height, ceil_corner, wall_height,...
-    rectify_params] = getSceneCoordinates(ceiling_cal, wall_cal)
+function [door1, door2, door_height, ceil_corner, wall_height] =...
+    getSceneCoordinates(ceiling_cal, wall_cal)
 
-addpath(genpath('rectify'))
+addpath(genpath('rectify'));
+addpath(genpath('../utils/pyr'));
 
+filter = binomialFilter(5);
 % rectify to ceiling plane (xy)
-vceil = VideoReader(ceiling_cal);
-ceil_img = read(vceil,100);
+% vceil = VideoReader(ceiling_cal);
+% ceil_img = read(vceil,100);
+ceil_img = blurDnClr(double(imread(ceiling_cal)), 4, filter);
 
 warning('RECTIFY SO THAT CEILING CORNER IS TOP LEFT OF IMAGE');
 
 [iold, jold, ii, jj, ~] = rectify_image_solve(ceil_img);
 ceil_img = rectify_image(ceil_img, iold, jold, ii, jj);
-rectify_params = [iold, jold, ii, jj];
+% rectify_params = [iold, jold, ii, jj];
 
 % get door corners and ceiling corner
 figure; imagesc(ceil_img(:,:,1)); title('choose the ceiling corner');
@@ -34,8 +37,9 @@ assert(door1(1) <= door2(1), ...
 
 % get the height of the room and door
 % rectify to the wall plane (xz)
-vwall = VideoReader(wall_cal);
-wall_img = read(vwall, 100);
+% vwall = VideoReader(wall_cal);
+% wall_img = read(vwall, 100);
+wall_img = blurDnClr(double(imread(wall_cal)), 4, filter);
 [iold, jold, ii, jj, ~] = rectify_image_solve(wall_img);
 wall_img = rectify_image(wall_img, iold, jold, ii, jj);
 

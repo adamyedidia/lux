@@ -1,4 +1,7 @@
-function amat = inverseAmat(nrows, ncols, r, nsamples, theta_lim, delta)
+function amat = inverseAmat(nrows, ncols, r, nsamples, theta_lim, delta, debug)
+if nargin < 7
+    debug = 0;
+end
 if nargin < 6
     delta = 0;
 end
@@ -45,7 +48,9 @@ interpmat(i22) = (xq - (ix1-delta)) .* (yq - (iy1-delta));
 % amat is difference between the interped vals at successive angles
 amat = diff(interpmat, 1, 3);
 amat = reshape(amat, [nrows*ncols, nsamples-1])';
-% testAmat(amat, nrows, ncols, nsamples-1);
+if debug
+    testAmat(amat, nrows, ncols, nsamples-1);
+end
 end
 
 function testAmat(amat, nrows, ncols, nsamples)

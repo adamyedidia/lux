@@ -5,7 +5,7 @@ addpath(genpath('../corner_cam'));
 close all; clear;
 
 npx = 80;
-width = npx/10;
+width = npx/12;
 floornpx = 60;
 nsamples = 60;
 
@@ -22,46 +22,51 @@ ylocs = linspace(0, 1, floornpx);
 door_thickness = 0.2;
 door_corner3 = [-1, -0.2, 0];
 door_corner4 = [1, -0.2, 0];
-xlocs3 = linspace(door_corner3(1), door_corner3(1)+1, floornpx);
-xlocs4 = linspace(door_corner4(1), door_corner4(1)-1, floornpx);
+xlocs3 = linspace(door_corner3(1), door_corner3(1)+1, floornpx+1);
+xlocs3 = xlocs3(2:end);
+xlocs4 = linspace(door_corner4(1), door_corner4(1)-1, floornpx+1);
+xlocs4 = xlocs4(2:end);
 ylocs2 = ylocs - 0.2;
 
 % images behind the door
-imdepths = [-4, -7];
-imstarts = [width, 8*width];
-nims = length(imstarts);
-imgs = zeros([npx, npx, nims]);
-scenex = linspace(door_corner1(1)-1, door_corner2(1)+1, npx);
-sceneys = zeros([nims, npx]);
+scenex = linspace(-2.5, 2.5, npx);
 scenez = linspace(0, door_corner2(1), npx);
 gt_depths = zeros(size(scenex));
+imdepths = [-4, -7];
+imstarts = [npx/10, 8*npx/10];
+nims = length(imstarts);
+imgs = zeros([npx, npx, nims]);
 
 obs1 = zeros([floornpx*floornpx, 1]);
 obs2 = zeros(size(obs1));
 obs3 = zeros(size(obs1));
 obs4 = zeros(size(obs1));
+const3 = 0; % corners 3 and 4 see a constant image from the other side
+const4 = 0;
 
 figure;
 for i = 1:nims
     start = imstarts(i);
     imgs(:,start:start+width,i) = abs(imdepths(i))/abs(max(imdepths));
-    sceneys(i,:) = ones(size(scenex)) * imdepths(i);
-    subplot(nims,1,i); imagesc(scenex, sceneys(i,:), imgs(:,:,i));
+    sceney = ones(size(scenex)) * imdepths(i);
+    subplot(nims,1,i); imagesc(scenex, sceney, imgs(:,:,i));
     title(sprintf('depth %d', -imdepths(i)));
-    gt_depths = gt_depths + abs(sign(imgs(1,:,i)) .* sceneys(i,:));
+    gt_depths = gt_depths + abs(sign(imgs(1,:,i)) .* sceney);
     
     % get observations
-    amat1 = cornerAmat(xlocs1, ylocs, scenex, sceneys(i,:));
+    amat1 = cornerAmat(door_corner1, xlocs1, ylocs, scenex, sceney, 1);
     obs1 = obs1 + amat1 * reshape(imgs(:,:,i), [npx*npx,1]);
     
-    amat2 = cornerAmat(xlocs2, ylocs, scenex, sceneys(i,:));
+    amat2 = cornerAmat(door_corner2, xlocs2, ylocs, scenex, sceney, 1);
     obs2 = obs2 + amat2 * reshape(imgs(:,:,i), [npx*npx,1]);
     
-    amat3 = cornerAmat(xlocs3, ylocs2, scenex, sceneys(i,:), -1);
+    amat3 = cornerAmat(door_corner3, xlocs3, ylocs2, scenex, sceney, -1);
     obs3 = obs3 + amat3 * reshape(imgs(:,:,i), [npx*npx,1]);
+    const3 = const3 + amat3(1,:) * reshape(imgs(:,:,i), [npx*npx,1]);
     
-    amat4 = cornerAmat(xlocs4, ylocs2, scenex, sceneys(i,:), -1);
+    amat4 = cornerAmat(door_corner4, xlocs4, ylocs2, scenex, sceney, -1);
     obs4 = obs4 + amat4 * reshape(imgs(:,:,i), [npx*npx,1]);
+    const4 = const4 + amat4(1,:) * reshape(imgs(:,:,i), [npx*npx,1]);
 end
 sigma = 0.5; beta = 100;
 
@@ -97,6 +102,7 @@ tdir2 = sign(thetas2(2) - thetas2(1));
 angles2 = linspace(thetas2(1), thetas2(2), nsamples) + tdir2*pi;
 x2_1d = (amat'*amat/sigma^2 + bmat'*bmat*beta)\(amat'*obs2_noisy/sigma^2);
 
+% these two corners see a constant image from the other side of the door
 thetas3 = [pi/2, 0];
 tdir3 = sign(thetas3(2) - thetas3(1));
 [amat, ~, ~] = allPixelAmat(door_corner3, floornpx, nsamples, thetas3);
@@ -110,10 +116,10 @@ angles4 = linspace(thetas4(1), thetas4(2), nsamples) + tdir4*pi;
 x4_1d = (amat'*amat/sigma^2 + bmat'*bmat*beta)\(amat'*obs4_noisy/sigma^2);
 
 
-x1_1d = (x1_1d - min(x1_1d))/(max(x1_1d) - min(x1_1d));
-x2_1d = (x2_1d - min(x2_1d))/(max(x2_1d) - min(x2_1d));
-x3_1d = (x3_1d - min(x3_1d))/(max(x3_1d) - min(x3_1d));
-x4_1d = (x4_1d - min(x4_1d))/(max(x4_1d) - min(x4_1d));
+% x1_1d = (x1_1d - min(x1_1d))/(max(x1_1d) - min(x1_1d));
+% x2_1d = (x2_1d - min(x2_1d))/(max(x2_1d) - min(x2_1d));
+% x3_1d = (x3_1d - min(x3_1d))/(max(x3_1d) - min(x3_1d));
+% x4_1d = (x4_1d - min(x4_1d))/(max(x4_1d) - min(x4_1d));
 
 
 figure; 

@@ -1,4 +1,4 @@
-function [matching, energy] = match_signals(x1_1d, x2_1d, door_angle2, winsize)
+function [match_angle, energy, match_idx] = match_signals(x1_1d, x2_1d, door_angle2, winsize)
 energy = zeros([length(x1_1d)-winsize, length(x2_1d)-winsize]);
 for i = 1:length(x1_1d)-winsize
     win1 = x1_1d(i:i+winsize);
@@ -9,18 +9,20 @@ for i = 1:length(x1_1d)-winsize
     end
 end
 
-matching = zeros([1, length(x1_1d)-winsize]);
-for i = 1:length(matching)
+match_angle = zeros([1, length(x1_1d)-winsize]);
+match_idx = zeros(size(match_angle));
+for i = 1:length(match_angle)
     row = energy(i,:);
     [val, idx] = min(row);
-    secondbest = row(row > val);
-    val2 = min(secondbest);
-    if val/val2 > 0.6
+    nomin = row(row > val);
+    val2 = min(nomin);
+    if val/val2 > 0.5
         % too close together, assume we're not resolving to an actual object
-        matching(i) = nan;
+        match_angle(i) = nan;
     else
         % take the angle of corner 2 of the best match
-        matching(i) = door_angle2(idx);
+        match_angle(i) = door_angle2(idx);
+        match_idx(i) = idx;
     end
 end
 end

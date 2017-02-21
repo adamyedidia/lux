@@ -18,7 +18,7 @@ else if ~params.sub_background
 end
 
 nout = length(frameidx);
-outframes = zeros([nout, (params.nsamples-1)*params.smooth_up+1, nchans]);
+outframes = zeros([nout, (size(amat,2)-1)*params.smooth_up+1, nchans]);
 tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
@@ -29,7 +29,7 @@ for i = 1:nout
     y = getObsVec(framen, params);
 
     % using a spatial prior
-    out = zeros([params.nsamples, nchans]);
+    out = zeros([size(amat,2), nchans]);
     for c = 1:nchans
         out(:,c) = (amat'*amat/params.lambda + bmat'*bmat/params.sigma^2)...
             \(amat'*y(:,c)/params.lambda);

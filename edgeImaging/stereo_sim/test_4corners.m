@@ -115,7 +115,6 @@ tdir4 = sign(thetas4(2) - thetas4(1));
 angles4 = linspace(thetas4(1), thetas4(2), nsamples) + tdir4*pi;
 x4_1d = (amat'*amat/sigma^2 + bmat'*bmat*beta)\(amat'*obs4_noisy/sigma^2);
 
-
 % x1_1d = (x1_1d - min(x1_1d))/(max(x1_1d) - min(x1_1d));
 % x2_1d = (x2_1d - min(x2_1d))/(max(x2_1d) - min(x2_1d));
 % x3_1d = (x3_1d - min(x3_1d))/(max(x3_1d) - min(x3_1d));
@@ -144,9 +143,9 @@ door_angle3 = 3*pi/2 - angles4(1:nsamples-winsize);
 door_angle4 = 2*pi - angles3(1:nsamples-winsize);
 
 % for every window in x1_1d, we find the best matching window in x2_1d
-[match12, energy12] = match_signals(x1_1d, x2_1d, door_angle2, winsize);
-[match14, energy14] = match_signals(x1_1d, x4_1d, door_angle4, winsize);
-[match23, energy23] = match_signals(x2_1d, x3_1d, door_angle3, winsize);
+[match12, energy12, midx12] = match_signals(x1_1d, x2_1d, door_angle2, winsize);
+[match14, energy14, midx14] = match_signals(x1_1d, x4_1d, door_angle4, winsize);
+[match23, energy23, midx23] = match_signals(x2_1d, x3_1d, door_angle3, winsize);
 
 figure; 
 subplot(221); imagesc(energy12); title('energy between corners 1 and 2');

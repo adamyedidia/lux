@@ -3,7 +3,7 @@ function outframes = cornerRecon(moviefile, caldata, params, amat)
 load(caldata);
 v = VideoReader(moviefile);
 
-frameidx = params.start:params.step:endframe;
+frameidx = params.start:params.step:params.endframe;
 nrows = params.framesize(1);
 ncols = params.framesize(2);
 nchans = params.framesize(3);
@@ -18,7 +18,7 @@ else if ~params.sub_background
 end
 
 nout = length(frameidx);
-outframes = zeros([nout, (params.nsamples-1)*params.smooth_up+1, nchans]);
+outframes = zeros([nout, (size(amat, 2)-1)*params.smooth_up+1, nchans]);
 tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
@@ -28,15 +28,14 @@ for i = 1:nout
 
     y = getObsVec(framen, params);
 
-    % using a spatial prior
-    out = zeros([params.nsamples, nchans]);
+    out = zeros([size(amat, 2), nchans]);
     for c = 1:nchans
         out(:,c) = (amat'*amat/params.lambda)\(amat'*y(:,c)/params.lambda);
     end
     toc;
     outframes(i,:,:) = smoothSamples(out, params.smooth_up);
 end
-outframes(outframes<params.minclip) = params.minclip;
-outframes(outframes>params.maxclip) = params.maxclip;
-outframes = (outframes - params.minclip)/(params.maxclip - params.minclip);
+% outframes(outframes<params.minclip) = params.minclip;
+% outframes(outframes>params.maxclip) = params.maxclip;
+% outframes = (outframes - params.minclip)/(params.maxclip - params.minclip);
 end

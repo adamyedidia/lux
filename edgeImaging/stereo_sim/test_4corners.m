@@ -1,6 +1,7 @@
 % testing the stereo door corner camera
 addpath(genpath('../utils/pyr'));
 addpath(genpath('../corner_cam'));
+addpath(genpath('../stereo_cam'));
 
 close all; clear;
 

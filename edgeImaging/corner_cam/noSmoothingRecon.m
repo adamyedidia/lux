@@ -1,28 +1,32 @@
-function outframes = cornerRecon(moviefile, caldata, params, amat)
-% load from saved calibration
-load(caldata);
+function outframes = noSmoothingRecon(moviefile, params, amat)
+% reconstruct the corner naively with least squares
+addpath(genpath('../rectify'));
+
 v = VideoReader(moviefile);
 
+% load from saved datafiles
+load(params.cal_datafile, 'iold', 'jold', 'ii', 'jj');
+load(params.mean_datafile, 'mean_pixel');
+load(params.corner_datafile, 'avg_img');
+
 frameidx = params.start:params.step:params.endframe;
-nrows = params.framesize(1);
-ncols = params.framesize(2);
-nchans = params.framesize(3);
+[nrows, ncols, nchans] = size(avg_img);
 mean_img = repmat(mean_pixel, [nrows, ncols]);
 
 if params.sub_mean
     back_img = avg_img;
-else if ~params.sub_background
-    back_img = zeros(size(background));
+else 
+    back_img = zeros(size(avg_img));
     mean_img = zeros(size(mean_img));
-    end
 end
 
 nout = length(frameidx);
 outframes = zeros([nout, (size(amat, 2)-1)*params.smooth_up+1, nchans]);
 tic;
+try
 for i = 1:nout
     n = frameidx(i); % using the nth frame
-    fprintf('Iteration %i\n', n);
+    fprintf('Frame %i\n', n);
     framen = rectify_image(double(read(v, n)), iold, jold, ii, jj);
     framen = blurDnClr(framen - back_img, params.downlevs, params.filt) - mean_img;
 
@@ -34,6 +38,8 @@ for i = 1:nout
     end
     toc;
     outframes(i,:,:) = smoothSamples(out, params.smooth_up);
+end
+catch
 end
 % outframes(outframes<params.minclip) = params.minclip;
 % outframes(outframes>params.maxclip) = params.maxclip;

@@ -1,20 +1,23 @@
-function outframes = spatialSmoothingRecon(moviefile, caldata, params, amat, bmat)
-% load from saved calibration
-load(caldata);
+function outframes = spatialSmoothingRecon(moviefile, params, amat, bmat)
+% reconstruct using a spatial smoothness regularizer given by bmat
+addpath(genpath('../rectify'));
+
 v = VideoReader(moviefile);
 
+% load from saved datafiles
+load(params.cal_datafile, 'iold', 'jold', 'ii', 'jj');
+load(params.mean_datafile, 'mean_pixel');
+load(params.corner_datafile, 'avg_img');
+
 frameidx = params.start:params.step:params.endframe;
-nrows = params.framesize(1);
-ncols = params.framesize(2);
-nchans = params.framesize(3);
+[nrows, ncols, nchans] = size(avg_img);
 mean_img = repmat(mean_pixel, [nrows, ncols]);
 
 if params.sub_mean
     back_img = avg_img;
-else if ~params.sub_background
-    back_img = zeros(size(background));
+else 
+    back_img = zeros(size(avg_img));
     mean_img = zeros(size(mean_img));
-    end
 end
 
 nout = length(frameidx);
@@ -24,7 +27,7 @@ for i = 1:nout
     n = frameidx(i); % using the nth frame
     fprintf('Iteration %i\n', n);
     framen = rectify_image(double(read(v, n)), iold, jold, ii, jj);
-    framen = blurDnClr(framen - back_img, params.downlevs, params.filt) - mean_img;
+    framen = (blurDnClr(framen, params.downlevs, params.filt) - back_img) + mean_img;
 
     y = getObsVec(framen, params);
 

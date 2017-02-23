@@ -4,6 +4,7 @@ if strcmp(params.amat_method, 'interp')
     ncircles = length(params.rs);
     
     amat = zeros([nsamples*ncircles, nsamples+1]);
+%     amat = zeros([nsamples*ncircles, nsamples]);
     for i = 1:ncircles
         si = nsamples*(i-1) + 1;
         ei = nsamples*i;

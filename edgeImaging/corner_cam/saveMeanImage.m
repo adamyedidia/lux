@@ -1,4 +1,4 @@
-function outfile = saveMeanImage(overwrite, moviefile, startframe, step)
+function outfile = saveMeanImage(overwrite, moviefile, start, step)
 % compute the mean image of the moviefile, starting from startframe
 % optional step size, for convenience/speed reasons
 
@@ -17,14 +17,14 @@ if nargin < 4
 end
 
 if nargin < 3
-    startframe = 60*5; % starts 5 seconds in
+    start = 60*5; % starts 5 seconds in
 end
 
-frame1 = double(read(v,startframe));
+frame1 = double(read(v,start));
 avg_img = zeros(size(frame1));
 
 count = 0;
-for n = startframe:step:endframe
+for n = start:step:endframe
     avg_img = avg_img + double(read(v,n));
     count = count + 1;
 end

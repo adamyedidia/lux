@@ -13,11 +13,12 @@ if ~overwrite && exist(outfile, 'file')
 end
 
 load(params.cal_datafile); % for iold, jold, ii, jj
-load(params.mean_datafile, 'avg_img'); 
+v = VideoReader(moviefile);
+frame1 = double(read(v,params.start));
 
-avg_img = rectify_image(avg_img, iold, jold, ii, jj);
-avg_img = blurDnClr(avg_img, params.downlevs, params.filt);
-figure; imagesc(avg_img(:,:,1));
+frame1 = rectify_image(frame1, iold, jold, ii, jj);
+frame1 = blurDnClr(frame1, params.downlevs, params.filt);
+figure; imagesc(frame1(:,:,1));
 
 corners = ginput(ncorners);
 hold on; plot(corners(:,1), corners(:,2), 'ro');

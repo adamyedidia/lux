@@ -42,7 +42,7 @@ tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
     fprintf('Iteration %i\n', n);
-    framen = rectify_image(double(read(v, n)), iold, jold, ii, jj);
+    framen = rectify_image(double(v.read(n)), iold, jold, ii, jj);
     framen = blurDnClr(framen - back_img, params.downlevs, params.filt) - mean_img;
 
     y = getObsVec(framen, params);

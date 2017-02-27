@@ -9,23 +9,24 @@ if ~overwrite && exist(outfile, 'file')
     return
 end
 
-v = VideoReader(moviefile);
-endframe = v.NumberOfFrames;
-
 if nargin < 4
-    step = 10;
+    step = 30;
 end
 
 if nargin < 3
     start = 60*5; % starts 5 seconds in
 end
 
-frame1 = double(read(v,start));
+v = VideoReader(moviefile);
+endframe = v.NumberOfFrames - start
+
+frame1 = double(v.read(start));
 avg_img = zeros(size(frame1));
 
 count = 0;
 for n = start:step:endframe
-    avg_img = avg_img + double(read(v,n));
+    fprintf('Frame %i\n', n);
+    avg_img = avg_img + double(v.read(n));
     count = count + 1;
 end
 avg_img = avg_img / count;

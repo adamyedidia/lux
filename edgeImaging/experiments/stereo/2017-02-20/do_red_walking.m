@@ -20,8 +20,8 @@ theta_lims{3} = [0, pi/2]; % bottom right
 theta_lims{4} = [pi/2, pi]; % top right
 
 params = initParams(moviefile, gridfile, ncorners, corner_idx);
-% params.sub_mean = 1;
-params.endframe = params.endframe/8;
+params.sub_mean = 1;
+params.endframe = params.endframe/3;
 params.inf_method = 'spatial_smoothing';
 params.amat_method = 'allpix';
 % corners = params.corner;

@@ -1,8 +1,6 @@
 function outframes = kalmanFilterRecon(moviefile, params, amat, bmat, fmat)
 % reconstruct with kalman filter, using spatial regularization matrix
 % bmat, and transition matrix fmat
-addpath(genpath('../rectify'));
-
 v = VideoReader(moviefile);
 
 % load from saved datafiles
@@ -22,25 +20,29 @@ else
 end
 
 nout = length(frameidx);
-nsamples = params.nsamples;
 
 % initialize filter variables
-cur_mean = zeros([nsamples, nchans]);
-pred_mean = zeros([nsamples, nchans]);
-cur_cov = zeros([nsamples, nsamples, nchans]);
-prior_cov = inv(bmat' * bmat / params.sigma^2);
+
+% y(t) = Ax(t) + w(t); w(t) ~ N(0, rmat)
+% x(t) = Fx(t-1) + v(t); v(t) ~ N(0, qmat), x(0) ~ N(0, prior_cov)
+
+xdim = size(amat,2);
+cur_mean = zeros([xdim, nchans]);
+pred_mean = zeros([xdim, nchans]);
+cur_cov = zeros([xdim, xdim, nchans]);
+prior_cov = inv((bmat'*bmat + eye(xdim)*params.eps) / params.sigma^2);
 pred_cov = repmat(prior_cov, [1, 1, 3]);
 
 rmat = params.lambda * eye(size(amat,1)); % independent pixel noise
-qmat = params.alpha * eye(nsamples); % independent process noise
+qmat = params.alpha * eye(xdim); % independent process noise
 
-outframes = zeros([nout, (params.nsamples-1)*params.smooth_up+1, nchans]);
+outframes = zeros([nout, (size(amat,2)-1)*params.smooth_up+1, nchans]);
 tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
-    fprintf('Iteration %i\n', n);
-    framen = rectify_image(double(v.read(n)), iold, jold, ii, jj);
-    framen = blurDnClr(framen - back_img, params.downlevs, params.filt) - mean_img;
+    fprintf('Frame %i\n', n);
+    framen = rectify_image(double(read(v, n)), iold, jold, ii, jj);
+    framen = (blurDnClr(framen, params.downlevs, params.filt) - back_img) + mean_img;
 
     y = getObsVec(framen, params);
 

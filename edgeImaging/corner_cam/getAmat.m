@@ -3,11 +3,12 @@ if strcmp(params.amat_method, 'interp')
     nsamples = params.nsamples;
     ncircles = length(params.rs);
     
-    amat = zeros([nsamples*ncircles, nsamples+1]);
-%     amat = zeros([nsamples*ncircles, nsamples]);
+    ydim = nsamples;
+    xdim = nsamples+1;
+    amat = zeros([ydim*ncircles, xdim]);
     for i = 1:ncircles
-        si = nsamples*(i-1) + 1;
-        ei = nsamples*i;
+        si = ydim*(i-1) + 1;
+        ei = ydim*i;
         amat(si:ei,2:end) = tril(ones(nsamples));
     end
     amat(:,1) = 1;

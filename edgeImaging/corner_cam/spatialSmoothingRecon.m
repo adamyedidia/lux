@@ -1,7 +1,5 @@
 function outframes = spatialSmoothingRecon(moviefile, params, amat, bmat)
 % reconstruct using a spatial smoothness regularizer given by bmat
-addpath(genpath('../rectify'));
-
 v = VideoReader(moviefile);
 
 % load from saved datafiles
@@ -20,13 +18,16 @@ else
     mean_img = zeros(size(mean_img));
 end
 
+cmat = eye(size(bmat, 2));
+cmat(1,:) = 0;
+
 nout = length(frameidx);
 outframes = zeros([nout, (size(amat,2)-1)*params.smooth_up+1, nchans]);
 tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
-    fprintf('Iteration %i\n', n);
-    framen = rectify_image(double(v.read(n)), iold, jold, ii, jj);
+    fprintf('Frame %i\n', n);
+    framen = rectify_image(double(read(v, n)), iold, jold, ii, jj);
     framen = (blurDnClr(framen, params.downlevs, params.filt) - back_img) + mean_img;
 
     y = getObsVec(framen, params);
@@ -34,7 +35,7 @@ for i = 1:nout
     % using a spatial prior
     out = zeros([size(amat,2), nchans]);
     for c = 1:nchans
-        out(:,c) = (amat'*amat/params.lambda + bmat'*bmat/params.sigma^2)...
+        out(:,c) = (amat'*amat/params.lambda + (bmat'*bmat + cmat)/params.sigma^2)...
             \(amat'*y(:,c)/params.lambda);
     end
     toc;

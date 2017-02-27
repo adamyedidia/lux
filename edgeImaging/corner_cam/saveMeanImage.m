@@ -20,7 +20,7 @@ end
 v = VideoReader(moviefile);
 endframe = v.NumberOfFrames - start
 
-frame1 = double(v.read(start));
+frame1 = double(read(v,start));
 avg_img = zeros(size(frame1));
 
 count = 0;

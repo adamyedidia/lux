@@ -19,11 +19,6 @@ theta_lims{2} = [pi, pi/2]; % bottom left
 theta_lims{3} = [0, pi/2]; % bottom right
 theta_lims{4} = [pi/2, pi]; % top right
 
-direction{1} = -1; 
-direction{2} = -1; 
-direction{3} = 1; 
-direction{4} = 1; 
-
 params = initParams(moviefile, gridfile, ncorners, corner_idx);
 % params.sub_mean = 1;
 params.endframe = params.endframe/8;
@@ -38,10 +33,6 @@ for i = 1:length(corner_idx)
     outframe = doCornerRecon(params, moviefile);
     outframe = outframe(:,2:end,:); % throwing away the constant light
     figure; imagesc(outframe);
-
-    if direction{c} == -1
-        outframe = fliplr(outframe); 
-    end
 
     outframes{i} = outframe;
 end

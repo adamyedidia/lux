@@ -23,6 +23,7 @@ adir = sign(adelta); % dir of angles away from wall
 
 theta = atan2(double(yy), double(xx));
 theta(1) = thetas(2);
+rr = sqrt(xx.^2 + yy.^2) + 100;
 % theta = (theta - thetas(1)) * adir;
 [nrows, ncols] = size(yy);
 theta = reshape(theta, [nrows*ncols, 1]);
@@ -42,7 +43,9 @@ for i = 1:nrows*ncols
             amat(i,idx+1) = 0.5*d^2;
         end
     end
+%     amat(i,:) = 100* amat(i,:) / rr(i);
 end
-amat = horzcat(ones([size(amat,1),1]), amat);
+maxweight = max(amat(:));
+amat = horzcat(ones([size(amat,1),1]) * maxweight, amat);
 amat = amat / (50/nsamples);
 end

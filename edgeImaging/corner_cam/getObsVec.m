@@ -4,7 +4,7 @@ if strcmp(params.amat_method, 'interp')
         params.rs, params.nsamples, params.theta_lim);
     
     rgbq = permute(rgbq, [1, 3, 2]); % rgbq is nsamples x nchans x length(rs)
-    y = reshape(rgbq, [params.nsamples*length(params.rs), size(frame,3)]);
+    y = reshape(rgbq, [size(rgbq,1)*size(rgbq,2), size(rgbq,3)]);
 else % default is all pixels
     nchans = size(frame, 3);    
     y = zeros([params.outr^2, nchans]);

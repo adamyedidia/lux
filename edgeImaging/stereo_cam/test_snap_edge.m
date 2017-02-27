@@ -2,17 +2,18 @@ addpath(genpath('../utils/pyr'));
 addpath(genpath('../rectify'));
 addpath(genpath('../corner_cam'));
 
+clear; close all;
 
 datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/stereodoor_Feb14';
-expfolder = sprintf('%s/experiments', datafolder);
-resfolder = sprintf('%s/results', datafolder);
-gridfile = sprintf('%s/loc2_caligrid.MOV', expfolder);
-backfile = sprintf('%s/loc2_dark.MOV', expfolder);
-moviefile = sprintf('%s/loc2_dark.MOV', expfolder);
-outfile = sprintf('%s/out_loc2_dark.MOV', resfolder);
+expfolder = fullfile(datafolder, 'experiments');
+resfolder = fullfile(datafolder, 'results');
+gridfile = fullfile(expfolder, 'loc2_caligrid.MOV');
+backfile = fullfile(expfolder, 'loc2_dark.MOV');
+moviefile = fullfile(expfolder, 'loc2_dark.MOV');
+outfile = fullfile(resfolder, 'out_loc2_dark.MOV');
 
 ncorners = 4; % total corners in the scene
-corner_idx = [1, 2]; % corners we care about now
+corner_idx = [1]; % corners we care about now
 
 theta_lims{1} = [pi/2, 0]; % top left
 theta_lims{2} = [pi, pi/2]; % bottom left
@@ -25,13 +26,17 @@ direction{3} = 1;
 direction{4} = 1; 
 
 params = initParams(moviefile, gridfile, ncorners, corner_idx);
-params.endframe = params.endframe / 3;
+params.endframe = params.endframe/3;
+params.inf_method = 'spatial_smoothing';
+params.amat_method = 'allpix';
+
 corners = params.corner;
 
 load(params.corner_datafile, 'avg_img');
 rchan = avg_img(:,:,1);
 
-for c = 1:length(corner_idx)
+for i = 1:length(corner_idx)
+    c = corner_idx(i);
     params.corner = corners(c,:);
     params.theta_lim = theta_lims{c};
     [~, x0, y0] = allPixelAmat(params.corner,...
@@ -43,7 +48,7 @@ for c = 1:length(corner_idx)
     params.theta_lim(1) = wall_line_theta;
     params.corner = [x0(1,corner_idx(1)), y0(corner_idx(2),1)];
 
-    if 1 % show the new cropped region
+    if 0 % show the new cropped region
        figure; subplot(211); imagesc(cropped);
        [~, x0, y0] = allPixelAmat(params.corner,...
             params.outr, params.nsamples, params.theta_lim);
@@ -53,8 +58,8 @@ for c = 1:length(corner_idx)
     end
     
     outframe = doCornerRecon(params, moviefile);
-    figure; imagesc(outframe);
     outframe = outframe(:,2:end,:); % throwing away the constant light
+    figure; imagesc(outframe);
 
     if direction{c} == -1
         outframe = fliplr(outframe); 
@@ -63,7 +68,7 @@ for c = 1:length(corner_idx)
     outframes{c} = outframe;
 end
 
-if ncorners > 1
+if length(corner_idx) > 1
     x1_1d = [outframes{1} outframes{2}];
     figure; imagesc(x1_1d);
 end

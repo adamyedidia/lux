@@ -9,9 +9,6 @@ if ~overwrite && exist(outfile, 'file')
     return
 end
 
-v = VideoReader(moviefile);
-endframe = v.NumberOfFrames;
-
 if nargin < 4
     step = 10;
 end
@@ -19,6 +16,9 @@ end
 if nargin < 3
     start = 60*5; % starts 5 seconds in
 end
+
+v = VideoReader(moviefile);
+endframe = v.NumberOfFrames - start
 
 frame1 = double(read(v,start));
 avg_img = zeros(size(frame1));

@@ -19,11 +19,14 @@ switch params.inf_method
     case 'spatial_smoothing'
         outframes = spatialSmoothingRecon(moviefile, params, amat, bmat);
     case 'kalman_filter'
-        fmat = eye(params.nsamples);
+        fmat = eye(size(amat,2));
         outframes = kalmanFilterRecon(moviefile, params, amat, bmat, fmat);
     case 'kalman_smoothing'
-        fmat = eye(params.nsamples);
+        fmat = eye(size(amat,2));
         outframes = kalmanSmoothingRecon(moviefile, params, amat, bmat, fmat);
+    case 'kalman_smoothing_priors'
+        fmat = eye(size(amat,2));
+        outframes = kalmanSmoothingPriorsRecon(moviefile, params, amat, bmat, fmat);
     otherwise % default to naive corner cam
         outframes = noSmoothingRecon(moviefile, params, amat);
 end

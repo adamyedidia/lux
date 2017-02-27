@@ -8,7 +8,7 @@ yq = corner(2) + sin(angles) * rs;
 % hold on; plot(xq, yq);
 [nrows, ncols, nchans] = size(frame);
 [yy, xx] = ndgrid(1:nrows, 1:ncols);
-rgbq = zeros([nsamples, nchans, length(rs)]);
+rgbq = zeros([size(angles,1), nchans, length(rs)]);
 for i = 1:nchans
     rgbq(:,i,:) = interp2(xx, yy, frame(:,:,i), xq, yq);
 end

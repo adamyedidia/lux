@@ -1,11 +1,16 @@
 function params = initParams(moviefile, gridfile, ncorners, corner_idx)
-addpath(genpath('../utils/pyr'));
-
 if nargin < 4
     corner_idx = 1;
 end
-    
-params.inf_method = 'spatial_smoothing';
+
+% init paths
+[mydir, ~, ~] = fileparts(mfilename('fullpath'));
+[edgesdir, ~, ~] = fileparts(mydir);
+addpath(genpath(fullfile(edgesdir, 'rectify')));
+addpath(genpath(fullfile(edgesdir, 'utils', 'pyr')));
+
+% init params
+params.inf_method = 'kalman_smoothing';
 params.amat_method = 'interp';
 params.nsamples = 50;
 params.rs = 10:2:30;
@@ -13,15 +18,16 @@ params.outr = 50;
 params.theta_lim = [pi/2, 0];
 
 params.lambda = 15; % pixel noise
-params.sigma = 0.4; % prior variance
+params.sigma = 1; % prior variance
 params.alpha = 5e-3; % process noise
+params.eps = 1e-5;
 
 params.sub_background = 0;
 params.sub_mean = 0;
 params.downlevs = 2;
 params.filt = binomialFilter(5);
 
-params.smooth_up = 4;
+params.smooth_up = 1;
 params.start = 60*5;
 params.step = 5;
 

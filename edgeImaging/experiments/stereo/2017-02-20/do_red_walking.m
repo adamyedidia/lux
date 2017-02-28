@@ -2,7 +2,8 @@ addpath(genpath('../../../corner_cam'));
 
 clear; close all;
 
-datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/stereodoor_Feb20';
+% datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/stereodoor_Feb20';
+datafolder = '/data/vision/billf/shadowImaging/edgeImaging/data/stereoDoor_Feb20';
 expfolder = fullfile(datafolder, 'experiments');
 gridfile = fullfile(expfolder, 'calibrationgrid.MP4');
 moviefile = fullfile(expfolder, 'red12_walking.MP4');

@@ -10,7 +10,7 @@ if ~overwrite && exist(outfile, 'file')
 end
 
 if nargin < 4
-    step = 10;
+    step = 30;
 end
 
 if nargin < 3
@@ -25,7 +25,8 @@ avg_img = zeros(size(frame1));
 
 count = 0;
 for n = start:step:endframe
-    avg_img = avg_img + double(read(v,n));
+    fprintf('Frame %i\n', n);
+    avg_img = avg_img + double(v.read(n));
     count = count + 1;
 end
 avg_img = avg_img / count;

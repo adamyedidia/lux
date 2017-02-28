@@ -31,6 +31,8 @@ switch params.inf_method
         outframes = noSmoothingRecon(moviefile, params, amat);
 end
 
+outframes = outframes(:,2:end,:); % throwing away the constant light
+
 if nargin > 2
     save(outfile);
 end

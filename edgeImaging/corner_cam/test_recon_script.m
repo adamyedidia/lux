@@ -1,13 +1,14 @@
 close all;
 
-datafolder = '/Users/vickieye/Dropbox (MIT)/shadowImaging/edgeImaging/data/testvideos_Jan22';
+datafolder = '/data/vision/billf/shadowImaging/edgeImaging/data/stereoDoor_Feb22';
 expfolder = fullfile(datafolder, 'experiments');
-gridfile = fullfile(datafolder, 'grid_greenscreen.MOV');
-moviefile = fullfile(datafolder, 'red_dark_greenscreen.MOV');
 resfolder = fullfile(datafolder, 'results');
-outfile = fullfile(datafolder, 'out_red_dark_greenscreen_space_all.mat');
 
-ncorners = 1; % total ncorners in the scene
+gridfile = sprintf('%s/calibration1.MP4', expfolder);
+moviefile = sprintf('%s/blue_circlewalking_paperfloor.MP4', expfolder);
+outfile = sprintf('%s/out_blue_circlewalking_paperfloor.MOV', resfolder);
+
+ncorners = 4; % total ncorners in the scene
 corner_idx = 1; % corners are saved as TL, BL, BR, TR (if more than 1)
 
 params = initParams(moviefile, gridfile, ncorners, corner_idx);

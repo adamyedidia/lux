@@ -61,7 +61,7 @@ for i = 1:nout
 
     outframes(i,:,:) = smoothSamples(cur_mean, params.smooth_up);
 end
-outframes(outframes<params.minclip) = params.minclip;
-outframes(outframes>params.maxclip) = params.maxclip;
-outframes = (outframes - params.minclip)/(params.maxclip - params.minclip);
+% outframes(outframes<params.minclip) = params.minclip;
+% outframes(outframes>params.maxclip) = params.maxclip;
+% outframes = (outframes - params.minclip)/(params.maxclip - params.minclip);
 end

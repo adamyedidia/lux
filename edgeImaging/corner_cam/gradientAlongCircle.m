@@ -5,7 +5,7 @@ end
 angles = linspace(theta_lim(1), theta_lim(2), nsamples)';
 xq = corner(1) + cos(angles) * rs;
 yq = corner(2) + sin(angles) * rs;
-% hold on; plot(xq, yq);
+% hold on; plot(xq, yq, 'y');
 [nrows, ncols, nchans] = size(frame);
 [yy, xx] = ndgrid(1:nrows, 1:ncols);
 rgbq = zeros([size(angles,1), nchans, length(rs)]);

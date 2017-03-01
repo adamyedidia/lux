@@ -1,4 +1,4 @@
-function output = getAmat(params)
+function [output, params] = getAmat(params)
 if strcmp(params.amat_method, 'interp')
     nsamples = params.nsamples;
     ncircles = length(params.rs);
@@ -14,8 +14,9 @@ if strcmp(params.amat_method, 'interp')
     amat(:,1) = 1;
     output{1} = amat;
 else % default use all pixels
-    [amat, x0, y0] = allPixelAmat(params.corner,...
+    [amat, x0, y0, maxr] = allPixelAmat(params.corner, params.framesize,...
         params.outr,params.nsamples, params.theta_lim);
+    params.outr = maxr;
     crop_idx = sub2ind(params.framesize, y0, x0);
     output{1} = amat;
     output{2} = crop_idx;

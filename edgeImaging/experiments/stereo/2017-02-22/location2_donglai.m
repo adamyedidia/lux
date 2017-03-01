@@ -49,14 +49,16 @@ for n = 1:length(names)
     
     left_angles = [angles{2}, angles{1}];
     left_floor = [outframes{2}, outframes{1}];
-    left_floor = avgRepeatColumns(left_floor, left_angles);
+    [left_floor, left_floor_angles] = avgRepeatColumns(left_floor, left_angles);
 
     right_angles = [fliplr(angles{4}), fliplr(angles{3})]; 
     right_floor = [fliplr(outframes{4}), fliplr(outframes{3})]; 
-    right_floor = avgRepeatColumns(right_floor, right_angles);
+    [right_floor, right_floor_angles] = avgRepeatColumns(right_floor, right_angles);
 
     left_scene = fliplr(left_floor);
+    left_scene_angles = fliplr(left_floor_angles);
     right_scene = fliplr(right_floor);
+    right_scene_angles = fliplr(right_floor_angles);
 
     outfile = fullfile(resfolder, strcat('out_', name, '_', params.inf_method, '_', params.amat_method, '.mat'));
     save(outfile);

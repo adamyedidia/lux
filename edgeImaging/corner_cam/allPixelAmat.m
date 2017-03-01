@@ -1,4 +1,4 @@
-function [amat, x0, y0, maxr] = allPixelAmat(corner, framesize, maxr, nsamples, thetas)
+function [amat, x0, y0, maxr, angles] = allPixelAmat(corner, framesize, maxr, nsamples, thetas)
 angles = linspace(thetas(1), thetas(2), nsamples);
 % angles = 0.5 * (angles(1:end-1) + angles(2:end)); % midpoint angles
 % make x and y grid in the right direction, grid goes out from the corner

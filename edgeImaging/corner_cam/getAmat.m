@@ -1,4 +1,4 @@
-function [output, params] = getAmat(params)
+function [output, angles, params] = getAmat(params)
 if strcmp(params.amat_method, 'interp')
     nsamples = params.nsamples;
     ncircles = length(params.rs);
@@ -12,10 +12,12 @@ if strcmp(params.amat_method, 'interp')
         amat(si:ei,2:end) = tril(ones(nsamples));
     end
     amat(:,1) = 1;
+    [~, angles] = gradientAlongCircle(ones(params.framesize),...
+        params.corner, params.rs, params.nsamples, params.theta_lim);    
     output{1} = amat;
 else % default use all pixels
-    [amat, x0, y0, maxr] = allPixelAmat(params.corner, params.framesize,...
-        params.outr,params.nsamples, params.theta_lim);
+    [amat, x0, y0, maxr, angles] = allPixelAmat(params.corner,...
+        params.framesize, params.outr,params.nsamples, params.theta_lim);
     params.outr = maxr;
     crop_idx = sub2ind(params.framesize, y0, x0);
     output{1} = amat;

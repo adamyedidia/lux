@@ -1,6 +1,6 @@
 function [y, nanrows] = getObsVec(frame, params)
 if strcmp(params.amat_method, 'interp')
-    [rgbq, ~] = gradientAlongCircle(frame, params.corner, ...
+    rgbq = gradientAlongCircle(frame, params.corner, ...
         params.rs, params.nsamples, params.theta_lim);
     
     rgbq = permute(rgbq, [1, 3, 2]); % rgbq is nsamples x nchans x length(rs)

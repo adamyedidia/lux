@@ -21,7 +21,7 @@ params.sub_mean = 1;
 params.downlevs = 2;
 params.filt = binomialFilter(5);
 
-params.smooth_up = 3;
+params.smooth_up = 1;
 params.start = 120*5;
 params.step = 5;
 

@@ -1,4 +1,4 @@
-function [rgbq, diffs] = gradientAlongCircle(frame, corner, rs, nsamples, theta_lim)
+function [rgbq, angles, diffs] = gradientAlongCircle(frame, corner, rs, nsamples, theta_lim)
 if size(rs, 1) ~= 1 % not a row vector
     rs = rs';
 end

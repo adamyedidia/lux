@@ -12,8 +12,8 @@ addpath(genpath(fullfile(edgesdir, 'utils', 'pyr')));
 % init params
 params.inf_method = 'kalman_smoothing';
 params.amat_method = 'interp';
-params.nsamples = 50;
-params.rs = 10:2:30;
+params.nsamples = 200;
+params.rs = 4:2:30;
 params.outr = 50;
 params.theta_lim = [pi/2, 0];
 
@@ -28,7 +28,7 @@ params.downlevs = 2;
 params.filt = binomialFilter(5);
 
 params.smooth_up = 1;
-params.start = 60*5;
+params.start = 120*5;
 params.step = 5;
 
 params.minclip = 0;

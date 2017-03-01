@@ -38,7 +38,7 @@ all_obs = zeros([size(amat,1), nchans, nout]);
 rmat = params.lambda * eye(size(amat,1)); % independent pixel noise
 qmat = params.alpha * eye(size(amat,2)); % independent process noise
 
-outframes = zeros([nout, (size(amat,2)-1)*params.smooth_up+1, nchans]);
+outframes = zeros([nout, (size(amat,2)-2)*params.smooth_up+1, nchans]);
 tic;
 
 for i = 1:nout
@@ -108,7 +108,7 @@ for i = 1:nout
 end
 
 for i = 1:nout
-    outframes(i,:,:) = smoothSamples(out_mean(:,:,i), params.smooth_up);
+    outframes(i,:,:) = smoothSamples(out_mean(2:end,:,i), params.smooth_up);
 end
 
 % outframes(outframes<params.minclip) = params.minclip;

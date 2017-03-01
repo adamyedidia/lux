@@ -36,7 +36,7 @@ pred_cov = repmat(prior_cov, [1, 1, 3]);
 rmat = params.lambda * eye(size(amat,1)); % independent pixel noise
 qmat = params.alpha * eye(xdim); % independent process noise
 
-outframes = zeros([nout, (size(amat,2)-1)*params.smooth_up+1, nchans]);
+outframes = zeros([nout, (size(amat,2)-2)*params.smooth_up+1, nchans]);
 tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
@@ -59,7 +59,7 @@ for i = 1:nout
     end
     toc;
 
-    outframes(i,:,:) = smoothSamples(cur_mean, params.smooth_up);
+    outframes(i,:,:) = smoothSamples(cur_mean(2:end,:), params.smooth_up);
 end
 % outframes(outframes<params.minclip) = params.minclip;
 % outframes(outframes>params.maxclip) = params.maxclip;

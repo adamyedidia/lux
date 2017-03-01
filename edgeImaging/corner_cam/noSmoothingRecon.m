@@ -19,7 +19,7 @@ else
 end
 
 nout = length(frameidx);
-outframes = zeros([nout, (size(amat, 2)-1)*params.smooth_up+1, nchans]);
+outframes = zeros([nout, (size(amat, 2)-2)*params.smooth_up+1, nchans]);
 tic;
 for i = 1:nout
     n = frameidx(i); % using the nth frame
@@ -34,7 +34,7 @@ for i = 1:nout
         out(:,c) = (amat'*amat/params.lambda)\(amat'*y(:,c)/params.lambda);
     end
     toc;
-    outframes(i,:,:) = smoothSamples(out, params.smooth_up);
+    outframes(i,:,:) = smoothSamples(out(2:end,:), params.smooth_up);
 end
 % outframes(outframes<params.minclip) = params.minclip;
 % outframes(outframes>params.maxclip) = params.maxclip;

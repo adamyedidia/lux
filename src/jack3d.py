@@ -1,15 +1,15 @@
 from __future__ import division
-from math import sqrt, pi, sin, cos, cosh, sinh, acosh, asinh
+from math import sqrt, pi, sin, cos, acos, cosh, sinh, acosh, asinh
 import numpy as np
 import matplotlib.pyplot as p
 import random
 from scipy.optimize import fmin_bfgs
 
-TIME_STEP = 0.03
+TIME_STEP = 0.1
 MIN_TIME = 1.
 MAX_TIME = 20.
 
-SPACE_EPS = 0.003
+SPACE_EPS = 0.01
 DIV0_EPS = 1e-7
 
 TIME_LIGHT_ARRAY = [0.] * int(MAX_TIME/TIME_STEP - MIN_TIME/TIME_STEP)
@@ -314,6 +314,7 @@ def cumulativeAddToTimeLightArray(time, lightAmount):
             TIME_LIGHT_ARRAY[index] += lightAmount
 
 def plotTimeLightArray(filename):
+    p.figure(1)
     p.clf()
     p.plot([i*TIME_STEP for i in range(int(MIN_TIME/TIME_STEP), int(MAX_TIME/TIME_STEP))], TIME_LIGHT_ARRAY)
     p.savefig(filename)
@@ -400,12 +401,22 @@ def plotTimeLightArrayAndApproximationNoBigT(approxFuncList, fileName):
 
         for rawT in range(int(MIN_TIME/TIME_STEP),int(MAX_TIME/TIME_STEP)):
             t = rawT*TIME_STEP
-            tlaApprox.append(approxFunc(t))
+
+            approxT = approxFunc(t)
+
+#            print t, approxT
+            tlaApprox.append(approxT)
+
             tApprox.append(t)
 
+
+
+        p.figure(1)
         p.plot(tApprox, tlaApprox, decoration)
 
+    p.figure(1)
     p.savefig(fileName)
+#    p.savefig("the_triangle_2.png")
     p.show()
 
 def plotArray(array):
@@ -1146,6 +1157,47 @@ def computeK(xd, v0, v1, t):
 
     xDestDiff = 2*x0-xd
     xd2x0xd = xd*xDestDiff
+    xDiffProd = xDiff*xDestDiff
+
+    normSquared = xDiff*xDiff + yDiff*yDiff + zDiff*zDiff
+    tSquaredNormSquared = t*t*normSquared
+
+    num1 = -xDestDiff*xd*xd
+    num2 = t*t*(xDiffProd - 2*(y0*y0-y0*y1 + z0*(z0-z1)))
+
+# (4 (x0 - x1) (2 x0 - xd) xd^2 +
+#  t^2 (-4 (x0 - x1) (2 x0 - xd) - 8 (y0^2 - y0 y1 + z0 (z0 - z1))))^2
+    radSq1 = 4*num1
+    radSqSum1 = 4*xDiffProd
+    radSqSum2 = -8*(y0*y0 - y0*y1 - z0*zDiff)
+    radSqPrep = radSq1 + t*t*(radSqSum1 + radSqSum2)
+    radSq = radSqPrep*radSqPrep
+
+    rad1Prod1 = t**4 + xd2x0xd*xd2x0xd
+    rad2Prod1 = -2*t*t*(2*x0*x0 - xd2x0xd + 2*(y0*y0 + z0*z0))
+    radProd2 = -xDiff*xDiff*xd*xd + tSquaredNormSquared
+    radProd = 16*(rad1Prod1 + rad2Prod1)*radProd2
+
+    num = num1 + num2 - sqrt(radSq + radProd)/4.
+    denom = 2*radProd2
+
+    return -num/denom
+
+# I think this is wrong? Must have been a mathematica bug
+def computeKOld(xd, v0, v1, t):
+    x0 = v0[0]
+    x1 = v1[0]
+    y0 = v0[1]
+    y1 = v1[1]
+    z0 = v0[2]
+    z1 = v1[2]
+
+    xDiff = x1-x0
+    yDiff = y1-y0
+    zDiff = z1-z0
+
+    xDestDiff = 2*x0-xd
+    xd2x0xd = xd*xDestDiff
 
     xDiffProd = xDiff*xDestDiff
     yDiffProd = yDiff*2*y0
@@ -1174,12 +1226,12 @@ def computeK(xd, v0, v1, t):
 #            rad1Square = num1
     radSquare = numSum*numSum
 
-    num = numSum + sqrt(radProd + radSquare)
+    num = numSum - sqrt(radProd + radSquare)
 
     return num / (2*radProd2)
 
 def getPointFromK(k, v0, v1):
-    return v0 + k*(v0-v1)
+    return v0 + k*(v1 - v0)
 
 def getDistanceBetweenPoints(v0, v1):
     return np.linalg.norm(v0-v1)
@@ -1279,19 +1331,159 @@ def lineResponse(xd, v0, v1, lineNormal, detectorNormal):
         leg1ipp = bounceFactor(source, pointFromK, lineNormal)
         leg2ipp = bounceFactor(pointFromK, detector, detectorNormal)
 
+#        print t, leg2ipp, pointFromK, detector, detectorNormal, v0, v1
+
         return numPaths * leg1ipp * leg2ipp
 
     return approxFunc
 
-def triangleResponse(xd, v0, v1, v2, detectorNormal):
+# test if 0 < k <= 1
+def testForBoundedness(k):
+    if k <= 0:
+        return False
+    if k > 1:
+        return False
+    return True
+
+def distance(v1, v2):
+    return np.linalg.norm(v1-v2)
+
+# it is assumed that the triangle is well-behaved (no edge interaction)
+# that v0, v1, v2 are in increasing order of distance
+def triangleResponse(xd, triangle, detectorNormal):
     def approxFunc(t):
         source = np.array([0,0,0])
         detector = np.array([xd,0,0])
+
+        if t < distance(source, triangle.v0) + distance(triangle.v0, detector):
+            return 0.
+
+        elif t < distance(source, triangle.v1) + distance(triangle.v1, detector):
+            b12 = False
+            b01 = True
+            k01 = computeK(xd, triangle.v0, triangle.v1, t)
+
+        elif t < distance(source, triangle.v2) + distance(triangle.v2, detector):
+            b12 = True
+            b01 = False
+            k12 = computeK(xd, triangle.v1, triangle.v2, t)
+
+        else:
+            return 0.
+
+
+        k02 = computeK(xd, triangle.v0, triangle.v2, t)
+
+
+        pointVec02 = getPointFromK(k02, triangle.v0, triangle.v2)
+
+        if False:
+            pointVec01 = getPointFromK(k01, triangle.v0, triangle.v1)
+            midpoint = (pointVec01 + pointVec02) / 2
+            vecFrom02To01 = pointVec01 - pointVec02
+            perpVec = np.cross(vecFrom02To01, triangle.normalVector)
+#            print "perpvec", perpVec
+#            print midpoint, midpoint + perpVec
+
+
+            if distance(midpoint + perpVec, source) + \
+                distance(midpoint + perpVec, detector) > \
+                distance(perpVec, source) + distance(perpVec, detector):
+                    perpVec = -perpVec
+
+            kMidpoint = computeK(xd, midpoint, midpoint + perpVec, t)
+            centralPoint = getPointFromK(kMidpoint, midpoint, midpoint + perpVec)
+            totalLength = distance(pointVec02, centralPoint) + \
+                distance(centralPoint, pointVec01)
+
+            lineResp = lineResponse(xd, midpoint, centralPoint,
+                triangle.normalVector, detectorNormal, False)(t)
+
+            p.figure(2)
+            p.plot(pointVec02[1], pointVec02[2], "go")
+            p.plot(centralPoint[1], centralPoint[2], "go")
+            p.plot(pointVec01[1], pointVec01[2], "go")
+
+
+            print kMidpoint, lineResp, totalLength, pointVec02, centralPoint, \
+                pointVec01, "01"
+
+            return totalLength * lineResp / SPACE_EPS
+
+        if b01:
+            pointVec01 = getPointFromK(k01, triangle.v0, triangle.v1)
+            midpoint12 = (triangle.v1 + triangle.v2) / 2
+#            midpoint12 = (pointVec01 + pointVec02) / 2
+            kMidpoint = computeK(xd, triangle.v0, midpoint12, t)
+            centralPoint = getPointFromK(kMidpoint, triangle.v0, midpoint12)
+            totalLength = distance(pointVec02, centralPoint) + \
+                distance(centralPoint, pointVec01)
+
+            lineResp = lineResponse(xd, triangle.v0, midpoint12,
+                triangle.normalVector, detectorNormal)(t)
+
+            p.figure(2)
+            p.plot(pointVec02[1], pointVec02[2], "go")
+            p.plot(centralPoint[1], centralPoint[2], "go")
+            p.plot(pointVec01[1], pointVec01[2], "go")
+
+            vec1 = midpoint12 - triangle.v0
+            vec2 = pointVec01 - pointVec02
+            angleBetween = acos(np.dot(normalize(vec1), normalize(vec2)))
+
+            print kMidpoint, lineResp, totalLength, pointVec02, centralPoint, \
+                pointVec01, "01"
+
+            return totalLength * lineResp * abs(sin(angleBetween)) / SPACE_EPS
+
+        elif b12:
+            pointVec12 = getPointFromK(k12, triangle.v1, triangle.v2)
+            midpoint01 = (triangle.v0 + triangle.v1) / 2
+#            midpoint01 = (pointVec12 + pointVec02) / 2
+            kMidpoint = computeK(xd, midpoint01, triangle.v2, t)
+            centralPoint = getPointFromK(kMidpoint, midpoint01, triangle.v2)
+            totalLength = distance(pointVec02, centralPoint) + \
+                distance(centralPoint, pointVec12)
+
+            lineResp = lineResponse(xd, midpoint01, triangle.v2,
+                triangle.normalVector, detectorNormal)(t)
+
+            p.figure(2)
+            p.plot(pointVec02[1], pointVec02[2], "co")
+            p.plot(centralPoint[1], centralPoint[2], "co")
+            p.plot(pointVec12[1], pointVec12[2], "co")
+
+            vec1 = triangle.v2 - midpoint01
+            vec2 = pointVec12 - pointVec02
+            angleBetween = acos(np.dot(normalize(vec1), normalize(vec2)))
+
+            print kMidpoint, lineResp, totalLength, pointVec02, centralPoint, \
+                pointVec12, "12"
+
+            return totalLength * lineResp * abs(sin(angleBetween)) / SPACE_EPS
+
+    return approxFunc
 
 def doLineExperiment():
     # xs = 0. (ASSUMED WLOG)
     # ys = 0. (ASSUMED WLOG)
     # zs = 0. (ASSUMED WLOG)
+
+#    v0 = np.array([1,1,1])
+#    v1 = np.array([1,2,2])
+#    v2 = np.array([3,2,3])
+
+    v0 = np.array([2,1,1])
+    v1 = np.array([2,-1,3])
+    v2 = np.array([2,1,5])
+
+    triangle = Triangle(v0, v1, v2)
+
+    targetLineStartLocation = v0
+    targetLineStopLocation = (v1+v2)/2
+
+    targetLineNormalVec = triangle.normalVector
+
 
     xd = 1. #+0.5*SPACE_EPS
     # yd = 0. (ASSUMED WLOG)
@@ -1302,10 +1494,10 @@ def doLineExperiment():
 
     detectorNormalVec = np.array([0.,0.,1.])
 
-    targetLineStartLocation = np.array([3.,0.,0.])
-    targetLineStopLocation = np.array([3.,5.,5.])
+#    targetLineStartLocation = np.array([3.,0.,0.])
+#    targetLineStopLocation = np.array([3.,5.,5.])
 
-    targetLineNormalVec = np.array([0.,0.,-1.])
+#    targetLineNormalVec = np.array([0.,0.,-1.])
 
     targetLine = LineSegment(targetLineStartLocation, targetLineStopLocation, \
         targetLineNormalVec)
@@ -1364,11 +1556,20 @@ def doTriangleExperiment():
 
     detectorNormalVec = np.array([0.,0.,1.])
 
-    v0 = np.array([1,1,1])
-    v1 = np.array([1,2,2])
-    v2 = np.array([3,2,3])
+    v0 = np.array([5,1,1])
+    v1 = np.array([5,-1,3])
+    v2 = np.array([5,1,5])
+
+    print "0:", distance(sourcePoint.vec, v0) + distance(v0, detectorPoint.vec)
+    print "1:", distance(sourcePoint.vec, v1) + distance(v1, detectorPoint.vec)
+    print "2:", distance(sourcePoint.vec, v2) + distance(v2, detectorPoint.vec)
 
     triangle = Triangle(v0, v1, v2)
+
+    p.figure(2)
+    p.plot([v0[1], v1[1]], [v0[2], v1[2]], "k-")
+    p.plot([v0[1], v2[1]], [v0[2], v2[2]], "k-")
+    p.plot([v1[1], v2[1]], [v1[2], v2[2]], "k-")
 
     trianglePoints = triangle.getListOfPoints()
 
@@ -1389,7 +1590,12 @@ def doTriangleExperiment():
         if i % 10000 == 0:
             print i
 
-    plotTimeLightArray("triangle_response.png")
+    plotTimeLightArrayAndApproximationNoBigT([(triangleResponse(xd, \
+        triangle, detectorNormalVec), "r-")], "triangle_response.png")
+
+    p.figure(2)
+    p.show()
+    p.savefig("the_triangle.png")
 
 def computeL1TLADiff(candidateTLA):
     diffTLA = [abs(i-j)**1.0 for i, j in zip(candidateTLA, TIME_LIGHT_ARRAY)]
@@ -1617,6 +1823,25 @@ def gradientDescent(errorFunc, guess, tolerance, learnRate, candidateTLAFunc):
 #    p.plot(point.x, point.y, "bo")
 
 #p.show()
+
+#xd = 1
+
+#source = np.array([0,0,0])
+#detector = np.array([xd,0,0])
+#
+#v0 = np.array([4,2,2])
+#v1 = np.array([5,2,8])
+
+#t0 = distance(source, v0) + distance(v0, detector)
+#t1 = distance(source, v1) + distance(v1, detector)
+
+#k0 = computeK(xd, v0, v1, t0)
+#k1 = computeK(xd, v0, v1, t1)
+
+
+#print k0, k1
+
+#doLineExperiment()
 
 doTriangleExperiment()
 

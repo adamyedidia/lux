@@ -167,8 +167,8 @@ class Room:
         for _ in range(numCircles):
             self.addRandomCircle(radius)
 
-if False:
-#if __name__ == "__main__":
+#if False:
+if __name__ == "__main__":
 
     room = Room(10)
     room.addManyRandomCircles(5, 2)

@@ -1,0 +1,80 @@
+1) Although it's often invisible to the naked eye, in many environments, light from a hidden scene is scattered over observable surfaces.  
+
+2) For instance, imagine looking at a corner at the base of a wall's edge. Although the wall prevents you from seeing the scene to the right of the corner, you may notice a gradient of light on the ground. This gradient is called a penumbra. 
+
+3) The penumbra is actually caused by the light coming from the obscured scene. In this case, a bright window in the hidden scene causes this phenomenon to be very apparent. 
+
+4) But what happens if the scene starts to change, perhaps because people are moving?
+
+5) In this work, we demonstrate how to interpret these subtle changes in the penumbra and use them as a ``camera'' to see into the scene behind the corner.  
+
+6) To show how to use the penumbra to recover the hidden scene, let's take a look at a simple example.
+
+7) Imagine two people - one red and one blue - hidden behind a wall. If you were standing with your shoulder up against the wall, you wouldn't see any of the scene behind the corner. 
+
+8) But if you were to slowly move away from the wall, walking in a circle about the corner, you would see more and more of the scene. 
+
+9) Eventually, the hidden scene comes fully into view. 
+
+10) Just as you would see different parts of the scene standing at different positions around the wall's edge, different points on the ground reflect the integrated light from different parts of the hidden scene. The presence or absence of a person in the scene can make a difference of about a tenth of a percent in the reflected light from the ground. This is very difficult to notice by simple observation.
+
+11) But by recording the penumbra from afar, and averaging over space or time, we are able to pull out these tiny changes in the reflected light, and use it to generate a 1-dimensional movie of the changes in the hidden scene over time.
+
+12) Note that in this movie, we are able to reconstruct the angular position of the blue and red people just by looking at the color changes in the light reflected from around the corner. 
+
+13) Also notice that we accurately identify that the blue person walks in front of the red person three times before the red person walks in front of blue. For this experiment, we used a bright light to illuminate the scene, which gives us an unusually strong signal; we use this artificial scenario illustratively. In our other experiments, we used the light naturally present in the scene, without artificially introducing a bright light.
+
+14) These 1D videos not only tell us the position of the people behind the corner, but also tells us the speed and manner of their movement. From the width of each person's path, they can also potentially tell us the peoples' sizes or distances from the corner. And, of course, we can easily count the number of people.
+
+15) For instance, here we show reconstructions using the same corner, but when 1 versus 2 people are hidden. 
+
+16) We have demonstrated that our method works in both indoor and outdoor well-lit environments, 
+
+17) It also works with a variety of ground surface, such as concrete and carpet shown here
+
+18) We are even able to reconstruct a video of a hidden scene while it's raining!
+
+
+============
+
+19) The ability to see around obstructions could prove valuable in a wide range of applications.
+
+20) Our method can be used even when the camera is very far away, such as in this video. 
+
+21) This could help to remotely sense occupants in a difficult to access room, such as during search and rescue operations. 
+
+22) Additionally, this method may help us in detecting oncoming vehicles and/or pedestrians for collision avoidance systems. 
+
+23) Here we show how we are able to detect a young girl before she darts out into the street. 
+
+24) Cars could use this idea to avoid potential tragedy.
+
+=======
+
+25) The width of a track recovered from an edge camera often gives some indication of a hidden person's distance from the corner, which could be used to crudely estimate their 2-dimensional position. 
+
+26) However, what if the hidden scene were behind a doorway? Could we learn anything more?
+
+27) An open doorway consists of 2 walls. 
+
+28) Each wall of the doorway can be thought of as two adjacent edge cameras, whose combined reconstructions create a 180-degree view of a hidden scene.
+
+29) So, suppose there was a person hidden behind the open doorway. The two sides of the doorway would provide two views of the same hidden scene, but from different positions. 
+
+30) This would cause an offset in the projected angular position, which we could use to infer their position in two-dimensional space.
+
+32) We illustrate this idea with someone moving behind a doorway with a flashlight. 
+
+33) The moving flashlight  causes a very obvious line on the floor, which is the shadow cast by the wall's edge.
+
+35) In fact, the lines that form at the base of each wall will intersect in the hidden scene at the person's position. This illustrates how we use stereo vision to locate a subject in two-dimensional space.
+
+38) Here, we use this approach in a natural scenario, in which a subject is walking in a room beyond a doorway. Although our results are prone to error due to miscalibrations, in this example, we are able to recover the roughly circular pattern the subject is making as they walk around the room. 
+
+
+==========
+
+39) Thank you! 
+
+40) Please see our additional supplementary video for more results.
+

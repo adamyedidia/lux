@@ -1,0 +1,154 @@
+\documentclass[11pt]{article}
+
+\usepackage{graphicx}
+\usepackage{csquotes}
+\usepackage{courier}
+\setcounter{secnumdepth}{4}
+
+\title{The Glitter Camera}
+\author{Adam Yedidia}
+
+\begin{document}
+    
+\maketitle
+
+This is a writeup which documents both the idea of the glitter camera, including its full potential as an idea beyond what's yet been tested, and what experiments have already been run along with their results.
+
+\section{Core idea}
+
+The basic idea is as follows: if we want to see around an occluder, might it be possible to do so by introducing something into the environment that makes the problem easier? Ideally, whatever is being introduced for this purpose would have the following properties:
+
+\begin{enumerate}
+    \item Aerosolized (will stay in the air for a long time)
+    \item Inconspicuous
+    \item Nontoxic
+    \item Cheap
+    \item Useful
+\end{enumerate}
+
+Water droplets, one of the first ideas along these lines, handily achieves the first four properties listed. However, as will be discussed later, their usefulness is limited, at least compared to glitter flakes, which are the focus of this writeup.
+
+\subsection{Ideal scenario}
+
+Figure~\ref{fig:idealsetup} shows the setup to the ideal scenario: there is a house hidden behind an occluder. The user, wanting to image the house, spreads a beam, which hits a cloud of glitter flakes. The glitter flakes are presumed to be numerous enough to send some of the light in a large number of different directions. The light source and the detector are in the same location in this setup. The detector is presumed to be a camera with both many pixels and decent temporal resolution; the SPAD (a 32 $\times$ 32-pixel time of flight camera with a temporal resolution around 100$ps$) is a reasonable candidate for the job.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.4]{figs/idealsetup.png} 
+\caption{The scene of interest is the house on the right; in order to image the house from behind the occluder, we fire a laser through a beam-spreader. Some of the light reflects off the glitter and hits the house. \label{fig:idealsetup}}
+\end{center}
+\end{figure}
+
+We assume each glitter flake is a dirty mirror: this means that it will reflect a substantial fraction of the incoming light in a specular manner (at the angle reflected from the incoming angle) and a substantial fraction of the incoming light in a diffuse manner (in all directions, proportional to the cosine of the outgoing angle from the flake's normal). We also assume that the scene will reflect a substantial fraction of the incoming light in a diffuse manner.
+
+In general, we can approximate the order-of-magnitude strength of a light-return as the number of light diffusions that take place along the light's path. For example, a laser that is pointed directly at a detector---or a laser that is pointed directly at a detector via a reflection off of a mirror---has a strength of 0 light diffusions and is very strong. The light from a laser that is pointed at a wall that is within line of sight of the detector has a strength of 1 diffusion. And so on, with more and more diffusions leading to weaker and weaker light.
+
+Assuming the setup shown in Fig.~\ref{fig:idealsetup}, the strongest consistent returns are going to be 2-diffusion returns. There are two consistent returns of this type: the ``first returns'' and the ``second returns.'' The first return's path will be through the diffuser and then will hit a flake and bounce directly back to the to the camera. For this path, the first diffusion is from the diffuser; the second is from the diffuse reflection off of the flake. The second return's path will be through the diffuser and then will hit a flake and hit a part of the scene. From there, it will come directly back the way it came. For this path, the first diffusion is from the diffuser; the second is from the diffuse reflection off of the scene.
+
+There is the possibility of inconsistent 1-diffusion returns. This generally involves the flakes being in particular orientations that lead to degeneracy. The simplest such possibility is a flake pointing directly back at the camera; another possibility is a two-flake interaction in which the light returns to the camera after two specular bounces between flakes within the cloud, with no diffuse bounces.
+
+It's likely that occasionally, such degeneracies will occur, and the resulting light will be strong enough to dwarf any other returns (especially if they happen before the other returns, in which case the camera will enter its cooldown on nearly every cycle). The blinding light will hopefully only happen to a small fraction of the receiving pixels at any given time, however---making the idea still plausible.
+
+\subsection{Scene Recovery Procedure}
+
+How do we recover a scene from these returns? We make use of the information contained in both returns to learn about parts of the scene.
+
+Let's assume, for the time being, that there is just one flake of glitter. We hope to be able to reconstruct a small part of the scene from the returning information from that flake. 
+
+The light that hits the flake, hits the scene, hits the flake, and returns to the camera will follow a path that bends once and returns the way it came. If we can reconstruct the geometry of the path (where the entire path lies in 3D space), we will be able to recover the location of a part of the scene that reflects light (and is therefore opaque).
+
+The path has two legs, separated by a ``joint'' in the middle. Here is how we can recover each part of the path, to learn its full structure:
+
+\begin{enumerate}
+    \item The full 3D angle from the camera of the first leg can be recovered from which of the camera's pixels receives the light.
+    \item The length of the first leg can be recovered from the time of the first return.
+    \item The from-center angle\footnotemark of the first leg to the second leg can be recovered from the intensity of the first return.
+    \item The azimuthal angle\footnotemark of the first leg to the second leg can be recovered from the polarization of the second return.
+    \item The length of the second leg can be recovered from the time of the second return.
+    \item The combined reflectivity and angle-from-normal of the located part of the scene can be recovered from the intensity of the second return.
+\end{enumerate}
+
+\footnotetext{A 3D angle can be described in terms of two 2D angles: a \emph{from-center} angle and an \emph{azimuthal} angle. See Fig~\ref{fig:angles} for more details on those angles.}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.4]{figs/angles.png} 
+\caption{The two 2D angles that make up the full 3D angle. The from-center angle can be recovered from the intensity of the first return; this is because the diffuse reflection will be stronger when the normal of the flake is closer to the incoming ray of light. The azimuthal angle can be recovered from the polarization of the second return; this is because a specular reflection off of a glass-like surface will polarize light perpendicular to the surface's normal.  \label{fig:angles}}
+\end{center}
+\end{figure}
+
+Now, what happens when there are many of these glitter flakes? Well, given that our camera has many pixels, hopefully some of the pixels will be receiving light from just one flake. We can recognize this situation from the characteristic two-peak light returns that will result. From each such pixel, we will be able to recover a location of a part of the scene, along with a corresponding reflectivity. Hopefully, by gathering many such samples over a large number of pixels, over a long period of time (during which the flakes will change orientations and locations) we can recover enough little parts of the scene to get a good picture of the entire scene by simply connecting the dots.
+
+What about pixels that receive light from more than one flake at once? Well, the information that comes back is surely still useful for something. In theory, we'd expect to see four peaks, but we won't be able to properly pair first returns with second returns without some ambiguity as to which return matches with which. This could be the basis for an interesting inference problem, but I haven't given much thought to how to solve it yet. 
+
+For the time being, we can proceed assuming we'll simply throw away the information from all such pixels, and hope that we get enough out of the well-behaved pixels to do good recovery. This will become a serious problem if we end up using many more flakes than the camera has pixels, of course (since almost all pixels will be imaging from many flakes!).
+
+\section{Assumptions}
+
+This is a list of assumptions, in no particular order, that I am making in order to posit that this idea will work. In time, we will hopefully verify each of these assumptions via experiment.
+
+Naturally, this is not an exhaustive list of assumptions---unavoidably, ideas fail all the time for unforeseen reasons. But this is an attempt to be as exhaustive as possible, so as to minimize the chance of that happening. Here goes:
+
+\begin{enumerate}
+    \item A light reflecting off of a glitter flake to hit a scene will produce a characteristic two-peak response.
+    \item Making the flake farther from the laser/detector will cause both peaks to be further out in time.
+    \item Making the scene farther from the flake will will cause the second peak to be further out in time.
+    \item Rotating the flake to be at a more glancing angle from the laser's beam will cause the first peak to become weaker in intensity.
+    \item The light from the second return will be polarized perpendicular to the flake's normal.
+    \item 2-diffusion inter-flake interactions (such as laser--flake A--scene--flake B--scene) will be very weak compared to other 2-diffusion interactions.
+    \item 1-diffusion inter-flake interactions will be rare enough that at any given time, most of the camera's pixels are not blinded.
+    \item The diffused laser will be strong enough to image even distant parts of the scene.
+    \item Flakes that are pointed directly back at the camera will be rare enough that at any given time, most of the camera's pixels are not blinded.
+    \item An airborne cloud of glitter will stay in one place and orientation for long enough that intelligible returns can be recovered.
+    \item The camera and laser can be made to be lined up precisely (or the same effect can be achieved with a beam-splitter).
+    \item The glitter can be made to be large enough to be nontoxic if inhaled, without impairing its other desirable properties.
+    \item The glitter can be made to be cheap enough that the idea is practical.
+\end{enumerate}
+
+In addition to laying out these assumptions in this section, this is a good place to generally write down some interesting properties of glitter. A glitter flake has a few relevant parameters: its mass, diameter, and substance. Depending on its diameter, a flake that is in the 1-10$\mu g$ range is likely to be aerosolized. A flake with diameter of about 10-50$\mu m$ will be invisible to the human eye (unless there is a strong light source at the specular angle from the observer). Most glitter that is commercially produced is made of polyester plastic; until we verify it experimentally, we won't know if it's ``glass-like'' in the sense that light reflecting off of it is polarized (many metals, for example, do not have this property). Of course, these desired properties are in conflict with other things we may want. For example, to be inconspicuous and aerosolized, it behooves us to make glitter very small. But when we make the glitter smaller, we reduce the amount of returning power and with it the signal-to-noise ratio. We could release correspondingly more flakes of glitter, but then we would need a camera with that many more pixels, or some clever way to use the information in a pixel that receivees light from multiple flakes at once.
+
+\section{Experiments}
+
+This section will record the experiments performed so far.
+
+\subsection{Experiments A and B}
+
+Experiment A involved pointing a laser at a cluster of 800$\mu m$-diameter glitter flakes that were stuck to a piece of black adhesive construction paper. Most of these flakes were flat against the paper; a few pointed out in random directions. There were also many other flakes interspersed across the paper. The detector had a single pixel. The experimental scene was a white piece of posterboard. Fig~\ref{fig:cluster} shows a sketch of the setup. Fig~\ref{fig:cluster_results} shows the experimental results.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.4]{figs/cluster.png} 
+\caption{A sketch of the setup of experiment A. \label{fig:cluster}}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.4]{figs/cluster_results.png} 
+\caption{The results of experiment A are shown in this plot. As can be seen, there is the characteristic two-peak pattern coming from the light returning directly from the cluster of glitter, followed by the light that reflects off the cluster, hits the white posterboard, and comes back the way it came. The third cluster is from an odd reflection that hit the ceiling in the background (a red spot was visible on the ceiling during the experiment). \label{fig:cluster}}
+\end{center}
+\end{figure}
+
+In order to get a clean verification that reflections off of a single flake would behave as expected, we performed a second, very similar experiment. Experiment B involved pointing a laser at a single flake of 800$\mu m$-diameter glitter that was stuck flat against a piece of black adhesive construction paper. The detector had a single pixel, and the experimental scene was a white piece of posterboard. Fig~\ref{fig:oneflake} shows a sketch of the setup. Fig~\ref{fig:oneflake_results} shows the experimental results.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.4]{figs/oneflake.png} 
+\caption{A sketch of the setup of experiment B. \label{fig:cluster}}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.4]{figs/oneflake_results.png} 
+\caption{The results of experiment B are shown in this plot. We can see the two-peak temporal response, as expected. \label{fig:cluster}}
+\end{center}
+\end{figure}
+
+Over the course of these experiments, we also varied the distance of the flake from the camera and that of the scene from the flakes; this produced the expected changes in the temporal response. 
+
+Experiments A and B verified Assumptions 1, 2, 3, and 6. We also used a pair of 3D glasses and tried to eyeball the expected phenomenon that a specular reflection off of a glitter flake would polarize light; from our imprecise observations, it appeared to us that it was the case, but because of our unscientific setup with respect to that question, we could not verify it conclusively. 
+
+In upcoming experients, we hope to verify Assumption 4 (rotating a flake with respect to the source/detector will vary the first peak's intensity) and Assumption 5 (light reflecting off a glitter flake is polarized perpendicular to the flake's normal).
+
+\end{document}

@@ -1,0 +1,39 @@
+\documentclass[11pt]{article}
+
+\usepackage{graphicx}
+\usepackage{csquotes}
+\usepackage{courier}
+\setcounter{secnumdepth}{4}
+
+\title{Corner Location Errors}
+\author{Adam Yedidia, Vickie Ye, Katie Bouman}
+
+\begin{document}
+\maketitle
+
+One important source of error in the edge camera is the \emph{corner location error}. Corner location errors occur when the corner of the wall is erroneously chosen to be the wrong place, introducing systematic error into the scene's reconstruction.
+
+Exactly how bad are corner location errors? To answer this question, we consider the following situation: a dark scene with a single bright object. We want to find the angular position of the bright object in the scene, but we have erroneously measured the corner, which lies at $(0,0)$, to lie at $(d_x, d_y)$ instead. We can compare the true angular position $\theta$ to the reconstructed angular position $\hat{\theta}$, for a variety of different values of $\theta$, $d_x$, and $d_y$. (The radius of the measured projection plane, $r$, we set to 1).
+
+First, we study the behavior in the edge camera case. Let $d_x$ and $d_y$ be random variables drawn from Gaussian distributions with standard deviations $\sigma_x$ and $\sigma_y$. Fig.~\ref{fig:error_behavior} shows the behavior of the error as a function of $\theta$.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.6]{figs/error_behavior.png}
+\caption{This plot shows the empirical mean (in blue) plus or minus one standard deviation (in red) of the error as a function of $\theta$. Here, $\sigma_x = 10^{-4}$ and $\sigma_y = 10^{-3}$. \label{fig:error_behavior}}
+\end{figure}
+
+What about in the stereo camera case---how much error in depth estimation will corner location errors introduce? To answer this question, we presume a stereo camera setup in which there is a thin doorway between $x=0$ and $x=1$, lying along the $y=0$ line. If both corners in the doorway are subject to independent corner location errors, what is the behavior of the reconstructed $y$-coordinate of an object at as a function of its $x$-coordinate and its true $y$-coordinate? Fig.~\ref{fig:simul_depth_recon} plots the answer to this question.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.6]{figs/simul_depth_recon.png}
+\caption{This plot shows the empirical means (in blue) plus or minus one standard deviation (in red) of the reconstructed $y$-coordinate of an object as a function of its $x$-coordinate, assuming true $y$-coordinates of 1, 2, 3, and 4. Here, the two corner location errors at each of the boundaries of the doorway are independent and subject to ($\sigma_x = \sigma_y = 0.01$). \label{fig:simul_depth_recon}}
+\end{figure}
+
+
+
+
+
+
+\end{document}

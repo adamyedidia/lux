@@ -1,6 +1,7 @@
 *.0.png
 .DS_Store
 *.aux
+*.pptx
 *.log
 trash*
 src/*.png
@@ -14,12 +15,14 @@ src/right_angle_cam_figs/
 *.MOV
 *.avi
 *.png
+*.key
 *.mat
 *.fig
 *.JPG
 *.__afs*
 *.tiff
 *.mp4
+*.mpeg
 *.m4v
 *.jpeg
 *.eps

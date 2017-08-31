@@ -7,22 +7,28 @@ import matplotlib.pyplot as p
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 import pickle
+from PIL import Image
+from PIL import ImageFilter
 import sys
 
-filename = 'pokemon_video_2.m4v'
-vid = imageio.get_reader(filename,  'ffmpeg')
+#filename = 'pokemon_video_2.m4v'
+#vid = imageio.get_reader(filename,  'ffmpeg')
 
-numFrames = len(vid)
-print numFrames
+#numFrames = len(vid)
+#print numFrames
 
 makeBatches = False
+exportVideoAsListOfFrames = False
 
-def turnVideoIntoListOfFrames(vid):
+def turnVideoIntoListOfFrames(vid, firstFrame=0, lastFrame=None):
     listOfFrames = []
     numFrames = len(vid)
 
-    for i in range(int(sys.argv[1]), int(sys.argv[2])): #range(int(numFrames)): #i in range(400, 500):
-        print i, "/", numFrames
+    if lastFrame == None:
+        lastFrame = numFrames
+
+    for i in range(firstFrame, lastFrame): #range(int(numFrames)): #i in range(400, 500):
+        print i-firstFrame, "/", lastFrame - firstFrame
         im = vid.get_data(i)
         frame = np.array(im).astype(float)
         listOfFrames.append(frame)
@@ -71,7 +77,11 @@ def batchIntoBigFrames(listOfFrames, batchSize):
 def viewFrame(frame, magnification=1, differenceImage=False, filename=None):
     frameShape = frame.shape
 
+#    print frame, magnification
+#    print type(frame[0][0][0]), type(magnification)
     adjustedFrame = frame*magnification
+
+#    print adjustedFrame
 
     if differenceImage:
         adjustedFrame += np.full(shape=frameShape, \
@@ -80,7 +90,11 @@ def viewFrame(frame, magnification=1, differenceImage=False, filename=None):
     coercedFrame = np.minimum(np.maximum(adjustedFrame, np.zeros(frameShape)), \
         np.full(shape=frameShape, fill_value=255))
 
+    #print coercedFrame.astype(np.uint8)
+
     pylab.imshow(coercedFrame.astype(np.uint8))
+
+
 
     if filename == None:
         p.show()
@@ -101,7 +115,7 @@ def playFrameByFrame(listOfFrames):
     numFrames = len(listOfFrames)
 
     for i in range(int(numFrames)):
-        print i
+#        print i
         frame = listOfFrames[i]
     #    print np.array(im)
         viewFrame(frame)
@@ -130,3 +144,10 @@ if makeBatches:
     print len(listOfBigFrames)
     print "frames batched"
     #playFrameByFrame(listOfBigFrames)
+
+if exportVideoAsListOfFrames:
+    FILE_NAME = "smaller_movie.mov"
+    vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
+
+    listOfFrames = turnVideoIntoListOfFrames(vid)
+    pickle.dump(listOfFrames, open("short_video_pickle.p", "w"))

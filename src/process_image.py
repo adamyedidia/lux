@@ -9,13 +9,29 @@ import pickle
 EPS = 1e-9
 
 showExample = False
-test = True
+test = False
 
 def lightResponse(lightX, viewX, deltaX):
     if lightX > viewX + EPS:
         return 0
     else:
         return deltaX/(pi * sqrt(1 + (lightX + viewX)**2)**3)
+
+def lightResponseNoOcclusion(lightX, viewX, deltaX):
+    return deltaX/(pi * sqrt(1 + (lightX + viewX)**2)**3)
+
+def createGarbleMatrixFull(sideLength, maxX):
+    deltaX = maxX/sideLength
+    responseList = []
+
+    for lightXLarge in range(sideLength):
+        lightX = maxX * lightXLarge / sideLength
+        responseList.append([])
+        for viewXLarge in range(sideLength):
+            viewX = maxX * viewXLarge / sideLength
+            responseList[-1].append(lightResponseNoOcclusion(lightX, viewX, deltaX))
+
+    return np.array(responseList)
 
 def createGarbleMatrix(sideLength, maxX):
     deltaX = maxX/sideLength
@@ -32,7 +48,8 @@ def createGarbleMatrix(sideLength, maxX):
 
 def getQ(H, maxDist):
     u,s,v = np.linalg.svd(H)
-    return u, np.diag(s), v
+#    return u, np.diag(s), v
+    return u, s, v
 
 def createGarbleMatrixX(imageMat, maxX):
     return createGarbleMatrix(imageMat.shape[1], maxX)

@@ -1,0 +1,256 @@
+\documentclass[11pt]{article}
+
+\usepackage{graphicx}
+\usepackage{csquotes}
+\usepackage{courier}
+\setcounter{secnumdepth}{4}
+
+\title{On the Theory of Imaging}
+
+
+\begin{document}
+\maketitle
+
+This writeup discusses the relative theoretical merits of different occluders and their limitations.
+
+\section{General Setup}
+
+In this section, we describe the setup of the experiment. For the time being, we posit a one-dimensional scene and a one-dimensional observation plane, with a one-dimensional ``intermediate frame'' halfway in between. We presume that the observer sees the observation plane and knows the form of the intermediate frame, and must infer the scene. See Fig.~\ref{fig:scene_setup} for a picture of what the scene's setup looks like.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.6]{figs/scene_setup.png}
+\caption{The setup of the scene.}
+\label{fig:scene_setup}
+\end{figure}
+
+Once we've specified what is in the intermediate frame, we've implied a \emph{transfer matrix}, which we call $A$. $A$ describes how what is in the scene, $x$, determines what is on the observation plane, $y$. We use $x$ and $y$ as vectors representing the amount of intensity at each point in the scene and the observation plane, respectively. In a noiseless setting, we would be able to write:
+
+$$Ax = y$$.
+
+There are a few possible different scenarios worth discussing, each one corresponding to a different material in the intermediate frame. For example, the intermediate frame could be a simple occlusion pattern, or some sort of pattern of glass and mirrors, or something else altogether. We will consider each of these cases in turn. 
+
+\section{Occlusion-based patterns}
+
+\subsection{The Setup}
+
+If the intermediate frame contains a simple occluder---meaning a pattern of material that is somewhere between completely opaque and completely transparent at each point, that does not change the direction of the incoming light---then that implies a lot of constraints on the form of the transfer matrix.
+
+In order to explore the nature of these constraints, let us begin by parametrizing the scene. Let the scene $x$ have size $l$, and let it be divided into $n$ patches of size $l/n$. Moreover, let the observation plane $y$ have size $l$ as well, and let it be divided into $m$ patches of size $l/m$. 
+
+Each of the $x_i$ has some intensity given by the native intensity of the scene. (Naturally, the smaller the size of each of the $x_i$, the smaller this intensity should become.) Due to the light from the scene reaching the observation plane, each of the $y_j$ gains some intensity as well. For these $x_i$ and $y_j$, we take integer $i$ and $j$ with $0 \le i < n$ and $0 \le j < m$. We presume there is also a source of light from outside the scene, which hits all parts of the observation plane equally and does nothing but interfere with our measurements.
+
+We can describe the intermediate frame by its \emph{permittivity function}. Each part of the intermediate frame has some permittivity $p(a)$ between 0 and 1: 0 for completely opaque, and 1 for completely transparent. %See Fig.~\ref{fig:scene_setup_occluder} for what the scene setup looks like now.
+
+%\begin{figure}
+%\centering
+%\includegraphics[scale=0.6]{figs/scene_setup_occluder.png}
+%\caption{The setup of the scene when the intermediate frame is a simple occluder.}
+%\label{fig:scene_setup_occluder}
+%\end{figure}
+
+Note that because we have posited that the intermediate frame contains only a simple occluder, if we want to measure the intensity contribution to a part of the observation plane $y_j$ from a part of the scene $x_i$, we need only consider the straight-line path that the light would take from $x_i$ to $y_j$. This path passes through one part of the intermediate frame on its way there.
+
+\subsection{The Transfer Matrix}
+
+What fraction $A_{ij}$ of the light emitted from $x_i$, then, reaches $y_j$? We assume each patch in the scene emits light uniformly across the semi-circle pointed directly downward. If we say that the patch $x_i$ has total light intensity $I_{x_i}$, and size $l/n$, then each little piece $dx$ of the patch $x_i$ has light density $I_{x_i} n/l$. If we then define the vertical offset between $x_i$ and $y_j$ to be $h$, and take $x_{li}$ and $y_{lj}$ to be the left boundaries of the patches $x_i$ and $y_j$, respectively, the amount of light $L_{ij}$ emitted by $x_i$ that reaches $y_j$ is given by:
+
+%\begin{equation}
+%    F_{ij} = \frac{\Delta x d}{\pi (d^2 + f^2)}.
+%\end{equation}
+
+%\begin{equation}
+    
+%    L_{ij} = \int_{x_{li}}^{x_{li} + \frac{l}{n}} \int_{y_{lj}}^{y_{lj} + \frac{l}{m}} I_{x_i} \frac{n}{l} \frac{d \cdot t(\frac{x+y}{2})}{\pi (d^2 + (y - x)^2)} dy dx
+    
+%\end{equation}    
+ 
+\begin{equation}
+    L_{ij} = \int_{x_{li}}^{x_{li} + \frac{l}{n}} \int_{y_{lj}}^{y_{lj} + \frac{l}{m}} I_{x_i} \frac{n}{l} \frac{h \cdot t(\frac{x+y}{2})}{\pi (h^2 + (y - x)^2)} dy dx
+\end{equation} 
+    
+
+So we can get the fraction $A_{ij}$ of the light emitted from $x_i$ that reaches $y_j$ simply by dividing by $I_{x_i}$.
+        
+
+\begin{equation}
+    A_{ij} = \int_{x_{li}}^{x_{li} + \frac{l}{n}} \int_{y_{lj}}^{y_{lj} + \frac{l}{m}} \frac{n}{l} \frac{h \cdot t(\frac{x+y}{2})}{\pi (h^2 + (y - x)^2)} dy dx
+\end{equation}    
+    
+
+
+
+%This is the angle subtended by the patch $d$. In the equation above, $\Delta x$ represents the size of the patch $x_i$. We can fill in some of these values in terms of the parameters of the setup. In particular, $\Delta x = \frac{l}{n}$ and $f = |i+j-n+1|\frac{l}{n}$. Once we plug in these values, the new expression becomes:
+
+%\begin{equation}
+%    \label{eq:fij}
+%    F_{ij} = \frac{\frac{l}{n} d}{\pi (d^2 + (i+j-n+1)^2\frac{l^2}{n^2}))}
+%\end{equation}
+
+%Of course, this is just the fraction of the light that would follow this path. But we know that the intermediate frame blocks some fraction of the light. So the true intensity contribution of a unit of intensity at $x_i$ to the intensity at $y_j$ is given by:
+
+%\begin{equation}
+%    A_{ij} = a_{i-j} F_{ij}.
+%\end{equation}
+
+This is how we can determine the entries of the transfer matrix $A$.
+
+%First, an interesting observation about this setup: if $d >> l$---that is, if the scene and observation plane are very far away from each other---then in the expression for $A_{ij}$ shown in Eq.~\ref{eq:fij}, the second term in the denominator, $(i+j-n+1)^2\frac{l^2}{n^2} < l^2$, and so must be much less than $d^2$, so we can ignore it entirely. This simplifies the expression for $F_{ij}$ greatly, and it becomes:
+
+%\begin{equation}
+%    \label{eq:fijff}
+%    F_{ij} = \frac{l}{\pi nd}.
+%\end{equation}
+
+%The assumption that $d >> l$ is used frequently in imaging and is called the \emph{far-field assumption} or \emph{far-field approximation}. In this case, it gives us something quite useful. Note that in the simplified expression for $F_{ij}$ under the far-field assumption, $F_{ij}$ is constant in $i$ and $j$. Because $A_{ij}$ depends only on $a_{i-j}$ and on $F_{ij}$, this tells us that $A_{ij} = A_{km}$ for any $i$, $j$, $k$, and $m$ such that $i-j = k-m$. This is the definition of a Toeplitz matrix; as such, we know that $A$ is Toeplitz in this case.
+
+\subsection{The Mutual Information Upper Bound}
+
+Suppose we have a Gaussian channel, with $x$ being a vector of random variables whose entries are drawn i.i.d. from a Gaussian distribution with mean 0 and variance $s$. Suppose that we have $y = Ax + \eta$, where the noise vector $\eta$ is also drawn i.i.d from a Gaussian distribution, this one with mean 0 and variance $\sigma^2$. What is the mutual information between $x$ and $y$? In other words, how many bits of information to we learn about $x$ when we learn $y$ (or vice-versa)?
+
+We know from information theory that in this case, the mutual information $I(x, y)$ is given by the following expression:
+
+\begin{equation}
+I(x, y) = \log(\mathrm{det}(\frac{sAA^T}{\sigma^2} + I_n)),
+\end{equation}
+
+where $I_n$ is the $n \times n$ identity matrix. This expression is useful for two purposes. The first is that by calculating this expression for various specific $A$ matrices, we can compare the reconstruction quality of different occluders under varying levels of SNR. The second is that we can use this expression, combined with known bounds on the determinants of matrices, to bound the overall mutual information possible with \emph{any} occluder.
+
+Let's talk about doing that now. Recall from the previous subsection that we have:
+
+\begin{equation}
+    \label{eq:transparency}
+%    A_{ij} = \int_{x_{li}}^{x_{li} + \frac{l}{n}} \int_{y_{lj}}^{y_{lj} + \frac{l}{m}} \frac{h p(\frac{x+y}{2})}{\pi (h^2 + (y - x)^2)} dy dx
+A_{ij} = \int_{x_{li}}^{x_{li} + \frac{l}{n}} \int_{y_{lj}}^{y_{lj} + \frac{l}{m}} \frac{n}{l} \frac{d p(\frac{x+y}{2})}{\pi (d^2 + (y - x)^2)} dy dx
+\end{equation}
+\begin{equation}
+    \label{eq:ai}
+0 \le p(a) \le 1
+\end{equation}
+%\begin{equation}
+%    \label{eq:fij2}
+%F_{ij} = \frac{\frac{l}{n} d}{\pi (d^2 + (i+j-n+1)^2\frac{l^2}{n^2}))}
+%\end{equation}
+
+Using Eqs.~\ref{eq:transparency} and~\ref{eq:ai}, we can write an upper bound on $A_{ij}$. Because $(y-x)^2$ is guaranteed to be positive, we can write:
+
+\begin{equation}
+    A_{ij} \le \int_{x_{li}}^{x_{li} + \frac{l}{n}} \int_{y_{lj}}^{y_{lj} + \frac{l}{m}}\frac{n}{\pi h l} dy dx
+\end{equation}
+\begin{equation}
+    A_{ij} \le \frac{l}{\pi m h}
+\end{equation}
+
+This bound approaches tightness in the absence of occlusion when $h$ is very large.
+
+%\begin{equation}
+%F_{ij} \le \frac{l}{\pi nd}.
+%\end{equation}
+
+We get this bound from the fact that the denominator in the exact expression for $F_{ij}$ can be no smaller than $h^2$. The bound is tight when $i+j = n-1$. %Importantly, this bound holds \emph{even without the far-field assumption}. 
+Moreover, the coefficient in front of $m$ above shows up so often in this problem that it deserves its own variable. We define:
+
+\begin{equation}
+    c_f = \frac{l}{\pi h}
+\end{equation}
+
+This implies: 
+
+\begin{equation}
+    \label{eq:upboundcf}
+    A_ij \le \frac{c_f}{m} \forall i, j
+\end{equation}
+
+The amount of light hitting each part of the observation plane $y_i$ is also subject to an amount of noise whose variance $\sigma^2$ is equal to the intensity of the interference light hitting $y_i$. The total intensity of interference light is given by $w$; because the interference light is generated by a Poisson process, it can be well-approximated by drawing from a normal distribution with mean $w$ and variance $w$.
+
+What about the distribution of the light hitting each part of the observation plane $y_i$? In the same vein, we can approximate that as drawing from a normal distribution with mean $\frac{w}{m}$ and variance $\frac{w}{m}$.
+
+Thus, to recap, we have:
+
+$\vec{y} = A\vec{x} + \eta$
+
+Where $x$ is a length-$n$ vector describing the scene, $y$ is a length-$m$ vector describing the observation plane, $A$ is the $m \times n$ transfer matrix and explains how illumination from the scene gets reflected onto the observation plane. Each entry of $x$ should have variance proportional to the strength of the signal coming from that part of the scene, which in turn should be proportional to the size of that part of the scene. Thus, we will assume that $s = \frac{1}{n}$. $\eta$ is the length-$m$ noise vector, each element of which is normally distributed with mean and variance $\frac{w}{m}$.
+
+We know that in this situation, the mutual information $I(x, y)$ is given by:
+
+\begin{equation}
+    I(x, y) = \log \det(\frac{A^T A}{n \sigma^2} + I_n)
+\end{equation}
+\begin{equation}
+    I(x, y) = \log \det(A^T A \frac{m}{n w} + I_n)
+\end{equation}
+
+Because $A$ is an $m \times n$ matrix, we know that the matrix $A^T A$ must be an $n \times n$ matrix. Each entry of $A^T A$ is the dot product of two length-$m$ vectors, each of which has entries that are between 0 and $\frac{c_f}{m}$ (see Eq.~\ref{eq:upboundcf}). Therefore, each entry of $A^T A$ must be between 0 and $m (\frac{c_f}{m})^2 = \frac{c_f^2}{m}$.
+
+From this, we can infer the following bound on the entries of the overall matrix 
+
+\begin{equation}
+    S = A^T A \frac{m}{n w} + I_n
+\end{equation}
+
+\begin{equation}
+    0 \le S_{ij} \le \frac{c_f^2}{n w} \forall i,j s.t. i\not=j
+\end{equation}
+\begin{equation}
+    1 \le S_{ii} \le 1+\frac{c_f^2}{n w}
+\end{equation}
+
+We can get the mutual information by asking: what's the maximum value that $\log \det (S)$ could take? Brent et al. prove the following upper bound on the determinant of a matrix $M$ whose diagonal entries have absolute value at most $1+\delta$ and whose off-diagonal entries have absolute value at most $\epsilon$:
+
+\begin{equation}
+    \det(M) \le ((1+\delta)^2 + (n-1)\epsilon^2)^{\frac{n}{2}}
+\end{equation}
+
+
+By using this bound, we can prove the following upper bound on the mutual information (note that we're wasting a bit of the bound, since the bound doesn't realize the fact that all of our entries have to be positive; we can probably do even better):
+
+\begin{equation}
+    I(x, y) \le \log((1 + \frac{c_f^2}{n w})^2 + (n-1)\frac{c_f^4}{n^2 w^2})^\frac{n}{2}
+\end{equation}
+
+Note that this upper bound is \emph{constant} in $m$! This tells us that in the limit of higher and higher resolution on the observation plane, there's only so much information we can milk out.
+
+%(Also, in case you are worried about the fact that it seems to scale faster than linearly with $n$, don't be---the $c_f$ term cleverly masks a factor of $1/n$. But scaling with $n$ is unphysical anyway\dots). The previous sentence is now false.
+
+We can get a second upper bound on the mutual information, which will be tighter when $n > m$ (and so adds nothing extra in the limit of large $m$). We can do this by considering the matrix $S'$, defined as:
+
+\begin{equation}
+    S' = A A^T \frac{m}{n w} + I_m
+\end{equation}
+
+We know that $\det(S) = \det(S')$ because $\det(AB + I) = \det(BA + I)$. This will give us another bound. We know that each entry of $A A^T$ is the dot product of two $n$-length vectors, each entry of which is between 0 and $\frac{c_f}{m}$. Thus, we can write the following bounds on the entries of $S'$:
+
+\begin{equation}
+    0 \le S_{ij} \le \frac{c_f^2}{m w} \forall i,j s.t. i\not=j
+\end{equation}
+\begin{equation}
+    1 \le S_{ii} \le 1+\frac{c_f^2}{m w}
+\end{equation}
+
+And the bound on $I(x, y)$ that this implies is:
+
+\begin{equation}
+    I(x, y) \le \log((1 + \frac{c_f^2}{m w})^2 + (n-1)\frac{c_f^4}{m^2 w^2})^\frac{m}{2}
+\end{equation}
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.6]{figs/graph_info.png}
+\caption{In orange, the upper bound. In blue, the empirical mutual information for a random occluder. $l = 10$, $n = 30$, $m = 100$, $h = 100$, $w = 10^{-20}$.}
+\label{fig:scene_setup}
+\end{figure}
+
+$$I(x, y) = m \log(1 + \frac{l^2}{\pi^2 w d^2 m})$$
+
+$$I(x, y) = \frac{l^2}{\pi^2 w d^2}$$ 
+
+$$I(x, y) = m \log(\frac{l^2}{\pi^2 w d^2 m})$$
+
+$$\alpha = \frac{n^2 c_f^2}{w}$$
+
+%$$\alpha = 
+
+$$I(x, y) \le \frac{m}{2} \log((1 + \frac{\alpha}{n^2})^2 + (n-1)\frac{\alpha^2}{n^4})$$
+
+\end{document}
+

@@ -5,6 +5,7 @@ from scipy.linalg import circulant
 import matplotlib.pyplot as p
 from search import randomBits, randomGreedySearch
 from math import log
+import pickle
 
 #n = int(sys.argv[1])
 
@@ -20,6 +21,10 @@ def getDeterminantOfCirc(l):
     mat = circulant(l)
 #    print mat
     return np.linalg.det(mat)
+
+def getDeterminantofToeplitz(l):
+    mat = circulant(l)
+    
 
 def allListsOfSizeX(x):
     if x == 0:
@@ -131,11 +136,16 @@ if GREEDY:
 
     listOfBests = []
 
-    for n in range(1, MAX_NUM+1):
+    for n in range(MAX_NUM, MAX_NUM+1):
         bestList = randomGreedySearch(randomBits(n), getDeterminantOfCirc, \
             "max", 3*n)
 
+        print bestList
+
+        pickle.dump(bestList, open("bestlist.p", "w"))
+
         bestVal = getDeterminantOfCirc(bestList)
+        print bestVal
         if bestVal > 1:
             logBestVal = log(bestVal)
         else:

@@ -13,6 +13,14 @@ def randomFlip(l):
 
     return lCopy
 
+def allListsOfSizeX(x):
+    if x == 0:
+        return [[]]
+
+    else:
+        oneLess = allListsOfSizeX(x-1)
+        return [i + [0] for i in oneLess] + [i + [1] for i in oneLess]
+
 def randomGreedyStep(l, evalFunc, maxOrMin, maxTries):
     currentVal = evalFunc(l)
 
@@ -48,3 +56,25 @@ def randomGreedySearch(initList, evalFunc, maxOrMin="min", maxTries=None):
             maxTries)
 
     return oldResult
+
+def exhaustiveSearch(n, evalFunc, maxOrMin="min"):
+    if maxOrMin == "min":
+        bestValue = float("Inf")
+    else:
+        bestValue = float("-Inf")
+
+    bestList = None
+    allLists = allListsOfSizeX(n)
+
+    for l in allLists:
+        currentValue = evalFunc(l)
+        if maxOrMin == "min":
+            if currentValue < bestValue:
+                bestValue = currentValue
+                bestList = l
+        else:
+            if currentValue > bestValue:
+                bestValue = currentValue
+                bestList = l
+
+    return bestList

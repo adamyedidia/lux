@@ -10,6 +10,6 @@ maxLight = r - dy*tan(theta) + dx
 f = r - maxLight/2
 alpha = asin(sqrt(dx*dx + dy*dy)*sin(theta-beta)/f)
 gamma = pi - alpha - theta + beta
-phi = pi - gamma + beta
+phi = pi - gamma + beta #
 
 print phi

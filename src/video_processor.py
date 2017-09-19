@@ -14,12 +14,34 @@ from video_magnifier import turnVideoIntoListOfFrames, viewFrame
 import os
 import string
 import pickle
+from scipy.signal import convolve2d
+from scipy.ndimage.filters import gaussian_filter
+import sys
 
 test = False
 flag = False
-raw = True
-downSample = False
+raw = False
+viewDiff = False
+downSample = True
 rawWithSubtract = False
+rawWithBlur = False
+
+def blur2DImage(arr, blurRadius):
+#    print arr.shape
+
+    rearrangedIm = np.swapaxes(np.swapaxes(arr, 0, 2), 1, 2)
+    imageRed = rearrangedIm[0]
+    imageGreen = rearrangedIm[1]
+    imageBlue = rearrangedIm[2]
+
+    imageRed = gaussian_filter(imageRed, blurRadius, truncate=4.)
+    imageGreen = gaussian_filter(imageGreen, blurRadius, truncate=4.)
+    imageBlue = gaussian_filter(imageBlue, blurRadius, truncate=4.)
+
+    blurredImage = np.swapaxes(np.swapaxes(np.array([imageRed, imageGreen, \
+        imageBlue]), 1, 2), 0, 2)
+
+    return blurredImage
 
 def padIntegerWithZeros(x, maxLength):
     if x == 0:
@@ -122,75 +144,135 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
 
     convertArrayToVideo(arr, magnification, filename, newFrameRate)
 
-if test:
-#    FILE_NAME = "ir_video_rc_car.m4v"; VIDEO_TIME = "3:57"
-    FILE_NAME = "hotel_vid.m4v"; VIDEO_TIME = "14:52"
-    vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
+if __name__ == "__main__":
 
-    START_TIME = "00:30"
-    END_TIME = "00:40"
-    numFrames = len(vid)
-    firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
-    lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+    if test:
+    #    FILE_NAME = "ir_video_rc_car.m4v"; VIDEO_TIME = "3:57"
+        FILE_NAME = "hotel_vid.m4v"; VIDEO_TIME = "14:52"
+        vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
 
-    processVideo(vid, "14:52", [(10, True), (30, True), (30, True), (1, False)], "hotel_vid", \
-        magnification=1000, firstFrame=firstFrame, lastFrame=lastFrame)
+        START_TIME = "00:30"
+        END_TIME = "00:40"
+        numFrames = len(vid)
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
-if flag:
-#    imRaw = Image.open("japan_flag_garbled_new_1.png")
-#    imRaw = Image.open("texas_flag_garbled_1.png")
-#    imRaw = Image.open("texas_flag_garbled_dup_row.png")
-#    imRaw = Image.open("france_flag_garbled_1.png")
-#    imRaw = Image.open("us_flag_garbled_1.png")
+        processVideo(vid, "14:52", [(10, True), (30, True), (30, True), (1, False)], "hotel_vid", \
+            magnification=1000, firstFrame=firstFrame, lastFrame=lastFrame)
 
-
-    im = np.array(imRaw.convert("RGB")).astype(float)
-
-    processedIm = batchAndDifferentiate(im, [(20, True), (20, True), (1, False)])
+    if flag:
+    #    imRaw = Image.open("japan_flag_garbled_new_1.png")
+    #    imRaw = Image.open("texas_flag_garbled_1.png")
+    #    imRaw = Image.open("texas_flag_garbled_dup_row.png")
+    #    imRaw = Image.open("france_flag_garbled_1.png")
+    #    imRaw = Image.open("us_flag_garbled_1.png")
 
 
+        im = np.array(imRaw.convert("RGB")).astype(float)
 
-    print processedIm
+        processedIm = batchAndDifferentiate(im, [(20, True), (20, True), (1, False)])
 
-    viewFrame(processedIm, 1e2, False)
 
-if downSample:
 
-    dirName = "temesvar_garbled"
-    path = "/Users/adamyedidia/flags_garbled/" + dirName + "/"
-    im = pickle.load(open(path + "rectified.p", "r"))
+        print processedIm
 
-    processedIm = batchAndDifferentiate(im,[(10, False), (10, False), (1, False)])
+        viewFrame(processedIm, 1e2, False)
 
-#    viewFrame(-processedIm, 1e3, False)
+    if downSample:
 
-    pickle.dump(processedIm, open(path + "downsampled.p", "w"))
+        dirName = "calibration"
+        path = "/Users/adamyedidia/flags_garbled/" + dirName + "/"
+        im = pickle.load(open(path + "rectified2.p", "r"))
 
-if raw:
+        processedIm = batchAndDifferentiate(im,[(10, False), (10, False), (1, False)])
 
-    dirName = "texas_garbled"
-    path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified_very_wrong.p"
-    im = pickle.load(open(path, "r"))
+    #    viewFrame(-processedIm, 1e3, False)
 
-    processedIm = batchAndDifferentiate(im,[(100, True), (100, True), (1, False)])
+        pickle.dump(processedIm, open(path + "downsampled2.p", "w"))
 
-    viewFrame(-processedIm, 1e3, False)
+    if raw:
 
-if rawWithSubtract:
-    dirName = "uk_garbled"
+        dirName = "texas_garbled"
+        path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified_very_wrong.p"
+        im = pickle.load(open(path, "r"))
 
-    path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified.p"
-    im = pickle.load(open(path, "r"))
+        processedIm = batchAndDifferentiate(im,[(100, True), (100, True), (1, False)])
 
-    processedIm = batchAndDifferentiate(im,[(100, True), (100, True), (1, False)])
+        viewFrame(-processedIm, 1e3, False)
 
-    calibrationPath = "/Users/adamyedidia/flags_garbled/calibration/rectified.p"
+    if rawWithBlur:
+        dirName = "uk_garbled"
 
-    calibrationIm = pickle.load(open(calibrationPath, "r"))
+        path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified.p"
+        im = pickle.load(open(path, "r"))
 
-    calibrationProcessedIm = batchAndDifferentiate(calibrationIm, \
-        [(100, True), (100, True), (1, False)])
+        processedIm = batchAndDifferentiate(im,[(10, True), (10, True), (1, False)])
 
-#    viewFrame(np.divide(processedIm, calibrationProcessedIm), 1e2, False)
+    #    calibrationPath = "/Users/adamyedidia/flags_garbled/calibration/rectified.p"
+    #
+    #    calibrationIm = pickle.load(open(calibrationPath, "r"))
 
-    viewFrame(-processedIm + 0.5*calibrationProcessedIm, 2e3, False)
+    #    calibrationProcessedIm = batchAndDifferentiate(calibrationIm, \
+    #        [(10, True), (10, True), (1, False)])
+
+    #    viewFrame(np.divide(processedIm, calibrationProcessedIm), 1e2, False)
+
+        viewFrame(-processedIm, 2e3, False)
+
+        blurredImage = blur2DImage(processedIm, 10)
+
+        viewFrame(-blurredImage, 2e5, False)
+
+    if viewDiff:
+        path = "/Users/adamyedidia/flags/flag_of_france.png"
+
+        imRaw = Image.open(path).convert("RGB")
+        im = np.array(imRaw).astype(float)
+
+        original = batchAndDifferentiate(im,[(45, False), (40, False), (1, False)])
+
+        print original.shape
+
+        viewFrame(original, 1e0, False)
+
+    #    sys.exit()
+
+    #    print "hi"
+
+        dirName = "france_garbled"
+
+        path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified.p"
+        im = pickle.load(open(path, "r"))
+
+        processedIm = batchAndDifferentiate(im,[(100, True), (100, True), (1, False)])
+
+        viewFrame(original + 1.5e3*processedIm, 1e0, True)
+
+    #    viewFrame(-processedIm, 1e3, False)
+
+
+    if rawWithSubtract:
+        dirName = "temesvar_garbled"
+
+        path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified.p"
+        im = pickle.load(open(path, "r"))
+
+        processedIm = batchAndDifferentiate(im,[(100, True), (100, True), (1, False)])
+
+        calibrationPath = "/Users/adamyedidia/flags_garbled/calibration/rectified2.p"
+
+        calibrationIm = pickle.load(open(calibrationPath, "r"))
+
+        calibrationProcessedIm = batchAndDifferentiate(calibrationIm, \
+            [(100, True), (100, True), (1, False)])
+
+        calibratedError = 255*3e-4*np.ones(calibrationProcessedIm.shape)+calibrationProcessedIm
+
+        viewFrame(-calibrationProcessedIm, 1e3)
+    #    viewFrame(-processedIm, 1e3)
+        viewFrame(calibratedError, 3e3)
+        viewFrame(-processedIm + calibratedError,1e3)
+
+    #    viewFrame(np.divide((-processedIm)**0.5, (-calibrationProcessedIm)**0.5), 1e2, False)
+
+    #    viewFrame(-processedIm + 0.5*calibrationProcessedIm, 2e3, False)

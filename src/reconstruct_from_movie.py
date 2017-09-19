@@ -415,16 +415,16 @@ if stillFrame:
 #    p.show()
 
 if convolveTest:
-    imRaw = Image.open("2000px-Flag_of_Texas.png")
 
+    path = "/Users/adamyedidia/flags/flag_of_uk.png"
+
+    imRaw = Image.open(path)
     im = np.array(imRaw).astype(float)
 
     garbledImage = garbleImage(imRaw, 0.125)
-
     garbledImageUpperPart = getUpperPartGarbleImage(imRaw, 0.125)
 
     garbledImageFull = garbledImage + garbledImageUpperPart
-
     viewFrame(garbledImageFull, 1e3, False)
 
     fftIm = fftImageBothWays(imRaw)

@@ -92,6 +92,9 @@ def viewFrame(frame, magnification=1, differenceImage=False, filename=None):
 
     #print coercedFrame.astype(np.uint8)
 
+#    print coercedFrame
+#    print coercedFrame.astype(np.uint8)
+
     pylab.imshow(coercedFrame.astype(np.uint8))
 
 

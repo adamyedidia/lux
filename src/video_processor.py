@@ -14,7 +14,7 @@ from video_magnifier import turnVideoIntoListOfFrames, viewFrame
 import os
 import string
 import pickle
-from scipy.signal import convolve2d
+from scipy.signal import convolve2d, medfilt
 from scipy.ndimage.filters import gaussian_filter
 import sys
 
@@ -22,8 +22,8 @@ test = False
 flag = False
 raw = False
 viewDiff = False
-downSample = True
-rawWithSubtract = False
+downSample = False
+rawWithSubtract = True
 rawWithBlur = False
 
 def blur2DImage(arr, blurRadius):
@@ -42,6 +42,22 @@ def blur2DImage(arr, blurRadius):
         imageBlue]), 1, 2), 0, 2)
 
     return blurredImage
+
+def medfiltIm(arr):
+    rearrangedIm = np.swapaxes(np.swapaxes(arr, 0, 2), 1, 2)
+    imageRed = rearrangedIm[0]
+    imageGreen = rearrangedIm[1]
+    imageBlue = rearrangedIm[2]
+
+    imageRed = medfilt(imageRed)
+    imageGreen = medfilt(imageGreen)
+    imageBlue = medfilt(imageBlue)
+
+    medfiltedImage = np.swapaxes(np.swapaxes(np.array([imageRed, imageGreen, \
+        imageBlue]), 1, 2), 0, 2)
+
+    return medfiltedImage
+
 
 def padIntegerWithZeros(x, maxLength):
     if x == 0:
@@ -252,7 +268,7 @@ if __name__ == "__main__":
 
 
     if rawWithSubtract:
-        dirName = "temesvar_garbled"
+        dirName = "texas_garbled"
 
         path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified.p"
         im = pickle.load(open(path, "r"))
@@ -268,10 +284,16 @@ if __name__ == "__main__":
 
         calibratedError = 255*3e-4*np.ones(calibrationProcessedIm.shape)+calibrationProcessedIm
 
-        viewFrame(-calibrationProcessedIm, 1e3)
+#        viewFrame(-calibrationProcessedIm, 1e3)
     #    viewFrame(-processedIm, 1e3)
-        viewFrame(calibratedError, 3e3)
-        viewFrame(-processedIm + calibratedError,1e3)
+#        viewFrame(calibratedError, 3e3)
+
+        calibrationSubtractedIm = -processedIm + calibratedError
+
+        medfiltedIm = medfiltIm(calibrationSubtractedIm)
+    #    medfiltedIm = calibrationSubtractedIm
+
+        viewFrame(medfiltedIm,1e3)
 
     #    viewFrame(np.divide((-processedIm)**0.5, (-calibrationProcessedIm)**0.5), 1e2, False)
 

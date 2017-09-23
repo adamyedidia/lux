@@ -1,0 +1,15 @@
+*.swp
+*.m~
+*.nfs*
+*.DS_Store
+
+*.MOV
+*.avi
+*.png
+*.tiff
+*.mat
+*.fig
+*.JPG
+*.jpg
+*.__afs*
+*felix-cache

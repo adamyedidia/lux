@@ -236,7 +236,7 @@ if __name__ == "__main__":
                     y = yFunc(loc)
 
                 if not loc == None and x > 100 and y > 100 and x < im.shape[1]-100 and \
-                    y < im.shape[0]-100:
+                    y < im.shape[0]-100: # pushes boundary of figure otherwise
     #                print type(137), type(int(200-loc[1]))
     #                print int(200-loc[1]), int(89-loc[0])
 
@@ -250,3 +250,15 @@ if __name__ == "__main__":
     #            print oneDArr
 
     #            viewFrameR(np.array([oneDArr]*100), magnification=2, differenceImage=True)
+
+    if temporalDerivative:
+        imRaw = Image.open("/Users/adamyedidia/Desktop/hallway_walking_movie.png")
+
+        im = np.array(imRaw).astype(float)
+
+        adjustedIm = batchAndDifferentiate(im, [(1, True), (1, False), (1, False)])
+
+        newIm = []
+
+        for oneDArr in adjustedIm:
+            newIm.append(np.dot(adjustedIm))

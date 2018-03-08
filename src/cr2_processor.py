@@ -5,7 +5,8 @@ from video_magnifier import viewFrame
 from video_processor import batchAndDifferentiate
 import pickle
 
-process = True
+process = False
+process2 = True
 
 
 #filename = '/Users/adamyedidia/flags_garbled/calibration/IMG_5048.CR2'
@@ -33,8 +34,8 @@ if __name__ == "__main__":
     if process:
     #    path = "/Users/adamyedidia/walls/src/pole_images/legos/back/"
     #    path = "/Users/adamyedidia/walls/src/pole_images/monitor_lines/b_dark/"
-        path = "/Users/adamyedidia/flags_garbled/calibration/"
-
+        path = "/Users/adamyedidia/Dropbox (MIT)/shadowImaging/2d-imaging/data/" + \
+            "2017-11-05/doorway/pointlight/point1.cr2"
 
 
         print "Converting..."
@@ -45,6 +46,20 @@ if __name__ == "__main__":
 
         pickle.dump(arr, open(path + "average.p", "w"))
 
+    if process2:
+    #    path = "/Users/adamyedidia/walls/src/pole_images/legos/back/"
+    #    path = "/Users/adamyedidia/walls/src/pole_images/monitor_lines/b_dark/"
+        path = "/Users/adamyedidia/Dropbox (MIT)/shadowImaging/2d-imaging/data/" + \
+            "2017-11-05/doorway/pointlight/point1"
+
+
+        print "Converting..."
+
+        arr = convertRawFileToArray(path + ".cr2", 10)
+
+        print "Writing..."
+
+        pickle.dump(arr, open(path + ".p", "w"))
 
 
 

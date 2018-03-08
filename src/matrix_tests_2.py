@@ -3,7 +3,7 @@ import numpy as np
 import random
 from math import log, pi
 import matplotlib.pyplot as p
-
+from scipy.linalg import dft
 
 l = 10
 n = 20
@@ -12,10 +12,12 @@ h = 100
 w = 1e-10
 cf = l*l/(pi*n*h)
 P = 0.5
+c = 10
 
-plotMvsInfo = True
+plotMvsInfo = False
+plotMvsInfoWithPrior = False
 makeDarpaPlots = False
-makeDarpaMetaPlots = False
+makeDarpaMetaPlots = True
 makeDarpaInfoPlots = False
 makeDarpaBasicPlots = False
 
@@ -47,6 +49,13 @@ def randomOccluderDiscrete(n, probOn, maxX):
             transitionList.append((i+1)/n*maxX)
 
     return transitionList
+
+def getOneOverFSquaredPrior(n, c):
+    dftMat = dft(n)
+
+    oneOverFSquared = np.diag(np.array([c/i**2 for i in range(1,n+1)]))
+
+    return np.dot(np.dot(dftMat, oneOverFSquared), dftMat)
 
 def turnTransitionsSequenceIntoArray(queryOccluderAtPoint, arraySize, maxX):
     returnArray = []
@@ -152,12 +161,49 @@ def evaluateOccluder(occ, m, n, l, h, w, disp=False):
 
     return infoValue
 
+def evaluateOccluderWithPrior(occ, m, n, l, h, w, c, disp=False):
+#    displayOccluder(occ)
+
+    tm = getTransferMatrix(occ, m, n, l, h)
+
+    Q = getOneOverFSquaredPrior(n, c)
+
+#    print Q
+
+    if disp:
+        print "info", np.linalg.slogdet(np.dot(np.dot(tm.transpose(), Q), tm)*m/w + np.identity(n))[1]/(log(2))
+
+        p.matshow(tm)
+        p.colorbar()
+        p.show()
+
+#    p.matshow(tm)
+#    p.show()
+
+#    if m % 10 == 0:
+#        p.matshow(np.dot(tm.transpose(), tm)*m/w)
+#        p.colorbar()
+#        p.show()
+
+    infoValue = np.linalg.slogdet(np.dot(tm.transpose(), tm)*m/w + np.identity(n))[1]/(log(2))
+
+    return infoValue
+
 def evaluateManyOccluders(occluderN, probOn, maxX, m, n, l, h, w, numSamples = 100):
     sumInfos = 0
 
     for _ in range(numSamples):
         sumInfos += evaluateOccluder(randomOccluderDiscrete(occluderN, probOn, maxX), \
             m, n, l, h, w)
+
+    return sumInfos / numSamples
+
+def evaluateManyOccludersWithPriors(occluderN, probOn, maxX, m, n, l, h, w, c, numSamples = 100):
+    sumInfos = 0
+
+    for _ in range(numSamples):
+        sumInfos += evaluateOccluderWithPrior(randomOccluderDiscrete(occluderN, probOn, maxX), \
+            m, n, l, h, w, c)
 
     return sumInfos / numSamples
 
@@ -177,6 +223,81 @@ def displayOccluder(occ, filename = None):
         p.savefig(filename)
 
 #if makeDarpaInfoPlots:
+
+
+if plotMvsInfoWithPrior:
+
+    infoValuesPinhole = []
+    infoValuesPinspeck = []
+    infoValuesRandom = []
+    infoValuesOtherRandom = []
+    infoValuesLens = []
+    infoValuesEdge = []
+    upperBounds = []
+    xAxis = []
+
+    for m in range(3, 100):
+        n = m
+        cf = l*l/(pi*n*h)
+
+#    for logW in np.linspace(-15, 0, 100):
+
+#        w = 10**logW
+
+        infoValuePinhole = evaluateOccluderWithPrior(PINHOLE_OCCLUDER, m, n, l, h, w, c)
+        if m % 10 == 0 and m >= 40:
+            infoValuePinspeck = evaluateOccluderWithPrior(PINSPECK_OCCLUDER, m, n, l, h, w, c, True)
+        else:
+            infoValuePinspeck = evaluateOccluderWithPrior(PINSPECK_OCCLUDER, m, n, l, h, w, c, False)
+        infoValueRandom = evaluateOccluderWithPrior(SPECIFIC_RANDOM_OCCLUDER, m, n, l, h, w, c)
+        infoValueOtherRandom = evaluateOccluderWithPrior(OTHER_OTHER_SPECIFIC_RANDOM_OCCLUDER, m, n, l, h, w, c)
+        infoValueEdge = evaluateOccluderWithPrior(EDGE_OCCLUDER, m, n, l, h, w, c)
+        infoValueLens = min(n, m) * log(1 + (m/w)*(l*l/(pi*h*n))**2, 2)
+
+#        if m % 10 == 0:
+#            p.matshow(getTransferMatrix(OTHER_OTHER_SPECIFIC_RANDOM_OCCLUDER, m,n,l,h))
+#            p.colorbar()
+#            p.show()
+
+
+        earlyBound = (m/2)*log((1+n*cf*cf/(m*w))**2 + (n-1)*n**2*cf**4/(m**2*w**2), 2)
+        lateBound = (n/2)*log((1+cf*cf/w)**2 + (n-1)*cf**4/w**2, 2)
+        k = cf*cf/w
+
+        hiSNRBound = n/2*log(n, 2) - (n-1) + n*log(k+1, 2)
+
+#        print (m/w)*(l/(pi*h*n))**2
+
+#        print earlyBound, lateBound, hiSNRBound, k
+
+        infoValuesPinhole.append(infoValuePinhole)
+        infoValuesPinspeck.append(infoValuePinspeck)
+        infoValuesRandom.append(infoValueRandom)
+        infoValuesOtherRandom.append(infoValueOtherRandom)
+        infoValuesEdge.append(infoValueEdge)
+        infoValuesLens.append(infoValueLens)
+
+        upperBounds.append(min(min(earlyBound, lateBound), hiSNRBound))
+
+        xAxis.append(m)
+#        xAxis.append(10*log(k, 10))
+
+        print 10*log(cf*cf/1e-10, 10)
+
+    ax = p.gca()
+
+    ax.set_xlabel("m")
+#    ax.set_xlabel("SNR (dB)")
+    ax.set_ylabel("Mutual Information (bits)")
+
+#    p.plot(xAxis, infoValuesPinhole, "r-")
+    p.plot(xAxis, infoValuesPinspeck, "g-")
+    p.plot(xAxis, infoValuesRandom, "b-")
+    p.plot(xAxis, infoValuesOtherRandom, "r-")
+    p.plot(xAxis, infoValuesEdge, "c-")
+    p.plot(xAxis, infoValuesLens, "m-")
+    p.plot(xAxis, upperBounds, "k-")
+    p.show()
 
 
 if plotMvsInfo:
@@ -331,7 +452,7 @@ if makeDarpaMetaPlots:
         kStars = []
         mns = []
         kScale = np.linspace(5, 100, 20)
-        mnScale = np.linspace(12, 40, 15)
+        mnScale = np.linspace(12, 30, 15)
 
         for mn in mnScale:
 #            w = 10**logW
@@ -340,7 +461,7 @@ if makeDarpaMetaPlots:
 #            snr = cf*cf/w
             for k in kScale:
 
-                info = evaluateManyOccluders(k, P, l, int(mn), int(mn), l, h, w, numSamples=1000)
+                info = evaluateManyOccludersWithPriors(k, P, l, int(mn), int(mn), l, h, w, c, numSamples=100)
                 if info > bestInfo:
                     bestInfo = info
                     bestK = k

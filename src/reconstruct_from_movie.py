@@ -18,6 +18,7 @@ import sys
 from scipy.linalg import dft
 
 
+
 stillFrame = False
 garbleTest = False
 garbleReal = True
@@ -451,7 +452,7 @@ if garbleReal:
 #    imRaw = Image.open("texas_flag_garbled_no_dot.png")
 #    imRaw = Image.open("texas_flag_garbled_no_left_line.png")
 #    imRaw = Image.open("texas_flag_garbled_green_square.png")
-#    imRaw = Image.open("texas_garbled_recent.png")
+    imRaw = Image.open("texas_garbled_recent.png")
 
 #    imRaw = Image.open("us_flag_garbled_no_line.png")
 
@@ -462,7 +463,7 @@ if garbleReal:
 
 #    garbledImageFull = np.array(imRaw).astype(float)
 
-    dirName = "temesvar_garbled"
+    dirName = "texas_garbled"
     path = "/Users/adamyedidia/flags_garbled/" + dirName + "/downsampled.p"
     garbledImageFull = pickle.load(open(path, "r"))
 #    garbledImageFull = garbledImageFull[0:1000,0:1000]
@@ -506,7 +507,6 @@ if garbleReal:
 
 
 #    viewFrame(reGarbledImage, 1e1, False)
-
 
 
     ungarbledSmoothedImage = ungarbleImage(reGarbledImage, 0.125, \

@@ -29,7 +29,10 @@ def turnVideoIntoListOfFrames(vid, firstFrame=0, lastFrame=None):
 
     for i in range(firstFrame, lastFrame): #range(int(numFrames)): #i in range(400, 500):
         print i-firstFrame, "/", lastFrame - firstFrame
-        im = vid.get_data(i)
+        try:
+            im = vid.get_data(i)
+        except:
+            im = vid[i]
         frame = np.array(im).astype(float)
         listOfFrames.append(frame)
 

@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as p
 from math import log
 
+
 N = 1200
 logdets = []
 nlogn = []

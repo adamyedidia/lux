@@ -2,7 +2,7 @@ from __future__ import division
 import pylab
 import imageio
 import numpy as np
-from math import acos, pi, cos, sin, log, floor
+from math import acos, pi, cos, sin, log, floor, ceil
 import matplotlib.pyplot as p
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
@@ -23,8 +23,25 @@ flag = False
 raw = False
 viewDiff = False
 downSample = False
+downSample2 = False
 rawWithSubtract = True
 rawWithBlur = False
+batchMovie = False
+
+def actOnRGB(rgbArray, func):
+    rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
+    imageRed = rearrangedIm[0]
+    imageGreen = rearrangedIm[1]
+    imageBlue = rearrangedIm[2]
+
+    imageRedProcessed = func(imageRed)
+    imageGreenProcessed = func(imageGreen)
+    imageBlueProcessed = func(imageBlue)
+
+    imageProcessed = np.swapaxes(np.swapaxes(np.array([imageRedProcessed, \
+        imageGreenProcessed, imageBlueProcessed]), 1, 2), 0, 2)
+
+    return imageProcessed
 
 def blur2DImage(arr, blurRadius):
 #    print arr.shape
@@ -86,7 +103,7 @@ def batchArrayAlongZeroAxis(arr, batchSize):
     if numFrames % batchSize != 0:
         listOfBigFrames.append(frameSum / (numFrames % batchSize))
 
-    print len(listOfBigFrames)
+#    print len(listOfBigFrames)
     return np.array(listOfBigFrames)
 
 def batchArrayAlongAxis(arr, axis, batchSize):
@@ -107,20 +124,21 @@ def batchAndDifferentiate(arr, listOfResponses):
     assert dim == len(listOfResponses)
 
     # batch things
-    print "Batching..."
+#    print "Batching..."
     for i in range(dim):
         arr = batchArrayAlongAxis(arr, i, listOfResponses[i][0])
 
 #    viewFrame(arr, 1, False)
 
     # take gradients
-    print "Differentiating..."
+#    print "Differentiating..."
     for i in range(dim - 1, -1, -1):
         if listOfResponses[i][1]:
             arr = np.gradient(arr, axis=i)
 
 #            viewFrame(arr, 1e1, True)
 
+    arr = blur2DImage(arr, 5)
 
     return arr
 
@@ -138,8 +156,10 @@ def convertArrayToVideo(arr, magnification, filename, frameRate):
         viewFrame(frame, magnification=magnification, filename="video_trash/" + filename + "_" + \
             padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=True)
 
+    numDigits = ceil(log(len(arr), 10))
+
     os.system("ffmpeg -r " + str(frameRate) + " -f image2 -s 500x500 " + \
-        "-i video_trash/" + filename + "_%02d.png " + \
+        "-i video_trash/" + filename + "_%0" + str(int(numDigits)) + "d.png " + \
         "-vcodec libx264 -crf 25 -pix_fmt yuv420p " + filename + ".mp4")
     os.system("y")
 
@@ -148,7 +168,7 @@ def getFrameAtTime(frameTime, videoTime, numFrames):
         convertTimeToSeconds(videoTime) * numFrames)
 
 def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
-    firstFrame=0, lastFrame=None):
+    firstFrame=0, lastFrame=None, toVideo=False):
 
     arr = turnVideoIntoArray(vid, firstFrame, lastFrame)
     arr = batchAndDifferentiate(arr, listOfResponses)
@@ -158,9 +178,32 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
 
     newFrameRate = originalFrameRate / listOfResponses[0][0]
 
-    convertArrayToVideo(arr, magnification, filename, newFrameRate)
+    if toVideo:
+        convertArrayToVideo(arr, magnification, filename, newFrameRate)
+    else:
+        pickle.dump(arr, open(filename + ".p", "w"))
 
 if __name__ == "__main__":
+
+    if batchMovie:
+        pathToDir = "/Users/adamyedidia/walls/src/data_10_7_17/"
+        path = pathToDir + "C0268.MP4"
+
+        vid = imageio.get_reader(path,  'ffmpeg')
+
+        VIDEO_TIME = "1:40"
+        START_TIME = "0:00"
+        END_TIME = "0:15"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        print firstFrame, lastFrame
+
+        processVideo(vid, VIDEO_TIME, \
+            np.array([(10, False), (10, False), (10, False), (1, False)]), \
+            "doorway_vid", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame)
 
     if test:
     #    FILE_NAME = "ir_video_rc_car.m4v"; VIDEO_TIME = "3:57"
@@ -177,7 +220,7 @@ if __name__ == "__main__":
             magnification=1000, firstFrame=firstFrame, lastFrame=lastFrame)
 
     if flag:
-    #    imRaw = Image.open("japan_flag_garbled_new_1.png")
+        imRaw = Image.open("japan_flag_garbled_new_1.png")
     #    imRaw = Image.open("texas_flag_garbled_1.png")
     #    imRaw = Image.open("texas_flag_garbled_dup_row.png")
     #    imRaw = Image.open("france_flag_garbled_1.png")
@@ -192,7 +235,7 @@ if __name__ == "__main__":
 
         print processedIm
 
-        viewFrame(processedIm, 1e2, False)
+        viewFrame(processedIm, 1e3, False)
 
     if downSample:
 
@@ -205,6 +248,24 @@ if __name__ == "__main__":
     #    viewFrame(-processedIm, 1e3, False)
 
         pickle.dump(processedIm, open(path + "downsampled2.p", "w"))
+
+    if downSample2:
+        num = "268"
+        path = "/Users/adamyedidia/walls/src/data_10_7_17/C0" + num + ".avi"
+
+        vid = imageio.get_reader(path,  'ffmpeg')
+        START_TIME = "00:00"
+        END_TIME = "00:30"
+        VIDEO_TIME = END_TIME
+        numFrames = len(vid)
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideo(vid, VIDEO_TIME, [(2, False), (10, False), (10, False), (1, False)], "downsampled_ceiling" + num, \
+            magnification=3, firstFrame=firstFrame, lastFrame=lastFrame, toVideo=False)
+
+
+
 
     if raw:
 
@@ -273,14 +334,14 @@ if __name__ == "__main__":
         path = "/Users/adamyedidia/flags_garbled/" + dirName + "/rectified.p"
         im = pickle.load(open(path, "r"))
 
-        processedIm = batchAndDifferentiate(im,[(100, True), (100, True), (1, False)])
+        processedIm = batchAndDifferentiate(im,[(10, True), (10, True), (1, False)])
 
         calibrationPath = "/Users/adamyedidia/flags_garbled/calibration/rectified2.p"
 
         calibrationIm = pickle.load(open(calibrationPath, "r"))
 
         calibrationProcessedIm = batchAndDifferentiate(calibrationIm, \
-            [(100, True), (100, True), (1, False)])
+            [(10, True), (10, True), (1, False)])
 
         calibratedError = 255*3e-4*np.ones(calibrationProcessedIm.shape)+calibrationProcessedIm
 
@@ -290,10 +351,10 @@ if __name__ == "__main__":
 
         calibrationSubtractedIm = -processedIm + calibratedError
 
-        medfiltedIm = medfiltIm(calibrationSubtractedIm)
-    #    medfiltedIm = calibrationSubtractedIm
+    #    medfiltedIm = medfiltIm(calibrationSubtractedIm)
+        medfiltedIm = calibrationSubtractedIm
 
-        viewFrame(medfiltedIm,1e3)
+        viewFrame(medfiltedIm,1e4)
 
     #    viewFrame(np.divide((-processedIm)**0.5, (-calibrationProcessedIm)**0.5), 1e2, False)
 

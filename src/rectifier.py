@@ -2,22 +2,26 @@ from __future__ import division
 import numpy as np
 from PIL import Image
 from video_magnifier import viewFrame, viewFrameR
-from math import ceil, floor
+from math import ceil, floor, sin, pi, cos
 from cr2_processor import convertRawFileToArray
 from scipy.signal import convolve2d
 from scipy.ndimage.filters import gaussian_filter
+from video_processor import processVideo, batchAndDifferentiate
 import pickle
 import scipy.io
 import sys
 
+radialRectify1 = False
+radialRectify2 = True
 oldRectify = False
-rawRectify = True
+rawRectify = False
 wrongRectify = False
 veryWrongRectify = False
 seeObs = False
 subtractRectify = False
 subtractRectify2 = False
 hallwayImaging = False
+batchMovie = False
 
 def displayFlattenedFrame(flattenedFrame, height, magnification=1, \
     differenceImage=False, filename=None):
@@ -53,6 +57,7 @@ def flattenFrame(frame):
 
 def fuzzyLookup(occluderMatrix, indices):
     i, j = indices
+
     floorI = int(floor(i))
     ceilI = int(ceil(i))
     floorJ = int(floor(j))
@@ -61,10 +66,24 @@ def fuzzyLookup(occluderMatrix, indices):
     residueI = i % 1
     residueJ = j % 1
 
-    floorIfloorJ = occluderMatrix[floorI][floorJ]
-    floorIceilJ = occluderMatrix[floorI][ceilJ]
-    ceilIfloorJ = occluderMatrix[ceilI][floorJ]
-    ceilIceilJ = occluderMatrix[ceilI][ceilJ]
+    acceptable = True
+
+    for testIndex in [floorI, ceilI]:
+        if testIndex < 0 or testIndex >= len(occluderMatrix):
+            acceptable = False
+
+    for testIndex in [floorJ, ceilJ]:
+        if testIndex < 0 or testIndex >= len(occluderMatrix[0]):
+            acceptable = False
+
+    if acceptable:
+        floorIfloorJ = occluderMatrix[floorI][floorJ]
+        floorIceilJ = occluderMatrix[floorI][ceilJ]
+        ceilIfloorJ = occluderMatrix[ceilI][floorJ]
+        ceilIceilJ = occluderMatrix[ceilI][ceilJ]
+    else:
+#        print "Warning: fuzzyLookup index out of bounds"
+        return np.array([0,0,0])
 
     return (1-residueI) * (1-residueJ) * floorIfloorJ + \
         (1-residueI) * residueJ * floorIceilJ + \
@@ -115,7 +134,183 @@ def rectify(arr, corner, p1, p2, oppCorner, steps1, steps2):
 
     return np.array(returnArray)
 
+def findIntersectionPoint(arr, p1, p2, p3, p4):
+    x1, y1 = p1[0], p1[1]
+    x2, y2 = p2[0], p2[1]
+    x3, y3 = p3[0], p3[1]
+    x4, y4 = p4[0], p4[1]
+
+    mA = (y2 - y1)/(x2 - x1)
+    bA = y2 - mA*x2
+    bA = y1 - mA*x1
+
+    mB = (y4 - y3)/(x4 - x3)
+    bB = y4 - mB*x4
+    bB = y3 - mB*x3
+
+    print mA, bA, mB, bB
+
+    x = (bB - bA)/(mA - mB) # swap intentional
+#    y = mB*x + bB
+    y = mA*x + bA
+
+    return np.array([x, y])
+
+def radialRectify(arr, p1, p2, p3, p4, MIN_Y, MAX_Y, MIN_THETA, MAX_THETA):
+    circleCenter = findIntersectionPoint(arr, p1, p2, p3, p4)
+
+#    print p1, p2, p3, p4
+
+    print circleCenter
+
+    numYTicks = 100
+    numThetaTicks = 100
+
+    returnArray = []
+
+    for rawY in range(numYTicks):
+        y = MIN_Y + (MAX_Y - MIN_Y)*rawY/numYTicks
+
+        adjustedY = y - circleCenter[1]
+
+        returnArray.append([])
+
+        for rawTheta in range(0, numThetaTicks):
+            theta = MIN_THETA + (MAX_THETA - MIN_THETA)*rawTheta/numThetaTicks
+
+            r = adjustedY/sin(theta)
+            x = r*cos(theta) + circleCenter[0]
+
+            indices = (y, x) #intentional?
+#            print theta, adjustedY
+
+
+
+            val = fuzzyLookup(arr, indices)
+#            print indices, val
+
+            returnArray[-1].append(val)
+
+    return np.swapaxes(np.array(returnArray), 0, 1)
+
+def radialRectifyMovie(arr, p1, p2, p3, p4, MIN_Y, MAX_Y, MIN_THETA, MAX_THETA):
+    returnMovie = []
+
+    for i, frame in enumerate(arr):
+        print i, "/", len(arr)
+
+        returnMovie.append(radialRectify(frame, p1, p2, p3, p4, MIN_Y, MAX_Y, \
+            MIN_THETA, MAX_THETA))
+
+    return returnMovie
+
+
 if __name__ == "__main__":
+
+    if radialRectify1:
+        num = "272"
+        path = "/Users/adamyedidia/walls/src/downsampled_ceiling" + num + ".p"
+
+        print "Loading..."
+        arr = pickle.load(open(path, "r"))
+        print "Loaded!"
+
+        p1 = np.array([14, 5])
+        p2 = np.array([17, 33])
+        p3 = np.array([4, 8])
+        p4 = np.array([10, 31])
+
+        MIN_Y = 0
+        MAX_Y = 50
+
+        MIN_THETA = pi
+        MAX_THETA = 2*pi
+
+        rectified = radialRectifyMovie(arr, p1, p2, p3, p4, MIN_Y, MAX_Y, MIN_THETA, MAX_THETA)
+
+        oneDMovie = []
+
+        for i,frame in enumerate(rectified):
+
+            print i
+
+#            batchedFrame = batchAndDifferentiate(frame, [(100, False), (1, True), (1, False)])
+#            batchedFrame = batchAndDifferentiate(frame, [(1, True), (100, False), (1, False)])
+#            oneDMovie.append(batchedFrame)
+
+#        print np.array(oneDMovie)[:,0].shape
+
+#        viewFrame(np.array(oneDMovie)[:,0], differenceImage=True, magnification=3e3)
+#        viewFrame(np.array(oneDMovie)[:,:,0], differenceImage=True, magnification=1e3)
+
+        processVideo(rectified, "00:30", [(1, False), (1, True), (1, True), (1, False)], \
+            "vid_diff" + num + "_flat", magnification=1e4, firstFrame=0, lastFrame=None, toVideo=True)
+
+
+
+
+#        i = 4
+
+#        rectified = radialRectify(arr[i], p1, p2, p3, p4, MIN_Y, MAX_Y, MIN_THETA, MAX_THETA)
+
+#        viewFrame(arr[i], magnification=10, differenceImage=False)
+#        viewFrame(rectified, magnification=10, differenceImage=False)
+
+    if radialRectify2:
+        path = "/Users/adamyedidia/Dropbox (MIT)/shadowImaging/2d-imaging/data/" + \
+            "2017-11-05/doorway/pointlight/point1.p"
+
+        print "hi"
+
+        print "Loading..."
+        arr = pickle.load(open(path, "r"))
+        print "Loaded!"
+
+        viewFrame(arr)
+        sys.exit()
+
+        p1 = np.array([316, 222])
+        p2 = np.array([17, 33])
+        p3 = np.array([4, 8])
+        p4 = np.array([10, 31])
+
+        MIN_Y = 0
+        MAX_Y = 50
+
+        MIN_THETA = pi
+        MAX_THETA = 2*pi
+
+        rectified = radialRectifyMovie(arr, p1, p2, p3, p4, MIN_Y, MAX_Y, MIN_THETA, MAX_THETA)
+
+        oneDMovie = []
+
+        for i,frame in enumerate(rectified):
+
+            print i
+
+#            batchedFrame = batchAndDifferentiate(frame, [(100, False), (1, True), (1, False)])
+#            batchedFrame = batchAndDifferentiate(frame, [(1, True), (100, False), (1, False)])
+#            oneDMovie.append(batchedFrame)
+
+#        print np.array(oneDMovie)[:,0].shape
+
+#        viewFrame(np.array(oneDMovie)[:,0], differenceImage=True, magnification=3e3)
+#        viewFrame(np.array(oneDMovie)[:,:,0], differenceImage=True, magnification=1e3)
+
+        processVideo(rectified, "00:30", [(1, False), (1, True), (1, True), (1, False)], \
+            "vid_diff" + num + "_flat", magnification=1e4, firstFrame=0, lastFrame=None, toVideo=True)
+
+
+
+
+#        i = 4
+
+#        rectified = radialRectify(arr[i], p1, p2, p3, p4, MIN_Y, MAX_Y, MIN_THETA, MAX_THETA)
+
+#        viewFrame(arr[i], magnification=10, differenceImage=False)
+#        viewFrame(rectified, magnification=10, differenceImage=False)
+
+
 
     if subtractRectify:
         dirName = "b_dark"

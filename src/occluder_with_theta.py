@@ -11,7 +11,7 @@ OCCLUDER_Y = 0.5
 
 EPS = 1e-9
 
-SIDE_LENGTH = 1000
+SIDE_LENGTH = 11
 DELTA_X = MAX_X/SIDE_LENGTH
 
 def edgeMatrixEntry(lightX, viewX):
@@ -43,6 +43,7 @@ for lightXLarge in range(SIDE_LENGTH):
 
 responseArray = np.array(responseList)
 p.matshow(responseArray)
+p.colorbar()
 p.show()
 
 responseArrayInv = np.linalg.inv(np.array(responseArray))

@@ -1,0 +1,42 @@
+\documentclass{article}
+
+\input{commands}
+
+\begin{document}
+
+\section{Analysis}
+
+\subsection{Introduction}
+
+In this section we present a framework for analyzing and comparing different possible occluders in a mutual-information context. We use this framework to make concrete the advantages of certain occluders over others, which vary as a function of the details of the reconstruction problem. 
+
+To give a specific example, we use our model to infer that in low-SNR scenarios in which ambient noise (noise whose strength is invariant with the intensity of the scene) dominates, we would expect more transmissive occluders to outperform less transmissive occluders. In low-SNR scenarios in which shot noise (noise whose strength is proportional to the intensity of the scene) dominates, we would expect less transmissive occluders to outperform more transmissive occluders. Finally, in high-SNR scenarios with dominant ambient noise, we would expect the optimal occluders to be  semi-transmissive: to let through exactly half the light.
+
+We also consider the effects of scene correlation, comparing the optimal occluders in a scenario with more-correlated scenes as opposed to less-correlated ones. We find that this, too, has an important effect, in that a more-correlated scene implies that a more transmissive occluder will be preferable (though the effect is slight compared with the effect of varying SNR). 
+
+For simplicity, in the analysis that follows, we consider the flatland case. However, all of the analysis is very straightforward to extend to a 3D world.
+
+\subsection{Notation}
+
+\noindent{\textbf{Scene}}
+
+Let $I(x)$ [W/m] represent the intensity of the scene over space in one dimension: $0\leq x\leq L$. We denote $J=\int I(x)\mathrm{d}x$ [W] the net power radiated. Assume a uniform discretization of $[0,L]$ into $n$ bins of size $\Delta=L/n$ each, and denote $x_1,x_2,\ldots,x_n$ their centers. We assume that the discretization is fine enough that the intensity at each bin $i\in[1,n]$ takes constant value $I(x_i)$. Let $f_i=I(x_i)\cdot \Delta$ be the power radiated from each bin.
+We model $\f=[f_1,\ldots,f_n]$ as a multivariate Gaussian distribution $\Nn({\mu}\mathbf{1},\Q)$ with mean $\mu$ and covariance matrix $\Q$. We set $\mu=J/n$ to ensure that the average net power is the expectation of the sum of the power radiated from each bin $\mathbb{E}[\sum_{i\in[1,n]}f_i]=\sum_{i\in[1,n]}\mu=J$.
+
+As our model for scene correlation, we use a decaying-frequency prior. The covariance matrix $Q = \mathbf{F}^*_n\mathbf{D}^\star\mathbf{F}_n$, where $\mathbf{F}_n$ is the normalized DFT matrix of size $n$ and $\mathbf{D}^\star$ is a diagonal matrix with the following entries: $d_1=1$, $d_i^\star = d_{n-i+1}^\star = \frac{\theta}{n}\beta^{\frac{i-1}{\lceil(n-1)/2\rceil}}, i=2,\ldots,\lceil(n+1)/2\rceil$, for some frequency decay rate parameter $0 < \beta < 1$. Therefore a lower $\beta$ implies a more strongly correlated scene.
+
+\noindent{\textbf{Aperture}}.~Denote by $\An$ an $n\times n$ transfer matrix whose entries $\An_{ji}$ model the aperture. Because the aperture cannot create light, only redirect or absorb it, we have that the column-sums of $\An$ are at most 1, i.e. $\sum_j \An_{ji} \le 1$. We assume that a maximal integration time is allowed, and for convenience we normalize it, $\A = n\An$, so that the normalized transfer matrices $\A$ for absorbing (non-redirecting) apertures are $\{0,1\}$ matrices. Denote by $\rho$ the \emph{transmissivity} of the aperture. For an on-off aperture, $\rho$ measures the fraction of elements that transmit light (See Fig.~\ref{fig:pinhole_illustration}). In general, we assume a circulant $\A$; that is equivalent to assuming that the mask repeats a certain pattern (of length $n$) twice: %and leave extensions of our analysis to Toeplitz matrices to future work. \christos{@Adam: I edited this a little bit. Please take a look/correct. Thanks}. Onwards, 
+ $
+ \A_{ji} = a_{(i-j)\mod{n}}
+ $
+ where $\ab^T = (a_0,\ldots,a_{n-1})^T$ is the first row of $\A$.  
+
+\noindent{\textbf{Imaging plane}}.~  The imaging plane consists of $n$ adjacent and equally-sized pixels.  The power $y_j$ measured at each pixel is $y_j=\frac{1}{n} \sum_{i=1}^n A_{ji}\cdot f_i$, where $f_i$ is the power radiated from the $i^\text{th}$ bin. %$A_{ji}$ is the fraction of the light permitted by the. 
+The $(1/m)$--scaling is chosen to ensure preservation of energy:
+%\begin{align*}
+$\E[\sum_j{y_j}] = \frac{1}{n}\sum_j\sum_i A_{ji} \cdot \E[x_i]  \leq \frac{1}{n}\cdot n^2 \cdot \frac{J}{n} = J.$
+%\end{align*}
+The measurement model is a reduction of a more complete forward model, which accounts for distance attenuation and cosine factors in light propagation \citep{brdf}.
+This reduction corresponds to a scenario where the scene is far enough from the imaging plane that the distance attenuation and cosine factors are well-approximated by constants.
+
+\end{document}

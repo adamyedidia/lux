@@ -77,12 +77,30 @@ def batchIntoBigFrames(listOfFrames, batchSize):
 
     return listOfBigFrames, listOfBigFramesSquared
 
-def viewFrame(frame, magnification=1, differenceImage=False, filename=None):
+def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
+    absoluteMeanSubtraction=False, filename=None):
     frameShape = frame.shape
+
+    if meanSubtraction:
+        numPixels = frame.shape[0]*frame.shape[1]
+        averagePixel = np.sum(np.sum(frame, 0), 0)/numPixels
+
+        adjustedFrame = np.zeros(frameShape)
+
+        for i in range(frame.shape[0]):
+            for j in range(frame.shape[1]):
+                if absoluteMeanSubtraction:
+                    adjustedFrame[i][j] = abs(frame[i][j] - averagePixel)
+                else:
+                    adjustedFrame[i][j] = frame[i][j] - averagePixel
+
+#        frame -= arrayOfAveragePixel
+    else:
+        adjustedFrame = frame.copy()
 
 #    print frame, magnification
 #    print type(frame[0][0][0]), type(magnification)
-    adjustedFrame = frame*magnification
+    adjustedFrame = adjustedFrame*magnification
 
 #    print adjustedFrame
 
@@ -115,6 +133,14 @@ def viewFrameR(frameR, magnification=1, differenceImage=False, fileName=None):
 
     viewFrame(frame, magnification, differenceImage, fileName)
 
+def viewFlatFrame(flattenedFrame, height, magnification=1, \
+    differenceImage=False, filename=None):
+
+    frame = np.array([flattenedFrame]*height)
+#    print frame.shape
+
+    viewFrame(frame, differenceImage=differenceImage, magnification=magnification,
+        filename=filename)
 
 def playFrameByFrame(listOfFrames):
 

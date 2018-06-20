@@ -24,9 +24,10 @@ raw = False
 viewDiff = False
 downSample = False
 downSample2 = False
-rawWithSubtract = True
+rawWithSubtract = False
 rawWithBlur = False
 batchMovie = False
+downsampleWinnie = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -138,7 +139,7 @@ def batchAndDifferentiate(arr, listOfResponses):
 
 #            viewFrame(arr, 1e1, True)
 
-    arr = blur2DImage(arr, 5)
+#    arr = blur2DImage(arr, 5)
 
     return arr
 
@@ -327,6 +328,30 @@ if __name__ == "__main__":
 
     #    viewFrame(-processedIm, 1e3, False)
 
+
+    if downsampleWinnie:
+#        path = "/Users/adamyedidia/walls/src/calvin_hobbes.jpg"
+#        path = "/Users/adamyedidia/walls/src/winnie.png"
+        path = "/Users/adamyedidia/walls/src/dora.png"
+#        path = "/Users/adamyedidia/walls/src/shapes.png"
+
+        imRaw = Image.open(path).convert("RGB")
+        im = np.array(imRaw).astype(float)
+
+#        processedIm = batchAndDifferentiate(im,[(5, False), (5, False), (1, False)])[:-5,:-3]
+#        processedIm = batchAndDifferentiate(im,[(7, False), (7, False), (1, False)])[2:-7,4:-1]
+        processedIm = batchAndDifferentiate(im,[(15, False), (15, False), (1, False)])
+#        processedIm = batchAndDifferentiate(im,[(19, False), (21, False), (1, False)])
+
+        print im.shape
+        print processedIm.shape
+
+        viewFrame(processedIm)
+
+#        pickle.dump(processedIm, open("shapes_very_downsamples.p", "w"))
+        pickle.dump(processedIm, open("dora_very_downsampled.p", "w"))
+#        pickle.dump(processedIm, open("dora_slightly_downsampled.p", "w"))
+#        pickle.dump(processedIm, open("winnie_clipped.p", "w"))
 
     if rawWithSubtract:
         dirName = "texas_garbled"

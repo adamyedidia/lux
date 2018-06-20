@@ -1,0 +1,295 @@
+% ********** REVEAL ***********
+\newcommand{\za}{z_a}
+\newcommand{\zm}{z_m}
+\newcommand{\MI}{\mathcal{I}}
+\newcommand{\MIo}{{\overline{\mathcal{I}}}}
+%\newcommand{\Id}{\mathbf{I}}
+
+\newcommand{\Q}{\mathbf{Q}}
+\newcommand{\F}{\mathbf{F}}
+%\newcommand{\D}{\mathbf{D}}
+\newcommand{\An}{\widetilde{\A}}
+\newcommand{\Ap}{\mathbf{A'}}
+\newcommand{\fh}{\hat\f}
+\newcommand{\at}{\tilde{\ab}}
+\newcommand{\Bern}[1]{\mathrm{Bern}(#1)}
+\newcommand{\ds}{d^\star}
+
+\newcommand{\MIr}{\MI_{\sim1}}
+\newcommand{\B}{\mathbf{B}}
+\newcommand{\MIt}{\widetilde{\MI}}
+\newcommand{\MIh}{\widehat{\MI}}
+\newcommand{\SF}{ spectrally flat }
+
+% ********** OLD ***********
+
+\usepackage{dsfont}
+\newcommand{\ind}[1]{{\mathds{1}}_{\{#1\}}}
+\newcommand{\Cauchy}{Cauchy-Schwarz }
+\newcommand{\simiid}{\stackrel{\text{iid}}{\sim}}
+
+% new 
+\newcommand{\win}{\|\w\|\leq K_\w}
+\newcommand{\ubin}{\|\ub\|\leq K_\ub}
+\newcommand{\Pro}{\mathbb{P}}
+\newcommand{\psiubw}{\psi(\w,\ub)}
+\newcommand{\Scc}{{\Sc^c}}
+\newcommand{\tauh}{{\tau_h}}
+\newcommand{\taug}{{\tau_g}}
+\newcommand{\env}[3]{\mathrm{e}_{{#1}}\left({#2};{#3}\right)}
+\newcommand{\prox}[3]{\mathrm{prox}_{{#1}}\left({#2};{#3}\right)}
+\newcommand{\chii}{\chi}
+
+\newcommand{\cost}{\mathrm{C}_*}
+
+\newcommand{\GZ}{\al G + Z}
+\newcommand{\HX}{\frac{\beta}{\la}H + \frac{\tau_h}{\al\la}X_0}
+
+\newcommand{\Id}{\mathbf{I}}
+
+
+\newcommand{\soft}[2]{\eta\left({#1},{#2}\right)}
+\newcommand{\CauchyD}[2]{\mathrm{Cauchy}\left({#1},{#2}\right)}
+
+
+\newcommand{\Lm}[2]{L\left({#1},{#2}\right)}
+\newcommand{\Fm}[3]{F\left({#1},{#2},{#3}\right)}
+\newcommand{\FFm}[2]{F\left({#1},{#2}\right)}
+
+\newcommand{\Rcn}{\Rc_n}
+
+% PROX
+
+%\prox{\ell}{(\alpha+x)G+Z}{\tau+y}
+\newcommand{\va}{\hat{v}_{\al,\tau}}
+\newcommand{\vax}{\hat{v}_{\al+x,\tau+y}}
+
+
+\newcommand{\vaG}{\hat{v}_{\al G+Z,\tau}}
+\newcommand{\vaxG}{\hat{v}_{(\al+x)G+Z,\tau+y}}
+
+\newcommand{\vaGar}[2]{\hat{v}_{\al #1+#2,\tau}}
+\newcommand{\vaxGar}[2]{\hat{v}_{(\al+x)#1+#2,\tau+y}}
+
+
+\newcommand{\ella}{\ell'_{\al,\tau}}
+\newcommand{\ellax}{\ell'_{\al+x,\tau+y}}
+
+\newcommand{\ellaG}{\ell'_{\al G+Z,\tau}}
+\newcommand{\ellaxG}{\ell'_{(\al+x)G+Z,\tau+y}}
+
+
+\newcommand{\ellaGar}[2]{\ell'_{\al #1+#2,\tau}}
+\newcommand{\ellaxGar}[2]{\ell'_{(\al+x)#1+#2,\tau+y}}
+
+% overline
+\newcommand{\xio}{\overline{\phi}}
+\newcommand{\phio}{\overline{\phi}}
+\newcommand{\phiScco}{\overline{\phi_{\Scc}}}
+
+
+% theorems
+\newtheorem{propo}{Proposition}[section]
+\newtheorem{apppropo}{Proposition}[subsection]
+\newtheorem{conj}{Conjecture}[section]
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{appthm}{Theorem}[subsection]
+\newtheorem{lem}{Lemma}[section]
+\newtheorem{applem}{Lemma}[subsection]
+\newtheorem{form}{Formula}
+\newtheorem{cor}{Corollary}[section]
+\newtheorem{ass}{Assumption}%[section]
+
+\newtheorem{remark}{Remark}%[subsection]
+\newtheorem{fact}{Fact}[section]
+\newtheorem{example}{Example}[section]
+
+
+\newtheorem{defn}{Definition}[section]
+\newtheorem{appdefn}{Definition}[subsection]
+\newtheorem{prop}{Property}[section]
+\newtheorem{pro}{Problem}[section]
+
+
+\newenvironment{sproof}{%
+  \renewcommand{\proofname}{Proof sketch}\proof}{\endproof}
+
+
+% bib
+\newcommand{\Roc}{\citep[Cor.~37.3.2]{Roc70} }
+\newcommand{\consist}{\citep[Thm.~2.7]{NF36} }
+\newcommand{\uniform}{\citep[Cor..~II.1]{AG1982}}
+
+%%Ehsan
+\newcommand{\xxa}{{\textbf{X}}_0 }
+%\newcommand{\f}{\mathbf{f}}
+\newcommand{\Pp}{\mathbf{P}^\bot}
+\newcommand{\al}{\alpha}
+\newcommand{\alh}{\hat{\al}}
+\newcommand{\lhh}{\hat{\text{l}}}
+%\newcommand{\thh}{\hat{\text{t}}}
+
+% Non-linear
+\newcommand{\lam}{\la_{\text{min}}}
+\newcommand{\Rcrit}{\mathcal{R}_{\text{crit}}}
+\newcommand{\Rbad}{\mathcal{R}_{\text{bad}}}
+\newcommand{\ellbLM}{\ellb^{LM}}
+\newcommand{\tbLM}{\tb^{LM}}
+\newcommand{\ah}{\hat\alpha}
+\newcommand{\vbs}{\vb_*}
+\newcommand{\eps}{\epsilon}
+\newcommand{\hb}{\bar\h}
+\newcommand{\fb}{\bar{f}^*}
+\newcommand{\wt}{\tilde\w}
+\newcommand{\lin}{\text{lin}}
+\newcommand{\sign}{\mathrm{sign}}
+\newcommand{\DK}{D_{\Kc}(\mu\x_0)}
+\newcommand{\etav}{\vec{\eta}}
+
+\newcommand{\kac}{\kappa_\text{crit}}
+
+%\newcommand{\SNR}{\mathrm{SNR}_q}
+\newcommand{\SNR}{\mathrm{SNR}}
+\newcommand{\ISNR}{\mathrm{ISNR}}
+
+%\newcommand{\prox}{\mathrm{prox}}
+
+\newcommand{\tauu}{\tau^2}
+\newcommand{\one}{\mathbf{1}}
+\newcommand{\I}{\mathbf{I}}
+\newcommand{\gv}{\vec{g}}
+\newcommand{\xx}{\overline{\x}}
+
+\newcommand{\XX}{\overline{X}}
+
+\newcommand{\mn}{{(n)}}
+\newcommand{\Exp}{\mathbb{E}}               % expectation
+\newcommand{\E}{\mathbb{E}}                    % expectation
+\newcommand{\la}{{\lambda}}                     % lambda
+\newcommand{\sigg}{\sigma^2}
+\newcommand{\sig}{\sigma}
+
+
+\newcommand{\vecc}{\mathrm{vec}}
+
+\newcommand{\nn}{\notag}
+\newcommand{\R}{\mathbb{R}}
+
+%bold upper
+\newcommand{\M}{\mathbf{M}}
+\newcommand{\Z}{{Z}}
+\newcommand{\W}{\mathbf{W}}
+\newcommand{\Ub}{\mathbf{U}}
+\newcommand{\Gb}{\mathbf{G}}
+\newcommand{\Hb}{\mathbf{H}}
+\newcommand{\G}{\mathbf{G}}
+\newcommand{\Sb}{\mathbf{S}}
+\newcommand{\X}{\mathbf{X}}
+\newcommand{\XXb}{\overline{\mathbf{X}}}
+\newcommand{\A}{\mathbf{A}}
+\newcommand{\Lb}{\mathbf{L}}
+\newcommand{\Y}{\mathbf{Y}}
+\newcommand{\Vb}{\mathbf{V}}
+%\newcommand{\Sb}{\mathbf{S}}
+
+
+
+%Bold lower
+\newcommand{\ellb}{\boldsymbol{\ell}}
+\newcommand{\x}{\mathbf{x}}
+\newcommand{\w}{\mathbf{w}}
+\newcommand{\ub}{\mathbf{u}}
+\newcommand{\g}{\mathbf{g}}
+\newcommand{\vb}{\mathbf{v}}
+\newcommand{\bb}{\mathbf{b}}
+\newcommand{\e}{\mathbf{e}}
+\newcommand{\tb}{\mathbf{t}}
+\newcommand{\y}{\mathbf{y}}
+\newcommand{\s}{\mathbf{s}}
+\newcommand{\z}{\mathbf{z}}
+\newcommand{\zo}{\overline{\mathbf{z}}}
+\newcommand{\bseta}{{\boldsymbol{\eta}}}
+\newcommand{\Iden}{\mathbf{I}}
+\newcommand{\cb}{\mathbf{c}}  
+\newcommand{\ab}{\mathbf{a}}
+\newcommand{\oneb}{\mathbf{1}}
+\newcommand{\h}{\mathbf{h}}
+\newcommand{\f}{\mathbf{f}}
+%\newcommand{\tb}{\mathbf{t}}
+
+
+%Calligraphic
+\newcommand{\Tc}{{\mathcal{T}}}
+\newcommand{\Sc}{{\mathcal{S}}}
+\newcommand{\Bc}{{\mathcal{B}}}
+\newcommand{\Yc}{\mathcal{Y}}
+\newcommand{\Dc}{\mathcal{D}}
+\newcommand{\Xc}{\mathcal{X}}
+\newcommand{\Zc}{\mathcal{Z}}
+%\newcommand{\Ic}{\mathcal{I}}
+\newcommand{\Uc}{\mathcal{U}}
+\newcommand{\Kc}{\mathcal{K}}
+\newcommand{\Nc}{\mathcal{N}}
+\newcommand{\Rc}{\mathcal{R}}
+\newcommand{\Nn}{\mathcal{N}}
+\newcommand{\Lc}{\mathcal{L}}
+\newcommand{\Cc}{\mathcal{C}}
+\newcommand{\Gc}{{\mathcal{G}}}
+\newcommand{\Ac}{\mathcal{A}}
+\newcommand{\Pc}{\mathcal{P}}
+\newcommand{\Ec}{\mathcal{E}}
+\newcommand{\Hc}{\mathcal{H}}
+\newcommand{\Qc}{\mathcal{Q}}
+\newcommand{\Oc}{\mathcal{O}}
+\newcommand{\Jc}{\mathcal{J}}
+\newcommand{\Ic}{\mathcal{I}}
+
+%hat, tilde, etc
+\newcommand{\vh}{\hat{v}}
+%\newcommand{\alh}{\hat{\al}}
+\newcommand{\bh}{\hat{\beta}}
+\newcommand{\thh}{\hat{\tau_{h}}}
+\newcommand{\tgh}{\hat{\tau_{g}}}
+%...
+
+%Equations
+\newcommand{\beq}{\begin{equation}}
+\newcommand{\eeq}{\end{equation}}
+\newcommand{\bea}{\begin{align}}
+\newcommand{\eea}{\end{align}}
+
+\newcommand{\vp}{\vspace{4pt}}
+
+% lambdas...
+\newcommand{\lac}{\lambda_{\text{crit}}}
+\newcommand{\labb}{\lambda_{\text{best}}}
+\newcommand{\taub}{\tau_{\text{best}}}
+
+% Misc
+\newcommand{\order}[1]{\mathcal{O}\left(#1\right)}
+\newcommand{\li}{\left<}
+\newcommand{\ri}{\right>}
+
+
+%%Christos
+
+\newcommand{\rn}{{\|\cdot\|}}
+\newcommand{\lP}{\xleftarrow{P}}
+\newcommand{\rP}{\xrightarrow{P}}
+\newcommand{\rD}{\rightarrow}
+
+\newcommand{\NSE}{\operatorname{MSE}}
+
+\newcommand{\gh}{\g,\h}
+
+
+\newcommand{\D}{\mathbf{D}}
+
+\newcommand{\Ws}{\mathcal{W}_*}
+
+\newcommand{\loss}{\mathcal{L}}
+
+\newcommand{\dom}{\operatorname{dom}}
+
+\newcommand{\Ps}{\mathcal{P}}
+\newcommand{\Rs}{\mathcal{R}}

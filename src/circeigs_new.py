@@ -1169,6 +1169,8 @@ if False:
     print integrate.quad(Fw, float("-Inf"), float("Inf"))
 
 
+
+
     #print s
     #print c
     #print e

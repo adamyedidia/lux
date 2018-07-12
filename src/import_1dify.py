@@ -16,9 +16,6 @@ from scipy.ndimage.filters import gaussian_filter
 import sys
 import random
 from sklearn import linear_model
-from video_processor import batchArrayAlongAxis
-import numpy, scipy.io
-
 
 np.set_printoptions(threshold=np.nan)
 
@@ -26,7 +23,6 @@ EPS = 1e-8
 
 derivativeOfMovie = False
 exportFlatVideo = False
-exportFlatVideo2 = True
 displayFrameOfVideo = False
 displayFlatFrameOfVideo = False
 buildVideos = False
@@ -122,7 +118,7 @@ def getRowOfRealFrame(realFrame, leftBottomPixel, rightBottomPixel, \
 def average(x):
     return sum(x)/len(x)
 
-def turnVideoIntoListOfFlattenedFrames(vid, firstFrame=0, lastFrame=None, downsampleRate=1):
+def turnVideoIntoListOfFlattenedFrames(vid, firstFrame=0, lastFrame=None):
     listOfFlattenedFrames = []
     numFrames = len(vid)
 
@@ -133,9 +129,7 @@ def turnVideoIntoListOfFlattenedFrames(vid, firstFrame=0, lastFrame=None, downsa
         print i, "/", numFrames
         im = vid.get_data(i)
         frame = np.array(im).astype(float)
-        listOfFlattenedFrames.append(flattenFrame(frame, downsampleRate))
-        
- #       print len(listOfFlattenedFrames[-1])
+        listOfFlattenedFrames.append(flattenFrame(frame))
 
     return listOfFlattenedFrames
 
@@ -213,10 +207,9 @@ def findTransitionsInFlatFrame(flatFrame):
 def blackAndWhiteifyFlatFrame(flatFrame):
     return np.swapaxes(np.array([flatFrame]*3),0,1)
 
-def flattenFrame(frame, downsampleRate=1):
+def flattenFrame(frame):
     rearrangedFrame = np.swapaxes(np.swapaxes(frame, 0, 2), 1, 2)
-#    print downsampleRate
-    outOfOrderFlattenedFrame = batchArrayAlongAxis(np.array([average(i) for i in rearrangedFrame]), 1, downsampleRate)
+    outOfOrderFlattenedFrame = np.array([average(i) for i in rearrangedFrame])
     return np.swapaxes(outOfOrderFlattenedFrame, 0, 1)
 
 def displayFlattenedFrame(flattenedFrame, height, magnification=1, \
@@ -293,7 +286,7 @@ def recoverScene(transferMatrix, observationVector, alpha=1.):
     return clf.coef_
 
 def displayConcatenatedArray(arr, rowsPerFrame=10, magnification=1, \
-    differenceImage=False, filename=None):
+    differenceImage=False, filename=None, stretchFactor=1):
 
     print np.shape(arr)
 
@@ -301,9 +294,10 @@ def displayConcatenatedArray(arr, rowsPerFrame=10, magnification=1, \
 
     newArrList = []
 
+    
     for frame in arrSplit:
         for _ in range(rowsPerFrame):
-            newArrList.append(frame)
+            newArrList.append(np.repeat(frame, stretchFactor))
 
     viewFrame(np.array(newArrList), magnification=magnification, \
         differenceImage=differenceImage, filename=filename)
@@ -624,7 +618,7 @@ if findOccluderWithSparsity:
 if exportFlatVideo:
 #    trueOccluder = generateRandomOccluder(9)
 
- #   FILE_NAME = "smaller_movie.mov"
+#    FILE_NAME = "smaller_movie.mov"
     FILE_NAME = "grey_bar_movie.mpeg"
     vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
 
@@ -646,18 +640,6 @@ if exportFlatVideo:
 
     pickle.dump(listOfFlatFramesObs, open("flat_frames_grey_bar_obs.p", "w"))
 
-if exportFlatVideo2:
-#    trueOccluder = generateRandomOccluder(9)
-
-    FILE_NAME = "smaller_movie.mov"
- #   FILE_NAME = "grey_bar_movie.mpeg"
-    vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
-
-    listOfFlattenedFrames = turnVideoIntoListOfFlattenedFrames(vid, downsampleRate=10)
-
-    pickle.dump(listOfFlattenedFrames, open("flat_frames_fine.p", "w"))
-    
-    scipy.io.savemat("flat_frame_data.mat", mdict={'flat_frame_data': listOfFlattenedFrames})    
 
 #listOfFrames = turnVideoIntoListOfFrames(vid)
 

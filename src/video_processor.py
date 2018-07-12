@@ -27,7 +27,7 @@ downSample2 = False
 rawWithSubtract = False
 rawWithBlur = False
 batchMovie = False
-downsampleWinnie = True
+downsampleWinnie = False
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)

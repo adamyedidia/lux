@@ -2,7 +2,7 @@ from __future__ import division
 import pylab
 import imageio
 import numpy as np
-from math import acos, pi, cos, sin
+from math import acos, pi, cos, sin, ceil
 import matplotlib.pyplot as p
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
@@ -133,8 +133,11 @@ def viewFrameR(frameR, magnification=1, differenceImage=False, fileName=None):
 
     viewFrame(frame, magnification, differenceImage, fileName)
 
-def viewFlatFrame(flattenedFrame, height, magnification=1, \
+def viewFlatFrame(flattenedFrame, height=None, magnification=1, \
     differenceImage=False, filename=None):
+
+    if height == None:
+        height = int(ceil(len(flattenedFrame)/10))
 
     frame = np.array([flattenedFrame]*height)
 #    print frame.shape

@@ -29,7 +29,8 @@ TOEPLITZ = False
 TOEPLITZ_2D = False
 ANTONIO_METHOD = False
 DIFFERENT_DEPTHS_SIM = False
-ACTIVE_SIM = True
+ACTIVE_SIM = False
+ANGLE_CORNER = False
 
 def hasOptimalCirculant(x):
     if int(log(x+1, 2)) == log(x+1, 2):
@@ -61,6 +62,79 @@ def spectrallyFlatOccluder(imShape):
             return occluder
 
     raise
+
+# elementwise kron with (255, 255, 255)
+def imageify(arr):
+    result = np.reshape(np.kron(arr, np.array([255,255,255])), arr.shape + tuple([3]))
+
+    return result
+
+def imageifyComplex(arr):
+    result = np.reshape(np.kron(np.real(arr), np.array([0,0,255])), arr.shape + tuple([3])) + \
+        np.reshape(np.kron(np.imag(arr), np.array([255,0,0])), arr.shape + tuple([3]))
+
+    return result
+
+def makeCornerTransferMatrix(vector1, vector2, imShape, vertRadius, horizRadius):
+
+    planeOfOcclusion = np.cross(vector1, vector2)
+
+    maxX = imShape[0]
+    maxY = imShape[1]
+
+    returnMat = []
+
+    for q, sceneX in enumerate(np.linspace(-horizRadius, horizRadius, maxX)):
+        for p, sceneY in enumerate(np.linspace(-horizRadius, horizRadius, maxY)):
+            print sceneX, maxX
+
+            scenePoint = np.array([sceneX, sceneY, vertRadius])
+            returnMat.append([])
+
+            for obsX in np.linspace(-horizRadius, horizRadius, maxX):
+
+                for obsY in np.linspace(-horizRadius, horizRadius, maxY):
+                    obsPoint = np.array([obsX, obsY, -vertRadius])
+
+                    a = planeOfOcclusion[0]
+                    b = planeOfOcclusion[1]
+                    c = planeOfOcclusion[2]
+
+                    d = sceneX
+                    e = sceneY
+                    f = vertRadius
+
+                    g = obsX
+                    h = obsY
+                    i = -vertRadius
+
+                    t = (a*d + b*e + c*f)/(a*d + b*e + c*f - a*g - b*h - c*i)
+
+                    intX = d + (g-d)*t
+                    intY = e + (h-e)*t
+                    intZ = f + (i-f)*t
+
+                    newBasis = np.linalg.inv(np.transpose(np.array([vector1, vector2, np.array([0,0,1])])))
+
+                    intVec = np.dot(newBasis, np.array([intX, intY, intZ]))
+
+    #                print intVec
+                    closestToZero = min(intVec[0], intVec[1])
+
+                    # this is a crappy increment
+                    increment = horizRadius / max(maxX, maxY)
+
+                    if closestToZero > increment/2:
+                        returnMat[-1].append(1/(maxX*maxY))
+                    elif closestToZero < -increment/2:
+                        returnMat[-1].append(0)
+                    else:
+                        returnMat[-1].append(1/(maxX*maxY) * (closestToZero + increment/2)/increment)
+
+            viewFrame(vectorToImage(imageify(np.array(returnMat[-1])), imShape), 1e2, \
+                filename="anglemovie/img_" + padIntegerWithZeros(p*maxX + q, 3) + ".png")
+
+    return np.transpose(np.array(returnMat))
 
 def oneDPinHole(length, widthOfPinhole):
     return [1/length*(abs(i - length/2) < length*widthOfPinhole/2) for i in range(length)]
@@ -1370,3 +1444,41 @@ if ACTIVE_SIM:
 #    transferMatrix =
 
 #    getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
+
+if ANGLE_CORNER:
+
+#    im = pickle.load(open("dora_very_downsampled.p", "r"))
+    im = pickle.load(open("impulse_5_6_11_11.p", "r"))
+
+    viewFrame(im)
+
+    beta = 0.1
+    snr = 1e4
+
+    imShape = im.shape[:-1]
+    imSpatialDimensions = imShape
+    imVector = imageToVector(np.swapaxes(im, 0, 1))
+
+    attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+    vector1 = np.array([sqrt(2)/2,0,sqrt(2)/2])
+    vector2 = np.array([0,1,0])
+    vertRadius = 1
+    horizRadius = 1
+
+    transferMatrix = makeCornerTransferMatrix(vector1, vector2, imShape, vertRadius, horizRadius)
+
+    obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
+
+    viewFrame(vectorToImage(obsPlane, imShape), 1e2)
+
+    doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
+    diagArray = attenuationMat.flatten()
+    priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+    miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsXRes * obsTRes)
+
+    pseudoInverse = snr*np.linalg.inv(miMat)
+    recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+    recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)

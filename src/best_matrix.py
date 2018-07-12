@@ -772,7 +772,7 @@ def padIntegerWithZeros(x, maxLength):
     if x == 0:
         return "0"*maxLength
 
-    assert log(x, 10) < maxLength
+    assert log(x+0.0001, 10) < maxLength
 
     return "0"*(maxLength-int(floor(log(x, 10)))-1) + str(x)
 

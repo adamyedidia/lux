@@ -17,6 +17,8 @@ from matplotlib import scale as mscale
 from matplotlib import transforms as mtransforms
 from matplotlib.ticker import Formatter, FixedLocator
 from matplotlib import rcParams
+from custom_plot import createCMapDictHelix, LogLaplaceScale
+from matplotlib.colors import LinearSegmentedColormap
 
 LOOK_AT_FREQUENCY_PROFILES = False
 DIVIDE_OUT_STRATEGY = False
@@ -177,8 +179,8 @@ def normal(x, mu, sigma):
 def laplace(x, mu, sigma):
     return exp(-abs(x-mu)/(sigma))/(2*sigma)
 
-def loglaplace(x, mu, sigma):
-    return exp(-abs(log(x-mu))/(sigma))/(2*x*sigma)
+def logLaplace(x, mu, sigma):
+    return exp(-abs(log(x)-mu)/(sigma))/(2*x*sigma)
     
 def reverseLogLaplace(x, mu, sigma):
     return 2*x*sigma*exp(abs(log(x-mu))/sigma)    
@@ -546,7 +548,13 @@ def getSingleColorFrames(frame):
 
 def visualizeColorMesh(X, Y, Z, roots):
 #    p.pcolormesh(X, Y, Z, cmap=cm.gnuplot2)
-    p.pcolormesh(X, Y, Z, cmap=cm.prism)
+    cdict5 = createCMapDictHelix(10)
+
+    helix = LinearSegmentedColormap("helix", cdict5)
+
+    p.register_cmap(cmap=helix)
+
+    p.pcolormesh(X, Y, Z, cmap=helix)
     
     p.colorbar()
     
@@ -634,7 +642,7 @@ def makeRootMagnitudeHistogram(listOfSeqs, sigma):
  #       p.plot(xRange, [normal(i, 1, sigma) for i in xRange])
 #        p.plot(xRange, [laplace(i, 1, sigma) for i in xRange])    
  
-    p.plot(xRange, [loglaplace(i, 0, sigma) for i in xRange])  
+    p.plot(xRange, [logLaplace(i, 0, sigma) for i in xRange])  
   
     p.axvline(x=1, color="k")
     p.show()
@@ -727,7 +735,13 @@ def visualizeRadialColorMesh(THETA, R, Z, roots):
     
     print Z.shape
     
-    p.pcolormesh(THETA, R, Z, cmap=cm.prism)
+    cdict5 = createCMapDictHelix(10)
+
+    helix = LinearSegmentedColormap("helix", cdict5)
+
+    p.register_cmap(cmap=helix)
+    
+    p.pcolormesh(THETA, R, Z, cmap=helix)
 
     p.colorbar()
     
@@ -1059,7 +1073,7 @@ if BILL_NOISY_POLYNOMIALS:
     singlePoly = False
 
     densitySigma = 0.3/sqrt(n)
-    densityFunc = lambda x: loglaplace(x, 0, densitySigma) 
+    densityFunc = lambda x: logLaplace(x, 0, densitySigma) 
 
     
 
@@ -1067,7 +1081,7 @@ if BILL_NOISY_POLYNOMIALS:
 
         listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)[:300]
 
-#        makeRootMagnitudeHistogram(listOfSingleColorFrames, 0.3/sqrt(n))
+        makeRootMagnitudeHistogram(listOfSingleColorFrames, 0.3/sqrt(n))
 
 
 
@@ -1113,7 +1127,7 @@ if BILL_NOISY_POLYNOMIALS:
 
 if DENSITY_TESTS:    
     sigma = 0.04
-    densityFunc = lambda x: loglaplace(x, 0, sigma)
+    densityFunc = lambda x: logLaplace(x, 0, sigma)
     
     numPointsParam = 10
     

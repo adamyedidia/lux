@@ -299,11 +299,15 @@ def displayConcatenatedArray(arr, rowsPerFrame=10, magnification=1, \
 
     arrSplit = np.split(arr, np.shape(arr)[1]/3, 1)
 
+#    print len(arrSplit)
+
     newArrList = []
 
     for frame in arrSplit:
         for _ in range(rowsPerFrame):
             newArrList.append(frame)
+
+#    p.colorbar()
 
     viewFrame(np.array(newArrList), magnification=magnification, \
         differenceImage=differenceImage, filename=filename)
@@ -653,9 +657,9 @@ if exportFlatVideo2:
  #   FILE_NAME = "grey_bar_movie.mpeg"
     vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
 
-    listOfFlattenedFrames = turnVideoIntoListOfFlattenedFrames(vid, downsampleRate=10)
+    listOfFlattenedFrames = turnVideoIntoListOfFlattenedFrames(vid, downsampleRate=500)
 
-    pickle.dump(listOfFlattenedFrames, open("flat_frames_fine.p", "w"))
+    pickle.dump(listOfFlattenedFrames, open("flat_frames_coarse.p", "w"))
     
     scipy.io.savemat("flat_frame_data.mat", mdict={'flat_frame_data': listOfFlattenedFrames})    
 

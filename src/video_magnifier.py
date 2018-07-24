@@ -79,6 +79,8 @@ def batchIntoBigFrames(listOfFrames, batchSize):
 
 def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
     absoluteMeanSubtraction=False, filename=None):
+    p.clf()
+    
     frameShape = frame.shape
 
     if meanSubtraction:

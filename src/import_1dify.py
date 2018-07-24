@@ -288,16 +288,22 @@ def recoverScene(transferMatrix, observationVector, alpha=1.):
 def displayConcatenatedArray(arr, rowsPerFrame=10, magnification=1, \
     differenceImage=False, filename=None, stretchFactor=1):
 
-    print np.shape(arr)
+#    print np.shape(arr)
 
     arrSplit = np.split(arr, np.shape(arr)[1]/3, 1)
+
+#    print len(arrSplit)
 
     newArrList = []
 
     
     for frame in arrSplit:
+#        print frame.shape
+
         for _ in range(rowsPerFrame):
             newArrList.append(np.repeat(frame, stretchFactor))
+
+#    print np.array(newArrList).shape
 
     viewFrame(np.array(newArrList), magnification=magnification, \
         differenceImage=differenceImage, filename=filename)

@@ -96,12 +96,14 @@ def cumLogLaplaceMaker(mu, sigma):
             return (1 + sign(log(y)-mu)*(1-exp(-abs(log(y)-mu)/sigma)))/2
     return cumLogLaplaceParametrized
 
-
+"""
+#    old debugging code
+    
 xRange = np.linspace(0.01, 4, 200)
 yRange = np.linspace(0.01, 0.99, 50)
 
 mu = 0
-sigma = 0.2
+sigma = 0.08
 
 cumLogLaplaceParametrized = cumLogLaplaceMaker(mu, sigma)
 inverseCumLogLaplaceParametrized = inversefunc(cumLogLaplaceParametrized, domain=[0.001, 100])
@@ -113,7 +115,9 @@ p.plot(xRange, [logLaplace(x, mu, sigma) for x in xRange])
 p.plot(xRange, [cumLogLaplaceParametrized(x) for x in xRange])
 p.plot(yRange, [inverseCumLogLaplaceParametrized(x) for x in yRange])
 p.show()
+"""
 
+    
 class LogLaplaceScale(mscale.ScaleBase):
     name = 'log_laplace'
 
@@ -161,20 +165,24 @@ class LogLaplaceScale(mscale.ScaleBase):
         is_separable = True
         has_inverse = True
 
-        def __init__(self):
+        def __init__(self, mu, sigma):
             mtransforms.Transform.__init__(self)
             self.mu = mu
             self.sigma = sigma
 
         def transform_non_affine(self, a):
             
-            cumLogLaplaceVectorized = np.vectorize(inversefunc(cumLogLaplaceMaker(self.mu, \
+            inverseCumLogLaplaceVectorized = np.vectorize(inversefunc(cumLogLaplaceMaker(self.mu, \
                 self.sigma), domain=[1e-5, float("Inf")]))
             
             return inverseCumLogLaplaceVectorized(a)
 
         def inverted(self):
             return LogLaplaceScale.LogLaplaceTransform(self.mu, self.sigma)
+
+"""
+    old debugging code        
+            
 
 mscale.register_scale(LogLaplaceScale)
 
@@ -188,6 +196,7 @@ p.yticks([0.5, 0.9, 0.99, 1.01, 1.1, 2])
 
 p.show()
 
+"""
 
 #def cumLogLaplace(x, mu, sigma):
 #    return 

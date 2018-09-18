@@ -51,6 +51,8 @@ DIFFERENT_DEPTHS_TEST = False
 SZEGO_TEST = False
 SZEGO_TEST_2 = False
 ALT_PROJ = False
+RANDOM_BLOCK_MAT = False
+SF_BLOCK_MAT = False
 
 # compute a^b mod c
 def modularExponentiation(a, b, c):
@@ -402,8 +404,8 @@ def miEfficient(l, gamma):
     returnSum = 0
 
     for eig in f:
-        if abs(eig) <= 0:
-            return -1e10
+#        if abs(eig) <= 0:
+ #           return -1e10
 
         returnSum += log(gamma*abs(eig)**2/n**2 + 1)
 
@@ -1079,6 +1081,33 @@ def getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2):
         returnArray.append(snapshot)
 
     return np.flip(np.transpose(np.array(returnArray)), 0)
+
+def getRandomOccluderWithGivenBlockSize(n, blockSize):
+    returnList = []
+
+    numBlocks = int(n/blockSize)
+    remainder = n % numBlocks
+
+    for i in range(numBlocks):
+        returnList.extend([1*(random.random() > 0.5)]*blockSize)
+
+    returnList.extend([1*(random.random() > 0.5)]*remainder)
+
+    return returnList
+
+def getAverageMIRandomOccluderWithGivenBlockSize(n, blockSize, gamma, numSamples=100):
+    returnVal = 0
+
+    for _ in range(numSamples):
+        occ = getRandomOccluderWithGivenBlockSize(n, blockSize)
+#        print miEfficient(occ, gamma)
+
+        returnVal += miEfficient(occ, gamma)
+
+
+    returnVal /= numSamples
+
+    return returnVal
 
 def toeplitzFMaker(tFunc):
     def toeplitzF(lamda, n):
@@ -2433,3 +2462,53 @@ if ALT_PROJ:
 
     admm(n)
     print bestPossible
+
+if RANDOM_BLOCK_MAT:
+    gamma = 0.01
+
+    logN = 13
+    n = int(2**logN)
+
+    averageMIs = []
+
+    for logBlockSize in range(logN):
+
+        blockSize = int(2**logBlockSize)
+
+        print blockSize
+
+        averageMI = getAverageMIRandomOccluderWithGivenBlockSize(n, blockSize, gamma, numSamples=100)
+
+        averageMIs.append(averageMI)
+
+    p.plot(range(logN), averageMIs)
+    p.show()
+
+if SF_BLOCK_MAT:
+    gamma = 0.01
+
+    logN = 15
+    n = int(2**logN)
+
+    mis = []
+    xAxis = range(int(logN/2))
+#    xAxis = range(int(logN-1))
+
+    for logBlockSize in xAxis:
+
+        blockSize = int(2**logBlockSize)
+
+        logNumBlocks = logN - logBlockSize
+
+        pattern = np.concatenate((mls(logNumBlocks)[0], np.array([0])), 0)
+        print pattern, blockSize
+
+        occ = np.repeat(pattern, blockSize)
+        print occ
+
+        mi = miEfficient(occ, gamma)
+
+        mis.append(mi)
+
+    p.plot(xAxis, mis)
+    p.show()

@@ -78,8 +78,10 @@ def batchIntoBigFrames(listOfFrames, batchSize):
     return listOfBigFrames, listOfBigFramesSquared
 
 def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
-    absoluteMeanSubtraction=False, filename=None):
-    p.clf()
+    absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None):
+
+    if not relax:
+        p.clf()
     
     frameShape = frame.shape
 
@@ -110,8 +112,14 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
         adjustedFrame += np.full(shape=frameShape, \
             fill_value=128.)
 
-    coercedFrame = np.minimum(np.maximum(adjustedFrame, np.zeros(frameShape)), \
-        np.full(shape=frameShape, fill_value=255))
+    if subFrameShape == None:
+        coercedFrame = np.minimum(np.maximum(adjustedFrame, np.zeros(frameShape)), \
+            np.full(shape=frameShape, fill_value=255))
+            
+    else:
+        realSubFrameShape = (subFrameShape[0], subFrameShape[1], 3)
+        coercedFrame = np.minimum(np.maximum(adjustedFrame, np.zeros(realSubFrameShape)), \
+            np.full(shape=realSubFrameShape, fill_value=255))        
 
     #print coercedFrame.astype(np.uint8)
 
@@ -124,6 +132,8 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
 
     if filename == None:
         p.show()
+    elif filename == "pass":
+        pass
     else:
         p.savefig(filename)
 

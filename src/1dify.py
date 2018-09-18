@@ -26,7 +26,7 @@ EPS = 1e-8
 
 derivativeOfMovie = False
 exportFlatVideo = False
-exportFlatVideo2 = True
+exportFlatVideo2 = False
 displayFrameOfVideo = False
 displayFlatFrameOfVideo = False
 buildVideos = False
@@ -38,7 +38,7 @@ showArtificialOccluder = False
 testDifferentDepthsOccluder = False
 getOutMovie = False
 readMovie = False
-displaySimpleOccluder = False
+displaySimpleOccluder = True
 polynomialApproach = False
 
 
@@ -632,7 +632,7 @@ if exportFlatVideo:
     FILE_NAME = "grey_bar_movie.mpeg"
     vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
 
-    listOfFlattenedFrames = turnVideoIntoListOfFlattenedFrames(vid)
+    listOfFlattenedFrames = batchList(turnVideoIntoListOfFlattenedFrames(vid, downsampleRate=30),30)
 
     flatFrameLength = len(listOfFlattenedFrames[0])
 
@@ -826,9 +826,17 @@ if exportFlatRealVideo:
         flatFrame = turnRealFrameIntoFlatFrame(frame, LEFT_BOTTOM_PIXEL, \
                 RIGHT_BOTTOM_PIXEL)
 
-        listOfFlatFrames.append(flatFrame)
+        print flatFrame.shape
 
-    pickle.dump(listOfFlatFrames, open("real_flat_frames_2500_4500.p", "w"))
+        flatFrameDownsampled = batchArrayAlongAxis(flatFrame, 0, 10)
+
+        print flatFrameDownsampled.shape
+
+        listOfFlatFrames.append(flatFrameDownsampled)
+
+    downsampledList = batchList(listOfFlatFrames, 5)
+
+    pickle.dump(downsampledList, open("real_flat_frames_2500_4500_downsampled.p", "w"))
 
 #    displayFlattenedFrame(flatFrame, 200)
 
@@ -850,7 +858,7 @@ if testDifferentDepthsOccluder:
 
 if displaySimpleOccluder:
 #    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    smallOccluderArray = REAL_OCCLUDER_ARRAY
+    smallOccluderArray = REAL_OCCLUDER_ARRAY[::-1]
 
     displayFlattenedFrame(blackAndWhiteifyFlatFrame(smallOccluderArray), 300, magnification=255)
 

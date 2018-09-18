@@ -150,6 +150,25 @@ def fuzzyLookup(array, index):
     arrayAbove = array[ceilIndex]
 
     return (1-residue) * arrayBelow + residue * arrayAbove
+    
+def fuzzyLookup2D(array, i, j):
+    floorI = int(floor(i))
+    ceilI = int(ceil(i))
+    floorJ = int(floor(j))
+    ceilJ = int(ceil(j))
+    
+    resI = i % 1
+    resJ = j % 1
+    
+    fIfJ = array[floorI][floorJ]
+    fIcJ = array[floorI][ceilJ]
+    cIfJ = array[ceilI][floorJ]
+    cIcJ = array[ceilI][ceilJ]
+    
+    return (1-resI)*(1-resJ)*fIfJ + \
+        (1-resI)*resJ*fIcJ + \
+        resI*(1-resJ)*cIfJ + \
+        resI*resJ*cIcJ
 
 def turnRealMovieIntoListOfFlatFrames(listOfFrames, batchSize):
     pass
@@ -302,6 +321,8 @@ def displayConcatenatedArray(arr, rowsPerFrame=10, magnification=1, \
 
         for _ in range(rowsPerFrame):
             newArrList.append(np.repeat(frame, stretchFactor))
+
+#    print np.array(newArrList).shape
 
 #    print np.array(newArrList).shape
 

@@ -7,11 +7,12 @@ from scipy.signal import convolve, deconvolve, argrelextrema
 from numpy.fft import fft, ifft
 from math import sqrt, pi, exp, log, sin, cos, floor, ceil
 from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup
-from image_distortion_simulator import doFuncToEachChannelVec
+from image_distortion_simulator import doFuncToEachChannelVec, doFuncToEachChannel
 import pickle
 from numpy.polynomial.polynomial import Polynomial, polyfromroots
 import matplotlib.pyplot as p
 from scipy.linalg import circulant as circ
+from scipy.special import gamma
 import matplotlib.cm as cm 
 from matplotlib import scale as mscale
 from matplotlib import transforms as mtransforms
@@ -19,9 +20,11 @@ from matplotlib.ticker import Formatter, FixedLocator
 from matplotlib import rcParams
 from custom_plot import createCMapDictHelix, LogLaplaceScale
 from matplotlib.colors import LinearSegmentedColormap
-from scipy.optimize import broyden1, fmin_bfgs, fmin_cg, fmin_tnc
+from scipy.optimize import broyden1, fmin_bfgs, fmin_cg, fmin_tnc, fmin
 from pynverse import inversefunc
 from scipy.integrate import quad
+from video_processor import batchArrayAlongAxis
+from scipy.linalg import toeplitz
 
 LOOK_AT_FREQUENCY_PROFILES = False
 DIVIDE_OUT_STRATEGY = False
@@ -30,13 +33,21 @@ UNDO_TRUNCATION = False
 BILL_NOISY_POLYNOMIALS = False
 DENSITY_TESTS = False
 GIANT_GRADIENT_DESCENT = False
-ROADSIDE_DECONVOLUTION = True
+ROADSIDE_DECONVOLUTION = False
+POLYNOMIAL_EXPERIMENT = False
+POLYNOMIAL_EXPERIMENT_AFTERMATH = False
+POLYNOMIAL_EXPERIMENT_FRANKENSTEIN = False
+POLYNOMIAL_EXPERIMENT_RECOVERY = False
+SIMPLE_BLIND_DECONV_TEST = False
+RECOVER_FREQ_MAGNITUDES = False
+RECOVER_FREQ_MAGNITUDES_2 = True
 
 ZERO_DENSITY = 2
 NONZERO_DENSITY = 20
 FLIP_DENSITY = 10
 SIGNAL_SIGMA = 1
-NOISE_SIGMA = 1e-2
+NOISE_SIGMA = 0
+#NOISE_SIGMA = 0
 
 output = open("trash.txt", "w")
 
@@ -216,34 +227,132 @@ def occGradContributionFromSingleElt(convolvedElt, groundTruthElt, lambda6, occI
 def getGradientContributionFromSingleFrame(convolvedFrame, groundTruthFrame, lambda6, 
     occIndex, getCoefficient, hypothesizedFrame):
 
-    return sum(occGradContributionFromSingleElt(convolvedElt, groundTruthElt, lambda6)) for \
-        convolvedElt, groundTruthElt, in zip(convolvedFrame, groundTruthFrame)
+    return sum([occGradContributionFromSingleElt(convolvedElt, groundTruthElt, lambda6) for \
+        convolvedElt, groundTruthElt in zip(convolvedFrame, groundTruthFrame)])
 
 def getGradientFromObservationMatching(convolvedFrames, groundTruth, lambda6, 
-    occIndex, getCoefficient, hypothesizedFrame):
+    getCoefficient, hypothesizedMovie):
 
-    convolvedFrames = [getConvolvedFrame(occluderSeq, hypothesizedFrame) for hypothesizedFrame in listOfFrames]
+#    convolvedFrames = [getConvolvedFrame(occluderSeq, hypothesizedFrame) for hypothesizedFrame in listOfFrames]
+
+    numFrames = len(hypothesizedMovie)
 
     gradientContribution = [sum([getGradientContributionFromSingleFrame(convolvedFrame, groundTruthFrame, 
-        lambda6, occIndex, getCoefficient, hypothesizedFrame) for \
-        convolvedFrame, groundTruthFrame in zip(convolvedFrames, groundTruth)]) for occIndex in range(occLength)]
+        lambda6, occIndex, getCoefficient, hypothesizedMovie[frameIndex]) for \
+        convolvedFrame, groundTruthFrame, frameIndex in zip(convolvedFrames, groundTruth, range(numFrames))]) for occIndex in range(occLength)]
 
 
     return np.array(gradientContribution)
 
 
-def getOccluderGradient(convolvedFrames, groundTruth, occIndex, getCoefficient, hypothesizedFrame, 
+def getOccluderGradient(convolvedFrames, groundTruth, getCoefficient, hypothesizedMovie, 
     lambda1, lambda2, lambda6):
 
     gradientFromObservationMatching = getGradientFromObservationMatching(convolvedFrames, groundTruth, lambda6, 
-        occIndex, getCoefficient, hypothesizedFrame)
+        getCoefficient, hypothesizedMovie)
 
     gradientFromSparsity = occGradSparsity(occVal, lambda1)
     gradientFromSpatial = occGradSpatial(occVal, lambda2)
 
     return gradientFromObservationMatching + gradientFromSparsity + gradientFromSpatial
 
+def listSum(listOfLists):
+    returnList = []
 
+    for l in listOfLists:
+        returnList += l
+
+    return returnList
+
+def frameGradContributionFromSingleElt(convolvedElt, groundTruthElt, lambda6, frameIndex, 
+    getCoefficient, hypothesizedOccluder):
+
+    return lambda6*2*(convolvedElt-groundTruthElt)*getCoefficient(frameIndex, hypothesizedOccluder)
+
+def singleFrameGradientObservationMatching():
+    return sum(frameGradContributionFromSingleElt(convolvedElt, groundTruthElt, lambda6) for \
+        convolvedElt, groundTruthElt in zip(convolvedFrame, groundTruthFrame))
+
+
+
+def frameGradientFromObservationMatching(convolvedFrames, groundTruth, getFrameCoefficient, hypothesizedMovie, lambda6):
+    
+    gradientContribution = []
+
+    for convolvedFrame, groundTruthFrame, hypothesizedFrame in zip(convolvedFrames, groundTruth, hypothesizedMovie):
+        gradientContribution += singleFrameGradientObservationMatching()
+
+    return np.array(gradientContribution)
+
+def frameGradSparsitySingleElt():
+    if elt == 0:
+        return 0
+
+    elif elt > 0:
+        return lamda
+
+    else:
+        return -lamda
+
+def singleFrameGradientFromSparsity():
+    return [frameGradSparsitySingleElt(elt, lamda) for elt in hypothesizedFrame]
+
+def frameGradientFromSparsity():
+
+    gradientContribution = []
+
+    for hypothesizedFrame in hypothesizedMovie:
+        gradientContribution += singleFrameGradientFromSparsity()
+
+    return np.array(gradientContribution)
+
+def occGradSpatialDoubleElt(occVal, otherOccVal, lambda2):
+    if occVal == otherOccVal:
+        return 0
+
+    elif occVal > otherOccVal:
+        return lambda2
+
+    elif occVal < otherOccVal:
+        return -lambda2
+
+def occGradSpatialTripleElt(occValLeft, occValCenter, occValRight, lambda2):
+    if occValLeft is None:
+        return occGradSpatialDoubleElt(occValCenter, occValRight, lambda2)
+
+    if occValRight is None:
+        return occGradSpatialDoubleElt(occValCenter, occValLeft, lambda2)
+
+    else:
+        return occGradSpatialDoubleElt(occValCenter, occValRight, lambda2) + \
+            occGradSpatialDoubleElt(occValCenter, occValLeft, lambda2)
+
+def occGradSpatial(occVal, lambda2):
+    return np.array([occGradSpatialTripleElt(None, occVal[0], occVal[1], lambda2)] + \
+        [occGradSpatialTripleElt(occVal[i-1], occVal[i], occVal[i+1], lambda2) for i in range(1, len(occVal)-1)] + \
+        [occGradSpatialTripleElt(occVal[-2], occVal[-1], None, lambda2)])
+
+
+def singleFrameGradientFromSpatial(frameVal, lamb):
+    pass
+
+def frameGradientFromSpatial():
+
+    gradientContribution = []
+
+    for hypothesizedFrame in hypothesizedMovie:
+        gradientContribution += singleFrameGradientFromSpatial()
+
+    return np.array(gradientContribution)
+
+def getFramesGradient(convolvedFrames, groundTruth, getFrameCoefficient, hypothesizedMovie, lambda3, lambda4, lambda5, lambda6):
+
+    gradientFromObservationMatching = frameGradientFromObservationMatching(convolvedFrames, groundTruth, getFrameCoefficient,
+        hypothesizedMovie, lambda6)
+
+    gradientFromSparsity = frameGradientFromSparsity()
+
+    gradientFromSpatial = frameGradientFromSpatial()
 
 
 def fPrimeMaker(vecBoundary, groundTruth, lambdas):
@@ -757,6 +866,7 @@ def makePolynomialMesh(seq, normalizationAngle, numSteps=300, minX=-1.5, maxX=1.
 
     heuristicReward = np.vectorize(heuristicRewardFunc)
 
+
     Z = np.log(np.divide(np.abs(np.polyval(seq, X + 1j*Y)), \
         normalizationMesh)+1) \
         + heuristicReward(X+1j*Y)
@@ -793,11 +903,13 @@ def makeRootMagnitudeHistogram(listOfSeqs, sigma):
     
         
 def heuristicRewardFunc(x):
-    lambda1 = -0.3
+#    lambda1 = -0.3
+    lambda1 = 0
 
     awayFromUnitCircle = lambda1 * sqrt(abs(abs(x) - 1))
 
-    lambda2 = -0.3 
+#    lambda2 = -0.3 
+    lambda2 = 0
 
     awayFromRealLine = lambda2 * abs(np.imag(x))**(1/4)
 
@@ -1399,6 +1511,56 @@ def convertToThetaR(XYArray):
     y = XYArray[1]
     return np.array([cis(x+1j*y), np.abs(x+1j*y)])
 
+def cleanFoundRoots(sortedFoundRoots, numRootsExpected):
+    prunedRoots = sortedFoundRoots[:]
+
+    delVals = {}
+    delIndices = []
+
+#    print sortedFoundRoots
+
+    for pr in prunedRoots:
+        print pr
+
+    for i, root1 in enumerate(sortedFoundRoots[:]):
+        neighborFound = False
+
+        if abs(root1) < 0.5:
+            delIndices.append(i)
+
+        elif abs(root1) > 2:
+            delIndices.append(i)
+
+        for j, root2 in enumerate(sortedFoundRoots[:]):
+#            print i, j
+            if abs(root1 - root2) < 2*pi/(numRootsExpected*4) and root1 != root2:
+                if root1 > root2 and not root1 in delVals:
+                    print root1, ">", root2
+                    print "adding", i
+
+                    delVals[root1] = True
+                    delIndices.append(i)
+                elif root2 >= root1 and not root2 in delVals and not j in delIndices:
+                    print root2, ">", root1
+                    print "adding", j
+
+                    delVals[root2] = True
+                    delIndices.append(j)
+
+    print delIndices
+
+    for delIndex in sorted(delIndices)[::-1]:
+        print "deleting root", prunedRoots[delIndex]
+        del prunedRoots[delIndex]
+
+    if len(sortedFoundRoots) > numRootsExpected:
+        recoveredRoots = prunedRoots[:numRootsExpected]
+    else:
+        recoveredRoots = prunedRoots[:]
+
+    return recoveredRoots
+
+
 def findRoots(listOfSeqs, correctRoots=[], showy=False, numRootsExpected=None):
     foundRoots = []
     annotatedFoundRoots = []
@@ -1428,8 +1590,11 @@ def findRoots(listOfSeqs, correctRoots=[], showy=False, numRootsExpected=None):
     thetaGridPoints = np.linspace(first, second, third)
     rGridPoints = np.linspace(0.1, 0.9, numRGridPoints)
 
-    normalizationAngle = getNormalizationAngleDistant(listOfSeqs)
-#    normalizationAngle = getNormalizationAngleRandom(listOfSeqs)
+#    normalizationAngle = getNormalizationAngleDistant(listOfSeqs)
+    normalizationAngle = getNormalizationAngleRandom(listOfSeqs)
+#    normalizationAngle = pi/12
+#    normalizationAngle = 5*pi/12
+    
 
     mu = 0
     sigma = 0.3/sqrt(n)
@@ -1451,7 +1616,7 @@ def findRoots(listOfSeqs, correctRoots=[], showy=False, numRootsExpected=None):
 #    visualizeRadialColorMesh(THETA, R, Z, sigma, [])
 #    visualizeRadialColorMesh(THETA, R, Z_RADIAL, sigma, correctRoots)
     print normalizationAngle
-    visualizeColorMesh(X, Y, Z, correctRoots, normalizationAngle=normalizationAngle)
+    visualizeColorMesh(X, Y, Z, [(correctRoots, "g")], normalizationAngle=normalizationAngle)
 
     for thetaGridPoint in thetaGridPoints:
         for rGridPoint in rGridPoints:
@@ -1500,12 +1665,14 @@ def findRoots(listOfSeqs, correctRoots=[], showy=False, numRootsExpected=None):
 
     sortedFoundRoots = sorted(annotatedFoundRoots, key=lambda x: x[1])
 
+    complexFormRootsFound = [root[0][0] + 1j*root[0][1] for root in sortedFoundRoots]
+
+    pickle.dump(sortedFoundRoots, open("found_roots", "w"))
+
     print sortedFoundRoots
 
-    if len(sortedFoundRoots) > numRootsExpected:
-        recoveredRoots = [i[0] for i in sortedFoundRoots[:numRootsExpected]]
-    else:
-        recoveredRoots = [i[0] for i in sortedFoundRoots]
+    recoveredRoots = cleanFoundRoots(complexFormRootsFound, numRootsExpected)
+
 
 #    print gridPoints
 
@@ -1787,6 +1954,53 @@ def roadsideConvolve(sceneFunc, occFunc, d):
 
     return np.array(returnArray)
 
+def gammaDistMaker(k, theta):
+    def gammaDist(x):
+        return x**(k-1)*exp(-x/theta)/(theta**k * gamma(k))
+
+    return gammaDist
+
+def absNormalMaker(sigma):
+    def absNormal(x):
+        return sigma*sigma*x*exp(-x*x/2*sigma*sigma)
+
+    return absNormal
+
+def invAbsNormalMaker(sigma, prodVal):
+    absNormal = absNormalMaker(sigma)
+
+    def invAbsNormal(x):
+        return prodVal/x**2 * absNormal(prodVal/x)
+
+    return invAbsNormal
+
+def distribProductMaker(listOfDistribs):
+    def distribProduct(x):
+        prod = 1
+        for distrib in listOfDistribs:
+            prod *= distrib(x)
+
+        return prod
+    return distribProduct
+
+def logDistribProductMaker(listOfDistribs):
+    def logDistribProduct(x):
+        logSum = 0
+        for distrib in listOfDistribs:
+            if distrib(x) == 0:
+                logSum += -1e4
+            else:
+                logSum += log(distrib(x))
+
+        return logSum
+    return logDistribProduct
+
+def generateGaussianSeq(n, sigma):
+    return [np.random.normal(0, sigma) for _ in range(n)]
+
+def wrapConvolve(seq1, seq2):
+    return np.fft.ifft(np.multiply(np.fft.fft(seq1), np.fft.fft(seq2)))/sqrt(n)
+
 if LOOK_AT_FREQUENCY_PROFILES:
 
     n = 100
@@ -1914,13 +2128,15 @@ if POLYNOMIAL_STRATEGY:
     concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
     convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
     
+    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
+    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
     
     
-    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=1)
+#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+#        differenceImage=True, rowsPerFrame=1)
     
-    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=1)    
+#    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
+#        differenceImage=True, rowsPerFrame=1)    
     
     listOfPolynomials = getListOfPolynomialsFromConvolvedDifferenceFrames(listOfConvolvedDifferenceFrames)
     listOfDistractionPolynomials = getListOfPolynomialsFromConvolvedDifferenceFrames(listOfFlatDifferenceFrames)
@@ -2061,10 +2277,10 @@ if UNDO_TRUNCATION:
     
 if BILL_NOISY_POLYNOMIALS:
         
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames_fine.p", "r")), 2)
+#    listOfFlatFrames = batchList(pickle.load(open("flat_frames_fine.p", "r")), 2)
 #    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 #    listOfFlatFrames = batchList(pickle.load(open("flat_frames_coarse.p", "r")), 2)
-
+    listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar.p")), 1)
 
     n = len(listOfFlatFrames[0])
 
@@ -2072,6 +2288,8 @@ if BILL_NOISY_POLYNOMIALS:
 
     listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
         for i in range(len(listOfFlatFrames) - 1)]
+
+    print listOfFlatFrames[0]    
 
 #    occluder = generateZeroOneSeq(2*n-1)    
     occluder = np.array([1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1,0,1,1,0,0,0,1])
@@ -2082,7 +2300,7 @@ if BILL_NOISY_POLYNOMIALS:
 
     print np.roots(occluder)
 
-#    viewFlatFrame(imageify(occluder))
+    viewFlatFrame(imageify(occluder))
 
     occluderPolynomial = Polynomial(occluder[::-1])
 
@@ -2091,19 +2309,31 @@ if BILL_NOISY_POLYNOMIALS:
     listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) \
         for frame in listOfFlatDifferenceFrames]
 
-    concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
-    convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
+    listOfConvolvedFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) \
+        for frame in listOfFlatFrames] 
+
+    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 1, axis=1))/255, 1), 0, 1)
+    concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
+    concatenatedConvolvedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfConvolvedDifferenceFrames), 
+        1, axis=1))/255, 1), 0,1)
+    concatenatedConvolvedFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfConvolvedFrames), 
+        1, axis=1))/255, 1), 0,1)
+
+    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=False)
+    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+    viewFrame(concatenatedConvolvedDifferenceFrames, magnification=100, differenceImage=True)
+    viewFrame(concatenatedConvolvedFrames, magnification=1e-1, differenceImage=False)
     
+#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+ #       differenceImage=True, rowsPerFrame=10)
     
-    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=10)
-    
-    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=10, stretchFactor=1)
+#    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
+#        differenceImage=True, rowsPerFrame=10, stretchFactor=1)
 
     solveProblem = True
     singlePoly = False
     truncation = False
+    movieRecovery = False
 
     densitySigma = 0.3/sqrt(n)
   
@@ -2113,30 +2343,34 @@ if BILL_NOISY_POLYNOMIALS:
 
     if solveProblem: 
 
-        listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)[:300]
+        listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)
+
+        print len(listOfSingleColorFrames)
+
+        listOfRandomlyChosenSingleColorFrames = random.sample(listOfSingleColorFrames, 90)
 
 #        makeRootMagnitudeHistogram(listOfSingleColorFrames, 0.3/sqrt(n))
 
 #        rootsFound = findRoots(listOfSingleColorFrames, np.roots(occluder), showy=True)
 
-        rootsFound = findRoots(listOfSingleColorFrames, np.roots(occluder), \
+        rootsFound = findRoots(listOfRandomlyChosenSingleColorFrames, np.roots(occluder), \
             numRootsExpected=len(occluder)-1, showy=False)
  
         print rootsFound
 
-        complexFormRootsFound = [root[0] + 1j*root[1] for root in rootsFound]
-
-        print "correct roots", np.roots(occluder)
-        print "recovered roots", complexFormRootsFound
-        print "correct polynomial", polyfromroots(np.roots(occluder))
-        print "recovered polynomial", polyfromroots(complexFormRootsFound)
+#        print "correct roots", np.roots(occluder)
+ #       print "recovered roots", complexFormRootsFound
+#        print "correct polynomial", polyfromroots(np.roots(occluder))
+#        print "recovered polynomial", polyfromroots(complexFormRootsFound)
 
 #        print rootsFound
 
 #        complexFormRootsFound = [np.exp(1j*root[0])*root[1] for root in rootsFound]
 
-        fitPoly = polyfromroots(complexFormRootsFound)
+        fitPoly = polyfromroots(rootsFound)
         
+        pickle.dump(fitPoly, open("fit_poly.p", "w"))
+
         viewFlatFrame(imageify(fitPoly), differenceImage=True, filename="recovered_occluder.png")
 
 #        THETA, R, Z = makeAggregateRadialMesh(listOfSingleColorFrames, densityFunc)
@@ -2189,7 +2423,14 @@ if BILL_NOISY_POLYNOMIALS:
         visualizeColorMesh(X, Y, Z, [])
     
         
+    if movieRecovery:
+        recoveredPoly = occluder
+        lenPoly = len(recoveredPoly)
 
+        toeplitzMatrix = toeplitz(recoveredPoly[:int((lenPoly+1)/2)][::-1], recoveredPoly[int((lenPoly-1)/2):])
+        inverseToeplitzMatrix = np.linalg.inv(toeplitzMatrix)
+
+        recoveredMovie = doFuncToEachChannel(lambda x: np.transpose(np.dot(inverseToeplitzMatrix, np.transpose(x))), concatenatedDifferenceFrames)
 
 
 #    visualizePolynomialValues(listOfSingleColorFrames[randomSingleColorFrameIndex])
@@ -2321,9 +2562,361 @@ if ROADSIDE_DECONVOLUTION:
 
 if POLYNOMIAL_EXPERIMENT:
 
-    listOfFlatFrames = pickle.load(open("flat_frames_grey_bar_obs.p", "w"))
+#    listOfFlatFrames = pickle.load(open("real_flat_frames_2500_4500_downsampled.p", "r"))
+    listOfFlatFrames = pickle.load(open("flat_frames_grey_bar.p", "r"))
 
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)]
+
+    print "list loaded"
+
+    print len(listOfFlatFrames)
+
+    print listOfFlatFrames[0].shape
+
+    print listOfFlatFrames[1].shape
+
+    downsampledFrames = [batchArrayAlongAxis(frame, 0, 1) for frame in listOfFlatFrames]
+
+    listOfFlatDifferenceFrames = [downsampledFrames[i+1] - downsampledFrames[i] \
+        for i in range(len(downsampledFrames) - 1)][:200]
+
+    print len(listOfFlatDifferenceFrames)
+
+
+    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 1, axis=1))/255, 1), 0, 1)
+    concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
+
+
+    print np.array([listOfFlatDifferenceFrames[0]]*100).shape
+
+#    viewFrame(np.array([listOfFlatDifferenceFrames[0]]*100), magnification=100, differenceImage=True)
+
+#    print concatenatedOriginalFrames.shape
+
+#    displayConcatenatedArray(concatenatedOriginalFrames, magnification=100, \
+#        differenceImage=True, rowsPerFrame=10)
+    print concatenatedDifferenceFrames.shape
+ 
+    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
+    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+
+    listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
+
+#    eyeballedRoots = [(-0.39, -1.08),
+#                (-0.15, -0.97),
+#                (0.55, -0.77),
+ #               (0.99, -0.49),
+ #               (-0.69, -0.66),
+ #               (-0.82, -0.42),
+ #               (-0.99, -0.25),
+  #              (0.12, -0.87),
+   #             (0.66, -0.31),
+    #            (-1.02, 0)]               
+
+    eyeballedRoots = [(0.86, -0.21),
+                        (0.85, -0.49),
+                        (0.73, -0.81),
+                        (0.49, -0.86),
+                        (0.15, -1.04),
+                        (-0.14, -1.05),
+                        (-0.35, -0.91),
+                        (-0.75, -0.73),
+                        (-0.85, -0.44),
+                        (-0.98, -0.26),
+                        (-1.11, 0)]
+
+
+    eyeballedRootsComplexForm = [i[0] + 1j*i[1] for i in eyeballedRoots] + [i[0] + -1j*i[1] for i in eyeballedRoots[:-1]]
+
+#    rootsFound = findRoots(listOfSingleColorFrames, eyeballedRootsComplexForm, \
+#        numRootsExpected=19, showy=False)
+
+#    print rootsFound
+
+    rootsFound = eyeballedRootsComplexForm
+
+#    complexFormRootsFound = [root[0] + 1j*root[1] for root in rootsFound]
+
+#    print "correct roots", np.roots(occluder)
+#    print "recovered roots", complexFormRootsFound
+#    print "correct polynomial", polyfromroots(np.roots(occluder))
+#    print "recovered polynomial", polyfromroots(complexFormRootsFound)
+
+#        print rootsFound
+
+#        complexFormRootsFound = [np.exp(1j*root[0])*root[1] for root in rootsFound]
+
+    fitPoly = polyfromroots(rootsFound)/2
+
+    pickle.dump(fitPoly, open("fit_poly.p", "w"))
+
+    print fitPoly
+    
+    viewFlatFrame(imageify(fitPoly), differenceImage=False, magnification=1, filename="recovered_occluder.png")
+
+
+if POLYNOMIAL_EXPERIMENT_AFTERMATH:
+
+    rootsFound = pickle.load(open("found_roots", "r"))
+
+    for rf in rootsFound:
+        print rf
+
+    complexFormRootsFound = [root[0][0] + 1j*root[0][1] for root in rootsFound]
+
+    print complexFormRootsFound
+
+    recoveredRoots = cleanFoundRoots(complexFormRootsFound, 19)    
+
+    for root in complexFormRootsFound:
+        p.plot(np.real(root), np.imag(root), "ro")
+       
+
+    for root in recoveredRoots:
+        p.plot(np.real(root), np.imag(root), "bo")
+
+
+    p.show()
+
+    fitPoly = polyfromroots(recoveredRoots)
+
+    pickle.dump(fitPoly, open("fit_poly.p", "w"))
+
+    print fitPoly
+
+    viewFlatFrame(imageify(fitPoly), differenceImage=False, magnification=0.5, filename="recovered_occluder.png")
+
+
+#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+#        differenceImage=True, rowsPerFrame=10, stretchFactor=1)    
+
+if POLYNOMIAL_EXPERIMENT_FRANKENSTEIN:
+    poly1 = pickle.load(open("fit_poly_1.p", "r"))
+
+    viewFlatFrame(imageify(poly1))
+
+    poly2 = pickle.load(open("fit_poly_2.p", "r"))
+
+    viewFlatFrame(imageify(poly2))
+
+    fullOccluder = np.concatenate((poly2, poly1), axis=0)
+
+    viewFlatFrame(imageify(fullOccluder))
+
+if POLYNOMIAL_EXPERIMENT_RECOVERY:
+    listOfFlatFrames = pickle.load(open("real_flat_frames_2500_4500_downsampled.p", "r"))
+
+    print "list loaded"
+
+    print len(listOfFlatFrames)
+
+    print listOfFlatFrames[0].shape
+
+    print listOfFlatFrames[1].shape
+
+    downsampledFrames = [batchArrayAlongAxis(frame, 0, 11) for frame in listOfFlatFrames]
+
+    listOfFlatDifferenceFrames = [downsampledFrames[i+1] - downsampledFrames[i] \
+        for i in range(len(downsampledFrames) - 1)][300:]
+
+    print len(listOfFlatDifferenceFrames)
+
+#    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 10, axis=1))/255, 1), 0, 1)
+    concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
+
+
+    print np.array([listOfFlatDifferenceFrames[0]]*100).shape
+
+#    viewFrame(np.array([listOfFlatDifferenceFrames[0]]*100), magnification=100, differenceImage=True)
+
+#    print concatenatedOriginalFrames.shape
+
+#    displayConcatenatedArray(concatenatedOriginalFrames, magnification=100, \
+#        differenceImage=True, rowsPerFrame=10)
+    print concatenatedDifferenceFrames.shape
+ 
+#    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
+    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+
+    listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
+
+    recoveredPoly = np.flip(np.concatenate((np.real(pickle.load(open("fit_poly_1.p", "r"))), np.array([0])), axis=0), 0)
+    viewFlatFrame(imageify(recoveredPoly))
+
+    lenPoly = len(recoveredPoly)
+
+    print lenPoly
+
+    toeplitzMatrix = toeplitz(recoveredPoly[:int((lenPoly+1)/2)][::-1], recoveredPoly[int((lenPoly-1)/2):])
+
+    print toeplitzMatrix.shape
+
+    inverseToeplitzMatrix = np.linalg.inv(toeplitzMatrix)
+
+    recoveredMovie = doFuncToEachChannel(lambda x: np.transpose(np.dot(inverseToeplitzMatrix, np.transpose(x))), concatenatedDifferenceFrames)
+
+    viewFrame(np.repeat(recoveredMovie, 10, axis=1), magnification=100, differenceImage=True)
+
+    p.matshow(toeplitzMatrix)
+    p.show()
+
+if SIMPLE_BLIND_DECONV_TEST:
+
+    n = 100
+
+    numSamples = 1000
+    listOfFreqs = []
+
+    for _ in range(numSamples):
+ 
+        randomNumbers = generateGaussianSeq(n, 1)
+ #       randomNumbers = [random.random()*sqrt(12) for _ in range(n)]
+ #       randomNumbers = [2*(random.random()>0.5) for _ in range(n)]
+#        randomNumbers = generateZeroOneSeq(n)
+#        randomNumbers = generateSparseSeq(n)
+
+        fftNum = np.fft.fft(randomNumbers)/sqrt(n)
+        listOfFreqs.extend([abs(i) for i in fftNum])
+
+#        listOfFreqs.append(abs(randomNumbers[0]))
+    
+    numBins = 200
+    maxVal = 3
+    xVals = np.linspace(0, maxVal, numBins)
+
+    av = average(listOfFreqs)
+
+    print av
+    offset = 2
+
+#    gammaDist = gammaDistMaker(offset, av/offset)
+    absNormal = absNormalMaker(sqrt(2))
+#    absNormal = absNormalMaker(5)
+
+    invAbsNormal = invAbsNormalMaker(sqrt(2), 2)
+
+
+    print quad(lambda x: x*absNormal(x), 0, np.inf)
+    print quad(invAbsNormal, 0, np.inf)
+
+    p.plot(xVals, [invAbsNormal(x) for x in xVals])
+    p.plot(xVals, [absNormal(x) for x in xVals])
+
+    p.hist(listOfFreqs, bins=200, range=(0, 3), density=True)
+    p.show()
+
+if RECOVER_FREQ_MAGNITUDES:
+    n = 100
+    movieLength = 1000
+
+    numBins = 200
+    maxVal = 3
+    xVals = np.linspace(0, maxVal, numBins)
+
+    gaussianOccluder = generateGaussianSeq(n, 1)
+    occluderFreqs = np.fft.fft(gaussianOccluder)/sqrt(n)
+    trueMovie = [generateGaussianSeq(n, 1) for _ in range(movieLength)]
+
+    convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
+    observedMovie = [addNoise(frame) for frame in convolvedMovie]
+
+    freqDistribs = [[absNormalMaker(sqrt(2))] for _ in range(n)]
+
+    freqs = []
+    for trueFrame in trueMovie:
+        freqs.extend(np.abs(np.fft.fft(trueFrame))/sqrt(n))
+#        freqs.extend(np.fft.fft(trueFrame)/sqrt(n))
+
+    p.hist(freqs, bins=numBins, range=(0, maxVal), density=True)
+    p.plot(xVals, [absNormalMaker(sqrt(2))(x) for x in xVals])
+
+    p.show()
+
+    movieFreqs = []
+    print "trueFreq", np.abs(occluderFreqs[1])
+    trueFreq = np.abs(occluderFreqs[1])
+
+    for j, observedFrame in enumerate(observedMovie):
+        observedFreqs = np.fft.fft(observedFrame)/sqrt(n)
+        
+        print "movieFreq", abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))
+        movieFreq = abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))
+
+        finalFreqDistribs = [distribProductMaker(listOfDistribs) for listOfDistribs in freqDistribs]
+#        p.plot(xVals, [finalFreqDistribs[1](x) for x in xVals])
+#        p.show()        
+
+        for i, freq in enumerate(observedFreqs):
+            if i == 1:
+                print "obsFreq", np.abs(freq), abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))*trueFreq
+
+ #               print fmin(lambda x: -invAbsNormalMaker(sqrt(2), abs(freq))(x), \
+ #                   np.abs(trueFreq)) 
+
+#                p.plot(xVals, [invAbsNormalMaker(sqrt(2)*2/sqrt(pi), abs(freq))(x) for x in xVals])
+#                p.plot(xVals, [invAbsNormalMaker(sqrt(2)/sqrt(3/2), abs(freq))(x) for x in xVals])
+
+#                p.axvline(x=abs(trueFreq), color="green")
+#                p.show()            
+
+            freqDistribs[i].append(invAbsNormalMaker(sqrt(3), np.abs(freq)))
+
+    finalFreqDistribs = [logDistribProductMaker(listOfDistribs) for listOfDistribs in freqDistribs]
+    for i in range(n):
+
+        print i, np.abs(occluderFreqs[i]), fmin(lambda x: -finalFreqDistribs[i](x), \
+            np.abs(occluderFreqs[i])) 
+        p.plot(xVals, [finalFreqDistribs[i](x) for x in xVals])
+        p.axvline(x=abs(occluderFreqs[i]), color="red")        
+        ax = p.gca()
+        ax.set_ylim(-10000, 10000)
+
+
+        p.show()
+
+
+#        if observedFreqs
+
+if RECOVER_FREQ_MAGNITUDES_2:
+    n = 100
+    movieLength = 10000
+
+    numBins = 200
+    maxVal = 3
+    xVals = np.linspace(0, maxVal, numBins)
+
+#    predictedMean = pi*sqrt(pi)/2
+    predictedMean = sqrt(pi)/2
+
+    gaussianOccluder = generateGaussianSeq(n, 1)
+    occluderFreqs = np.abs(np.fft.fft(gaussianOccluder)/sqrt(n))
+    trueMovie = [generateGaussianSeq(n, 1) for _ in range(movieLength)]
+
+    convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
+    observedMovie = [addNoise(frame) for frame in convolvedMovie]
+
+    freqDistribs = [[absNormalMaker(sqrt(2))] for _ in range(n)]    
+
+    convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
+    observedMovie = [addNoise(frame) for frame in convolvedMovie]
+
+    freqObs = np.array([np.abs(np.fft.fft(frame)/sqrt(n)) for frame in observedMovie])
+    freqObsT = np.transpose(freqObs)
+
+    averageFreqs = [average(freq) for freq in freqObsT]
+    estimatedFreqs = np.array([freq/predictedMean for freq in averageFreqs])
+
+    print occluderFreqs
+    print estimatedFreqs
+    offset = np.divide(occluderFreqs, estimatedFreqs)
+    mainFrequencyCorrection = 
+
+    print offset
+    p.hist(offset, bins=100, range=(0.85,1.15))
+    p.show()
+
+    viewFlatFrame(imageify(occluderFreqs), magnification=1)
+    viewFlatFrame(imageify(np.array(estimatedFreqs)), magnification=1)
+
+
 
     

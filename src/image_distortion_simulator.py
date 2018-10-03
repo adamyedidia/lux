@@ -31,6 +31,7 @@ ANTONIO_METHOD = False
 DIFFERENT_DEPTHS_SIM = False
 ACTIVE_SIM = False
 ANGLE_CORNER = False
+LIGHT_OF_THE_SUN_SIM = False
 
 def hasOptimalCirculant(x):
     if int(log(x+1, 2)) == log(x+1, 2):
@@ -229,12 +230,13 @@ def squareSpeck(imShape, squareRadius):
 
 
 
-def pinCircle(imShape, radius):
+def pinCircle(imShape, radius, highVal=None):
     print "circle"
     midPointX = int(imShape[0]/2)
     midPointY = int(imShape[1]/2)
 
-    highVal = 1/(imShape[0]*imShape[1])
+    if highVal == None:
+        highVal = 1/(imShape[0]*imShape[1])
 
     returnArray = np.zeros(imShape)
     for i in range(imShape[0]):
@@ -263,6 +265,28 @@ def cornerCircle(imShape, radius):
                 returnArray[i][j] = highVal
             if sqrt((imShape[0]-i)**2 + (imShape[1]-j)**2) < radius*imShape[0]*4/pi:
                 returnArray[i][j] = highVal
+
+#    p.matshow(returnArray)
+#    p.show()
+
+    return returnArray
+
+def cornerSpeck(imShape, radius):
+    print "corner circle"
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = highVal*np.ones(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if sqrt(i**2 + j**2) < radius*imShape[0]*4/pi:
+                returnArray[i][j] = 0
+            if sqrt((imShape[0]-i)**2 + j**2) < radius*imShape[0]*4/pi:
+                returnArray[i][j] = 0
+            if sqrt(i**2 + (imShape[1]-j)**2) < radius*imShape[0]*4/pi:
+                returnArray[i][j] = 0
+            if sqrt((imShape[0]-i)**2 + (imShape[1]-j)**2) < radius*imShape[0]*4/pi:
+                returnArray[i][j] = 0
 
 #    p.matshow(returnArray)
 #    p.show()
@@ -641,7 +665,7 @@ def viewRepeatedOccluder(occluderWindow, filename=None):
     else:
         p.savefig(filename)
 
-def viewSingleOccluder(occluderWindow, filename):
+def viewSingleOccluder(occluderWindow, filename=None):
     p.matshow(occluderWindow, cmap='gray')
     print "single occluder: upper left"
 
@@ -886,6 +910,51 @@ def displayOccluderFunc(occluderFunc, listSize = 200):
     rgbBinList = np.array([[i*255, i*255, i*255] for i in binaryList])
 
     viewFlatFrame(rgbBinList, 200)
+
+def make2DTransferMatrix(sceneDimensions, occluder):
+    sceneMaxX = sceneDimensions[0]
+    sceneMaxY = sceneDimensions[1]
+
+    occluderMaxX = occluder.shape[0]
+    occluderMaxY = occluder.shape[1]
+
+    assert occluderMaxX == sceneMaxX*2-1
+    assert occluderMaxY == sceneMaxY*2-1
+
+    returnMat = []
+
+    for minX in range(sceneMaxX):
+        for minY in range(sceneMaxY):
+            matRow = []
+
+            for x in range(sceneMaxX):
+                for y in range(sceneMaxY):
+                    matRow.append(occluder[minX+x][minY+y])
+
+            returnMat.append(matRow)
+
+    return np.array(returnMat)
+
+def estimateBinaryOccluderFromSunsShadow(obs, highVal):
+    intensityArray = np.mean(obs, axis=2)
+
+    obsShape = obs.shape
+
+    print "obsShape", obsShape
+
+    averageIntensity = np.mean(intensityArray)
+
+    def greaterThanAverage(x):
+        return 1*(x>averageIntensity)
+
+    estimatedSmallOccluder = highVal*np.vectorize(greaterThanAverage)(intensityArray)
+
+    viewSingleOccluder(estimatedSmallOccluder)
+
+    fullOccluder = np.pad(estimatedSmallOccluder, [(int(obsShape[0]/2), int(obsShape[0]/2-1)), \
+        (int(obsShape[1]/2), int(obsShape[1]/2-1))], "constant", constant_values=highVal)
+
+    return fullOccluder
 
 if FOURIER_UNDERSTANDER:
     n = 10
@@ -1482,3 +1551,108 @@ if ANGLE_CORNER:
     recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
 
     recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
+
+if LIGHT_OF_THE_SUN_SIM:
+
+    SUN_BRIGHTNESS = 5e11
+#    SUN_BRIGHTNESS = 1e10
+    IM_BRIGHTNESS = 1e10
+    THERMAL_NOISE = 1e-3
+
+    SUN_RADIUS = 1
+#    THERMAL_NOISE = 1
+
+    usePrior = False
+
+    beta = 0.3
+
+    snr = 1e15
+
+    im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
+#    im = pickle.load(open("dora_extremely_downsampled.p", "r"))*IM_BRIGHTNESS
+
+    imSpatialDimensions = im.shape[:2]
+    highVal = 1/(imSpatialDimensions[0]*imSpatialDimensions[1])
+
+    numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
+
+    power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
+
+    print "power", power
+
+    print imSpatialDimensions
+
+#    occluderWindow = cornerSpeck(imSpatialDimensions, 1/8)
+    occluderWindow = circleSpeck((imSpatialDimensions[0]*2-1, imSpatialDimensions[1]*2-1), 1/8)
+
+    transferMatrix = make2DTransferMatrix(imSpatialDimensions, occluderWindow)
+
+    sun = SUN_BRIGHTNESS*imageify(pinCircle(imSpatialDimensions, 1/15, highVal=1))
+
+#    viewFrame(sun, 1e-10)
+
+    print np.mean(im)
+    print np.mean(SUN_BRIGHTNESS*imageify(pinCircle(imSpatialDimensions, 1, highVal=1)))
+
+    im += sun
+
+    viewFrame(im, 1e-10)
+    viewSingleOccluder(occluderWindow)
+
+    print "s1", occluderWindow.shape
+
+    bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
+    pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
+    sideLength = sqrt(pixels)
+
+#    print bits, pixels, sideLength
+
+#    obsPlaneIm = doFuncToEachChannel(convolve2dMaker(occluderWindow), im)
+    obsPlaneVec = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imageToVector(im))
+
+#    viewFrame(vectorToImage(obsPlaneIm), 3e-12)
+
+    noisyObsPlaneVec = addNoise(obsPlaneVec, THERMAL_NOISE)
+
+    noisyObsPlaneIm = vectorToImage(noisyObsPlaneVec, imSpatialDimensions)
+
+    viewFrame(noisyObsPlaneIm, 3e-10)
+
+
+    estimatedOccluder = estimateBinaryOccluderFromSunsShadow(noisyObsPlaneIm, highVal)
+
+    viewSingleOccluder(estimatedOccluder)
+
+    print "s2", estimatedOccluder.shape
+
+#    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+
+    estimatedTransferMatrix = make2DTransferMatrix(imSpatialDimensions, estimatedOccluder)
+
+    if usePrior:
+
+        attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+        sceneXRes = im.shape[0]
+        sceneYRes = im.shape[1]
+
+        doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
+        diagArray = attenuationMat.flatten()
+        priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(sceneXRes * sceneYRes)
+
+        pseudoInverse = snr*np.linalg.inv(miMat)
+        recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), noisyObsPlaneVec)
+
+    else:
+        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(np.linalg.inv(estimatedTransferMatrix), x), noisyObsPlaneVec)
+#    recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
+#        noisyObsPlaneIm)
+
+    viewFrame(vectorToImage(recoveredScene, imSpatialDimensions), 8e-14)
+
+
+

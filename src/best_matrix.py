@@ -53,6 +53,10 @@ SZEGO_TEST_2 = False
 ALT_PROJ = False
 RANDOM_BLOCK_MAT = False
 SF_BLOCK_MAT = False
+COMPARE_SV = False
+COMPARE_DEPTHS = False
+RESIDUES_TEST = False
+MSE_OF_WEIRD_SEQS = True
 
 # compute a^b mod c
 def modularExponentiation(a, b, c):
@@ -71,8 +75,37 @@ def quadResidue(a, p):
 
     if modExpResult == 1:
         return True
-    if modExpResult == -1:
+    if modExpResult == -1 or modExpResult == p - 1:
         return False
+    print modExpResult
+    raise
+
+def quartResidue(a, p):
+    if quadResidue(a, p):
+        modExpResult = pow(a, int((p-1)/4), p)
+
+        if modExpResult == 1:
+            return True
+        elif modExpResult == -1 or modExpResult == p - 1:
+            return False
+        else:
+            raise
+
+    return False 
+
+def octResidue(a, p):
+    if quartResidue(a, p):
+        modExpResult = pow(a, int((p-1)/8), p)
+
+        if modExpResult == 1:
+            return True
+        elif modExpResult == -1 or modExpResult == p - 1:
+            return False
+        else:
+            print a,modExpResult
+            raise
+
+    return False         
 
 def gram(mat):
     return np.dot(np.transpose(mat), mat)
@@ -1079,6 +1112,29 @@ def getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2):
             rightEdgeMidPoint)
 
         returnArray.append(snapshot)
+
+    return np.flip(np.transpose(np.array(returnArray)), 0)
+
+def getToeplitzRectMatrixWithVariedDepthExplicitIndices(occluder, n1, n2):
+    returnArray = []
+
+    n = len(occluder)
+
+    for i in range(n2):
+        returnArray.append(occluder[i:i+n1])
+
+    return np.flip(np.transpose(np.array(returnArray)), 0)    
+
+def getToeplitzRectMatrixWithVariedDepth(occluder, d1, d2):
+    returnArray = []
+
+    n = len(occluder)
+
+    n1 = int(len(occluder)*d1)
+    n2 = n - n1 + 1
+
+    for i in range(n2):
+        returnArray.append(occluder[i:i+n1])
 
     return np.flip(np.transpose(np.array(returnArray)), 0)
 
@@ -2512,3 +2568,106 @@ if SF_BLOCK_MAT:
 
     p.plot(xAxis, mis)
     p.show()
+
+if COMPARE_SV:
+
+    d1 = 0.3
+    d2 = 0.7
+
+    n = 101
+
+    occluder = [1*(random.random()>0.5) for _ in range(n)]
+
+    mat = getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
+    rectMat = getToeplitzRectMatrixWithVariedDepth(occluder, d1, d2)
+
+    u, s, vh = np.linalg.svd(mat)
+    u2, s2, vh2 = np.linalg.svd(rectMat)
+
+    print s
+
+    p.plot(s)
+    p.show()
+
+    print s2
+
+    print np.linalg.det(otherGram(mat))
+    print np.linalg.det(otherGram(rectMat))
+
+    print np.linalg.det(gram(mat))
+    print np.linalg.det(gram(rectMat))
+
+    p.plot(s2)
+    p.show()
+
+    p.matshow(mat)
+    p.show()
+    p.matshow(rectMat)
+    p.show()
+
+if COMPARE_DEPTHS:
+    n = 101
+    littleN = int((n+1)/2)
+    occluder = [1*(random.random()>0.5) for _ in range(n)] 
+
+    mis = []
+    rectMis = []
+    ds = []
+    snr = 1
+
+#    ds = np.linspace(0.01, 0.99, 99)
+    ns = range(1, n)
+
+
+    for n1 in ns:
+        n2 = n - n1
+
+        d1 = n1/n
+        d2 = n2/n
+
+        mat = getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
+        rectMat = getToeplitzRectMatrixWithVariedDepthExplicitIndices(occluder, n1, n2)
+
+        rectN = np.shape(otherGram(rectMat))[0]
+
+        ds.append(d1)
+
+
+#        p.matshow(gram(snr*gram(rectMat) + np.identity(rectN)))
+#        print np.linalg.det(gram(snr*gram(rectMat) + np.identity(rectN)))
+#        p.colorbar()
+#        p.show()
+
+#        p.matshow(rectMat)
+#        p.colorbar()
+#        p.show()
+
+#        print rectMat
+#        print otherGram(rectMat)
+
+#        p.matshow(otherGram(rectMat))
+#        p.colorbar()
+#        p.show()
+
+        mis.append(np.linalg.slogdet(snr*otherGram(mat) + np.identity(littleN))[1])
+        rectMis.append(np.linalg.slogdet(snr*otherGram(rectMat) + np.identity(rectN))[1])
+
+
+    p.plot(ds, mis)
+    p.plot(ds, rectMis)
+    p.show()
+
+if RESIDUES_TEST:
+    p = 41
+
+    print [quadResidue(a, p) for a in range(1, p)]
+    print [pow(a, 2, p) for a in range(1, p)]
+
+    print [quartResidue(a, p) for a in range(1, p)]
+    print [pow(a, 4, p) for a in range(1, p)]
+
+    print [octResidue(a, p) for a in range(1, p)]    
+    print [pow(a, 8, p) for a in range(1, p)]
+
+if MSE_OF_WEIRD_SEQS:
+    

@@ -7,7 +7,7 @@ from scipy.signal import convolve, deconvolve, argrelextrema
 from numpy.fft import fft, ifft
 from math import sqrt, pi, exp, log, sin, cos, floor, ceil
 from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup
-from image_distortion_simulator import doFuncToEachChannelVec, doFuncToEachChannel
+from image_distortion_simulator import doFuncToEachChannelVec, doFuncToEachChannel, circleSpeck
 import pickle
 from numpy.polynomial.polynomial import Polynomial, polyfromroots
 import matplotlib.pyplot as p
@@ -25,6 +25,7 @@ from pynverse import inversefunc
 from scipy.integrate import quad
 from video_processor import batchArrayAlongAxis
 from scipy.linalg import toeplitz
+from phase_retrieval import retrievePhase
 
 LOOK_AT_FREQUENCY_PROFILES = False
 DIVIDE_OUT_STRATEGY = False
@@ -47,7 +48,6 @@ NONZERO_DENSITY = 20
 FLIP_DENSITY = 10
 SIGNAL_SIGMA = 1
 NOISE_SIGMA = 0
-#NOISE_SIGMA = 0
 
 output = open("trash.txt", "w")
 
@@ -2001,6 +2001,9 @@ def generateGaussianSeq(n, sigma):
 def wrapConvolve(seq1, seq2):
     return np.fft.ifft(np.multiply(np.fft.fft(seq1), np.fft.fft(seq2)))/sqrt(n)
 
+def wrapDeconvolve(seq1, seq2):
+    return np.fft.ifft(np.divide(np.fft.fft(seq1), np.fft.fft(seq2)))/sqrt(n)
+
 if LOOK_AT_FREQUENCY_PROFILES:
 
     n = 100
@@ -2627,12 +2630,12 @@ if POLYNOMIAL_EXPERIMENT:
 
     eyeballedRootsComplexForm = [i[0] + 1j*i[1] for i in eyeballedRoots] + [i[0] + -1j*i[1] for i in eyeballedRoots[:-1]]
 
-#    rootsFound = findRoots(listOfSingleColorFrames, eyeballedRootsComplexForm, \
-#        numRootsExpected=19, showy=False)
+    rootsFound = findRoots(listOfSingleColorFrames, eyeballedRootsComplexForm, \
+        numRootsExpected=19, showy=False)
 
 #    print rootsFound
 
-    rootsFound = eyeballedRootsComplexForm
+#    rootsFound = eyeballedRootsComplexForm
 
 #    complexFormRootsFound = [root[0] + 1j*root[1] for root in rootsFound]
 
@@ -2730,12 +2733,12 @@ if POLYNOMIAL_EXPERIMENT_RECOVERY:
 
 #    print concatenatedOriginalFrames.shape
 
-#    displayConcatenatedArray(concatenatedOriginalFrames, magnification=100, \
-#        differenceImage=True, rowsPerFrame=10)
-    print concatenatedDifferenceFrames.shape
+    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+        differenceImage=True, rowsPerFrame=10)
+ #   print concatenatedDifferenceFrames.shape
  
 #    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
-    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+#    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
 
     listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
 
@@ -2877,7 +2880,7 @@ if RECOVER_FREQ_MAGNITUDES:
 #        if observedFreqs
 
 if RECOVER_FREQ_MAGNITUDES_2:
-    n = 100
+    n = 25
     movieLength = 10000
 
     numBins = 200
@@ -2887,9 +2890,9 @@ if RECOVER_FREQ_MAGNITUDES_2:
 #    predictedMean = pi*sqrt(pi)/2
     predictedMean = sqrt(pi)/2
 
-    gaussianOccluder = generateGaussianSeq(n, 1)
+    gaussianOccluder = generateZeroOneSeqIndep(n)
     occluderFreqs = np.abs(np.fft.fft(gaussianOccluder)/sqrt(n))
-    trueMovie = [generateGaussianSeq(n, 1) for _ in range(movieLength)]
+    trueMovie = [generateGaussianSeq(n,1) for _ in range(movieLength)]
 
     convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
     observedMovie = [addNoise(frame) for frame in convolvedMovie]
@@ -2903,20 +2906,31 @@ if RECOVER_FREQ_MAGNITUDES_2:
     freqObsT = np.transpose(freqObs)
 
     averageFreqs = [average(freq) for freq in freqObsT]
-    estimatedFreqs = np.array([freq/predictedMean for freq in averageFreqs])
+    estimatedFreqs = np.array([averageFreqs[0]/(predictedMean/1.1)] + \
+        [freq/predictedMean for freq in averageFreqs[1:]])
+
+    viewFrame(imageify(np.array(observedMovie[:100])), magnification=1)
+
+    estimatedOccluder, solutionFound = retrievePhase(estimatedFreqs)
+    print "Do we think we found a solution?", solutionFound
+
+
+    viewFlatFrame(imageify(estimatedOccluder), magnification=6)
+    viewFlatFrame(imageify(gaussianOccluder))
+    print estimatedOccluder
+    print gaussianOccluder
+
 
     print occluderFreqs
     print estimatedFreqs
     offset = np.divide(occluderFreqs, estimatedFreqs)
-    mainFrequencyCorrection = 
 
     print offset
-    p.hist(offset, bins=100, range=(0.85,1.15))
-    p.show()
-
-    viewFlatFrame(imageify(occluderFreqs), magnification=1)
-    viewFlatFrame(imageify(np.array(estimatedFreqs)), magnification=1)
+#    p.hist(offset, bins=100, range=(0.85,1.15))
+#    p.hist(offset, bins=100)
+#    p.show()
 
 
 
-    
+ #   viewFlatFrame(imageify(occluderFreqs), magnification=1)
+  #  viewFlatFrame(imageify(np.array(estimatedFreqs)), magnification=1)

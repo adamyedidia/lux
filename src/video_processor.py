@@ -37,7 +37,7 @@ downsampleWinnie = False
 weirdAngle = False
 weirdAngleSim = False
 weirdAngleSimMovie = False
-weirdAngleSimRecovery = True
+weirdAngleSimRecovery = False
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -931,8 +931,10 @@ if __name__ == "__main__":
 
 #        processedIm = batchAndDifferentiate(im,[(5, False), (5, False), (1, False)])[:-5,:-3]
 #        processedIm = batchAndDifferentiate(im,[(7, False), (7, False), (1, False)])[2:-7,4:-1]
-        processedIm = batchAndDifferentiate(im,[(15, False), (15, False), (1, False)])
+#        processedIm = batchAndDifferentiate(im,[(15, False), (15, False), (1, False)])
 #        processedIm = batchAndDifferentiate(im,[(19, False), (21, False), (1, False)])
+
+        processedIm = batchAndDifferentiate(im,[(30, False), (30, False), (1, False)])
 
         print im.shape
         print processedIm.shape
@@ -940,7 +942,8 @@ if __name__ == "__main__":
         viewFrame(processedIm)
 
 #        pickle.dump(processedIm, open("shapes_very_downsamples.p", "w"))
-        pickle.dump(processedIm, open("dora_very_downsampled.p", "w"))
+#        pickle.dump(processedIm, open("dora_very_downsampled.p", "w"))
+        pickle.dump(processedIm, open("dora_extremely_downsampled.p", "w"))
 #        pickle.dump(processedIm, open("dora_slightly_downsampled.p", "w"))
 #        pickle.dump(processedIm, open("winnie_clipped.p", "w"))
 

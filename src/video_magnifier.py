@@ -78,11 +78,17 @@ def batchIntoBigFrames(listOfFrames, batchSize):
     return listOfBigFrames, listOfBigFramesSquared
 
 def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
-    absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None):
+    absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,
+    adaptiveScaling=False):
 
     if not relax:
         p.clf()
     
+    if adaptiveScaling:
+        scalingFactor = np.amax(np.abs(frame))/255
+    else:
+        scalingFactor = 1
+
     frameShape = frame.shape
 
     if meanSubtraction:
@@ -104,7 +110,7 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
 
 #    print frame, magnification
 #    print type(frame[0][0][0]), type(magnification)
-    adjustedFrame = adjustedFrame*magnification
+    adjustedFrame = adjustedFrame*magnification/scalingFactor
 
 #    print adjustedFrame
 

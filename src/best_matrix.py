@@ -4,13 +4,14 @@ import sys
 import matplotlib.pyplot as p
 import matplotlib.patches as mpatches
 from search import randomBits, randomGreedySearch
-from math import log, sqrt, pi, floor, exp, cos, sin, ceil
+from math import log, sqrt, pi, floor, exp, cos, sin, ceil, atan
 import pickle
 import string
 from scipy.linalg import dft, circulant, hadamard, toeplitz, hankel
 from scipy.signal import max_len_seq as mls
 from scipy.integrate import quad
 import random
+from video_magnifier import viewFrame, viewFlatFrame
 
 
 #n = int(sys.argv[1])
@@ -56,7 +57,17 @@ SF_BLOCK_MAT = False
 COMPARE_SV = False
 COMPARE_DEPTHS = False
 RESIDUES_TEST = False
-MSE_OF_WEIRD_SEQS = True
+FIND_WEIRD_PRIMES = False
+MSE_OF_WEIRD_SEQS = False
+GANESH_PLOT_MAKER_1_4 = False
+GANESH_PLOT_MAKER_1_8 = False
+MAKE_GANESH_1_2_PRIME_LIST = False
+MAKE_GANESH_1_4_PRIME_LIST = False
+CHECK_SPECTRALLY_FLAT_CONSTANT_BUSINESS_GANESH = False
+CHECK_SF_DIFFERENT_VALS = False
+UNLUCKY_NUMBER = False
+GREEDY_SEARCH = False
+FIND_BEST_RHO = True
 
 # compute a^b mod c
 def modularExponentiation(a, b, c):
@@ -79,6 +90,14 @@ def quadResidue(a, p):
         return False
     print modExpResult
     raise
+
+def listSum(listOfLists):
+    returnList = []
+
+    for l in listOfLists:
+        returnList += l
+
+    return returnList
 
 def quartResidue(a, p):
     if quadResidue(a, p):
@@ -181,6 +200,11 @@ def accountForOrbit(x, r, n, accountedFor):
 
         accountedFor[currentNum] = True
 
+def imageify(arr):
+    result = np.reshape(np.kron(arr, np.array([255,255,255])), arr.shape + tuple([3]))
+
+    return result
+
 def binaryTriangular(n):
     return np.triu(np.ones((n,n)))
 
@@ -224,6 +248,12 @@ def dissectChoices(p1, p2, r, accountedFor):
 
     print "choices", choices
     return choices
+
+def convertBinaryToOneMinusOne(l):
+    return np.array([int(2*(i-0.5)) for i in l])
+
+def convertOneMinusOneToBinary(l):
+    return np.array([int((i+1)/2) for i in l])
 
 def incrementBinaryList(l, i=0):
     n = len(l)
@@ -300,7 +330,40 @@ def compareLists(l1, l2):
         if i != j:
             return False
     return True
+def generateZeroOneSeq(n):
 
+    FLIP_DENSITY = 4
+    oddsOfTransition = FLIP_DENSITY/n
+
+    if random.random() < 0.5:
+        currentState = "zero"
+    else:
+        currentState = "one"
+
+    returnList = []
+
+    for _ in range(n):
+        if currentState == "zero":
+            if random.random() < oddsOfTransition:
+                currentState = "one"
+
+        elif currentState == "one":
+            if random.random() < oddsOfTransition:
+                currentState = "zero"
+
+        else:
+            raise
+
+        if currentState == "zero":
+            returnList.append(0)
+
+        elif currentState == "one":
+            returnList.append(1)
+
+        else:
+            raise
+
+    return np.array(returnList)
 def generalAssignValueToZeroOrOne(i, n, identityValue, listOfPrimes, mode="oneZero"):
 
     if i == 0:
@@ -1039,10 +1102,12 @@ def fixedBitIncrement(listOfIndices):
         newListOfIndices[counter] += 1
 
         if counter == len(listOfIndices) - 1:
+            print "hi"
             break
         elif newListOfIndices[counter] == newListOfIndices[counter + 1]:
             newListOfIndices[counter] = counter
         else:
+            print "ho"
             break
 
         counter += 1
@@ -1050,6 +1115,14 @@ def fixedBitIncrement(listOfIndices):
 #    print newListOfIndices
 
     return newListOfIndices
+
+def binMap(indices, lenList):
+    returnArray = [0]*lenList
+
+    for i in indices:
+        returnArray[i] += 1
+
+    return returnArray
 
 def subSum(l, s):
     allLists = allListsOfSizeXPlusMinusOne(len(l))
@@ -1318,6 +1391,203 @@ def admm(n):
 #        print "f",rage
 
         iterationCounter += 1
+
+def findWeirdPrimes1(maxP = 10000):
+    _, listOfPrimes = sieveOfEratosthenes(maxP)
+
+    listOfWeirdPrimes = []
+    eps = 1e-6
+
+    for p in listOfPrimes:
+        if p > 25:
+            modResult25 = sqrt((p - 25)/4) % 1
+        else:
+            modResult25 = 0.5
+
+        if p > 9:    
+            modResult9 = sqrt((p - 9)/4) % 1
+        else:
+            modResult9 = 0.5
+
+        if modResult25 < eps or \
+            1 - modResult25 < eps:
+            
+            print p, (p - 25)/4
+
+            listOfWeirdPrimes.append(p)
+        
+        elif modResult9 < eps or \
+            1 - modResult9 < eps:
+            
+            print p, (p - 9)/4
+
+            listOfWeirdPrimes.append(p)
+
+    return listOfWeirdPrimes
+
+def findWeirdPrimes3(maxP = 10000):
+    _, listOfPrimes = sieveOfEratosthenes(maxP)
+
+    listOfWeirdPrimes = []
+    eps = 1e-6
+
+    for p in listOfPrimes:
+        if p % 64 == 41:
+            print "mod64", p, (p-1)/2, sqrt((p-1)/2)
+
+            modResult1 = sqrt((p-1)/2)%1
+
+            if modResult1 < eps or \
+                1 - modResult1 < eps:
+
+                print "candidate", p, (p-1)/2
+
+                if p > 169:
+                    modResult169 = sqrt((p - 169)/4) % 1
+                else:
+                    modResult169 = 0.5
+
+                if p > 361:
+                    modResult361 = sqrt((p - 361)/4) % 1
+                else:
+                    modResult361 = 0.5
+
+                if modResult169 < eps or \
+                    1 - modResult169 < eps:
+                    
+                    print p, (p - 169)/4
+                    listOfWeirdPrimes.append(p)
+
+                elif modResult361 < eps or \
+                    1 - modResult361 < eps:
+
+                    print p, (p - 361)/4
+                    listOfWeirdPrimes.append(p)
+
+    return listOfWeirdPrimes
+
+def findWeirdPrimes7(maxP=10000):
+    _, listOfPrimes = sieveOfEratosthenes(maxP)
+
+    listOfWeirdPrimes = []
+    eps = 1e-6
+
+    for p in listOfPrimes:
+        modResult1 = sqrt((p-1)/8)%1
+
+        if modResult1 < eps or \
+            1 - modResult1 < eps:
+
+            print "candidate", p, (p-1)/8, sqrt((p-1)/8)
+
+            if p > 9:
+                modResult9 = sqrt((p-9)/64) % 1
+        
+                if modResult9 < eps or \
+                    1 - modResult9 < eps:
+                    
+                    print p, (p - 9)/64, sqrt((p-9)/64)
+                    listOfWeirdPrimes.append(p)
+
+    return listOfWeirdPrimes
+
+def findWeirdPrimesChowla(maxP=1000000):
+    _, listOfPrimes = sieveOfEratosthenes(maxP)
+
+    listOfWeirdPrimes = []
+    eps = 1e-6
+
+    for p in listOfPrimes:
+        modResult1 = sqrt((p-1)/4)%2
+
+        if abs(modResult1-1) < eps:
+ #           print p, (p-1)/4,sqrt((p-1)/4)
+            listOfWeirdPrimes.append(p)
+
+    return listOfWeirdPrimes   
+
+def mseIIDSingleContribution(n, theta, rho, W, J, t, freq):
+    return 1/(n/theta + t*abs(freq)**2/(n*(W + rho*J)))
+
+def mseIID(n, theta, rho, W, J, t, freqs):
+    return sum([mseIIDSingleContribution(n, theta, rho, W, J, t, freq) for \
+        freq in freqs])    
+
+def mseCorrelatedSingleContribution(n, theta, rho, W, J, t, freq, d):
+    if abs(freq)==32:
+        print d, freq
+
+    return 1/(1/d + t*abs(freq)**2/(n*(W + rho*J)))
+
+def mseCorrelated(n, theta, rho, W, J, t, freqs, ds):
+    return sum([mseCorrelatedSingleContribution(n, theta, rho, W, J, t, freq, d) for \
+        freq, d in zip(freqs, ds)])    
+
+def blockMLS(n, logN, logBlockSize):
+    if logBlockSize == logN - 1:
+        return [1]*n
+
+    return np.repeat(np.concatenate((mls(logN - logBlockSize)[0],[0]), axis=0), 2**logBlockSize)
+
+def phiFunc(x):
+    return x * atan(x) - 0.5 * log(x**2 + 1)
+
+# returns a vector
+def psiFuncMaker(n):
+    omega = 2*pi/n
+    h = int(ceil((n-1)/2))
+
+    def psiFuncOneEntry(j, i):  
+        if j == 0:
+            return 1
+        elif j > 0 and j < h:
+            return sqrt(2) * cos(omega*j*i)
+        elif j == h:
+            if n % 2 == 0:
+                return cos(omega*j*i)
+            else:
+                return sqrt(2) * cos(omega*j*1)
+        elif j > h and j < n:
+            return sqrt(2) * sin(omega*j*i)        
+        raise
+
+    def psiFunc(j):
+        return np.array([psiFuncOneEntry(j, i) for i in range(n)])
+
+    return psiFunc
+
+def evaluateEpsilonMaker(aVec, binary=False):
+    n = len(aVec)
+    psiFunc = psiFuncMaker(n)
+
+    def evaluateEpsilon(epsVec):
+        if binary:
+            epsVec = convertBinaryToOneMinusOne(epsVec)
+
+        innerSumResult = sum([epsVec[j] * aVec[j] * psiFunc(j) for j in range(n)])
+        outerSumResult = sum([phiFunc(s) for s in innerSumResult])
+        return outerSumResult, (innerSumResult, epsVec)
+
+    return evaluateEpsilon
+
+def evaluateEpsilonOptimizedMaker(aVec):
+    n = len(aVec)
+    psiFunc = psiFuncMaker(n)
+
+    def evaluateEpsilonOptimized(helperVal, j):
+        previousSumVal = helperVal[0]
+        previousEpsVal = helperVal[1]
+
+        innerSumResult = previousSumVal - \
+            2 * previousEpsVal[j] * aVec[j] * psiFunc(j)
+
+        newEpsVal = previousEpsVal.copy()
+        newEpsVal[j] *= -1
+
+        outerSumResult = sum([phiFunc(s) for s in innerSumResult])
+
+        return outerSumResult, (innerSumResult, newEpsVal)
+    return evaluateEpsilonOptimized
 
 if BRENT_LIST:
     BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
@@ -2411,8 +2681,10 @@ if DIFFERENT_DEPTHS_TEST:
 
 #    occluder = [0]*(int(n/4)) + [1]*(int(n/2+1)) + [0]*(int(n/4))
 #    occluder = [0]*int((n-1)/2) + [1]*int((n+1)/2)
-    occluder = [1*(random.random()<0.5) for _ in range(n)]
+#    occluder = [1*(random.random()<0.5) for _ in range(n)]
+    occluder = generateZeroOneSeq(n)
 
+    viewFlatFrame(imageify(occluder))
 
     mat = getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
 
@@ -2574,20 +2846,26 @@ if COMPARE_SV:
     d1 = 0.3
     d2 = 0.7
 
-    n = 101
+    n = 1001
 
-    occluder = [1*(random.random()>0.5) for _ in range(n)]
+#    occluder = [1*(random.random()>0.5) for _ in range(n)]
+    occluder = generateZeroOneSeq(n)
+
+    otherOccluder = generateZeroOneSeq(n)
 
     mat = getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
     rectMat = getToeplitzRectMatrixWithVariedDepth(occluder, d1, d2)
 
-    u, s, vh = np.linalg.svd(mat)
+    u, s1, vh = np.linalg.svd(mat)
     u2, s2, vh2 = np.linalg.svd(rectMat)
 
-    print s
+    otherMat = getToeplitzLikeTransferMatrixWithVariedDepth(otherOccluder, d1, d2)
+    otherRectMat = getToeplitzRectMatrixWithVariedDepth(otherOccluder, d1, d2)
 
-    p.plot(s)
-    p.show()
+    u3, s3, vh3 = np.linalg.svd(otherMat)
+    u4, s4, vh4 = np.linalg.svd(otherRectMat)
+
+
 
     print s2
 
@@ -2597,12 +2875,22 @@ if COMPARE_SV:
     print np.linalg.det(gram(mat))
     print np.linalg.det(gram(rectMat))
 
-    p.plot(s2)
+    p.plot(range(len(s1)), [log(s) for s in s1], "r-")
+    p.plot(range(len(s2)), [log(s) for s in s2], "b-")
+    p.plot(range(len(s3)), [log(s) for s in s3], "g-")
+    p.plot(range(len(s4)), [log(s) for s in s4], "m-")
+#    ax = p.gca()
+#    ax.set_ylim([0, 5])
+
     p.show()
 
     p.matshow(mat)
     p.show()
     p.matshow(rectMat)
+    p.show()
+    p.matshow(otherMat)
+    p.show()
+    p.matshow(otherRectMat)
     p.show()
 
 if COMPARE_DEPTHS:
@@ -2669,5 +2957,431 @@ if RESIDUES_TEST:
     print [octResidue(a, p) for a in range(1, p)]    
     print [pow(a, 8, p) for a in range(1, p)]
 
+if FIND_WEIRD_PRIMES:
+#    p1 = findWeirdPrimes1()
+#    print p1
+
+#    p3 = findWeirdPrimes3()
+#    print p3
+
+#    p7 = findWeirdPrimes7()
+#    print p7
+
+    pChowla = findWeirdPrimesChowla()
+    print pChowla
+
 if MSE_OF_WEIRD_SEQS:
-    
+    pr = 73
+
+#    weirdSeq34 = [0] + [1*quartResidue(a, pr) for a in range(1, pr)]
+#    weirdSeq34 = [1] + [1*(1-quartResidue(a, pr)) for a in range(1, pr)]
+#    weirdSeq34 = [0] + [1*quadResidue(a, pr) for a in range(1, pr)]
+
+    weirdSeq34 = [0] + [1*octResidue(a, pr) for a in range(1, pr)]
+
+    print sum(weirdSeq34), (pr-1)/8
+    print sum(weirdSeq34), (pr-1)/4
+
+    print weirdSeq34
+    print np.abs(np.fft.fft(weirdSeq34))
+
+    p.plot(np.abs(np.fft.fft(weirdSeq34)))
+    p.show()
+
+if GANESH_PLOT_MAKER_1_4:
+    n = 101
+
+    theta = 0.01
+    rho = 1/4
+    W = 0.001
+    J = 0.1
+
+    d = theta/n
+
+    flatSeq = [0] + [1*quartResidue(a, n) for a in range(1, n)]
+    randomSeq = [1*(random.random()<rho) for _ in range(n)]
+
+    flatFreqs = np.fft.fft(flatSeq)
+    randomFreqs = np.fft.fft(randomSeq)
+
+    tOverNs = np.linspace(0, 10, 100)
+
+    msesFlat = [mseIID(n, theta, rho, W, J, tOverN*n, flatFreqs) for tOverN in tOverNs]
+    msesRandom = [mseIID(n, theta, rho, W, J, tOverN*n, randomFreqs) for tOverN in tOverNs]
+
+    p.plot(tOverNs, msesFlat, "r-")
+    p.plot(tOverNs, msesRandom)
+
+    p.title("n = " + str(n) + " theta = " + str(theta) + " rho = " + str(rho) + \
+        " W = " + str(W) + " J = " + str(J) + " IID")
+
+    redPatch = mpatches.Patch(color='red', label="Spectrally flat")
+    bluePatch = mpatches.Patch(color='blue', label="Random")
+
+    p.legend(handles=[redPatch, bluePatch])
+    p.xlabel("t/n")
+    p.ylabel("MSE")
+
+    p.show()
+
+if GANESH_PLOT_MAKER_1_8:
+    n = 26041
+
+    theta = 0.01
+    rho = 1/8
+    W = 0.001
+    J = 0.1
+
+    d = theta/n
+
+    flatSeq = [1] + [1*octResidue(a, n) for a in range(1, n)]
+    randomSeq = [1*(random.random()<rho) for _ in range(n)]
+
+    flatFreqs = np.fft.fft(flatSeq)/sqrt(n)
+    randomFreqs = np.fft.fft(randomSeq)/sqrt(n)
+
+    tOverNs = np.linspace(0, 10, 100)
+
+    msesFlat = [mseIID(n, theta, rho, W, J, tOverN*n, flatFreqs) for tOverN in tOverNs]
+    msesRandom = [mseIID(n, theta, rho, W, J, tOverN*n, randomFreqs) for tOverN in tOverNs]
+
+    p.plot(tOverNs, msesFlat, "r-")
+    p.plot(tOverNs, msesRandom)
+
+    p.title("n = " + str(n) + " theta = " + str(theta) + " rho = " + str(rho) + \
+        " W = " + str(W) + " J = " + str(J) + " IID")
+
+    redPatch = mpatches.Patch(color='red', label="Spectrally flat")
+    bluePatch = mpatches.Patch(color='blue', label="Random")
+
+    p.legend(handles=[redPatch, bluePatch])
+    p.xlabel("t/n")
+    p.ylabel("MSE")
+
+    p.show()    
+
+if MAKE_GANESH_1_2_PRIME_LIST:
+    n = 100000
+
+    output = open("1_2_vals.txt", "w")
+
+    _, listOfPrimes = sieveOfEratosthenes(n)
+
+    goodVals = {}
+
+    for pr in listOfPrimes:
+        if pr > sqrt(n):
+            break
+
+        if isPrime(pr+2):
+            goodVals[pr*(pr+2)] = True
+
+    logK = 2
+    k = 4
+
+    while k < n:
+        goodVals[k-1] = True
+        logK += 1
+        k = 2**logK
+
+    for pr in listOfPrimes:
+        if pr % 4 == 3:
+            goodVals[pr] = True
+
+    goodValList = goodVals.keys()
+
+    for goodVal in sorted(goodValList):
+        output.write(str(goodVal) + "\n")
+
+if MAKE_GANESH_1_4_PRIME_LIST:
+
+    n = 10000000
+
+    pChowla = findWeirdPrimesChowla(n)
+    output = open("1_4_vals.txt", "w")
+
+    for pr in pChowla:
+        output.write(str(pr) + "\n")
+
+if CHECK_SPECTRALLY_FLAT_CONSTANT_BUSINESS_GANESH:
+    eps = 1e-6
+
+    n = 103
+
+    theta = 0.01
+    rho = 1/2
+    W = 0.001
+    J = 0.1
+
+    t = 0.1*n
+
+    dIID = [theta/n]*n
+    dOpen = [theta/n]+[eps]*(n-1)
+    dFirstFreq = [theta/n]*2 + [eps]*(n-2)
+
+    flatSeq = [0] + [1*quadResidue(a, n) for a in range(1, n)]
+    randomSeq = [1*(random.random()) for a in range(n)]
+    openSeq = [1]*n
+    halfOpenSeq = [1]*int(n/2) + [0]*(n-int(n/2))
+
+
+    flatFreqs = np.abs(np.fft.fft(flatSeq)/sqrt(n))
+    randomFreqs = np.abs(np.fft.fft(randomSeq)/sqrt(n))
+    openFreqs = np.abs(np.fft.fft(openSeq)/sqrt(n))
+    halfOpenFreqs = np.abs(np.fft.fft(halfOpenSeq)/sqrt(n))
+
+    for freqs, color in zip([flatFreqs, randomFreqs, openFreqs, halfOpenFreqs], \
+        ["red", "blue", "green", "magenta"]):
+
+        p.plot(sorted(freqs[1:]), color=color)
+
+    p.show()
+
+    for freqs, color in zip([flatFreqs, randomFreqs, openFreqs, halfOpenFreqs], \
+        ["red", "blue", "green", "magenta"]):
+
+        p.plot([mseIIDSingleContribution(n, theta, rho, W, J, t, freq) for \
+            freq in sorted(freqs[1:])], color=color)
+
+    p.show()
+
+    print mseIID(n, theta, rho, W, J, t, flatFreqs)    
+    print mseIID(n, theta, rho, W, J, t, randomFreqs)   
+    print mseIID(n, theta, rho, W, J, t, openFreqs) 
+    print mseIID(n, theta, rho, W, J, t, halfOpenFreqs) 
+    print ""
+    print mseCorrelated(n, theta, rho, W, J, t, flatFreqs, dOpen)
+    print mseCorrelated(n, theta, rho, W, J, t, randomFreqs, dOpen)
+    print mseCorrelated(n, theta, rho, W, J, t, openFreqs, dOpen)
+    print mseCorrelated(n, theta, rho, W, J, t, halfOpenFreqs, dOpen)
+    print ""
+    print mseCorrelated(n, theta, rho, W, J, t, flatFreqs, dFirstFreq)
+    print mseCorrelated(n, theta, rho, W, J, t, randomFreqs, dFirstFreq)
+    print mseCorrelated(n, theta, rho, W, J, t, openFreqs, dFirstFreq)
+    print mseCorrelated(n, theta, rho, W, J, t, halfOpenFreqs, dFirstFreq)
+
+if CHECK_SF_DIFFERENT_VALS:
+    eps = 1e-20
+
+    n = 1024
+
+    logN = 10
+
+    theta = 0.01
+#    rho = 1/2
+    W = 0.001
+    J = 0.0
+
+    seqs = [blockMLS(n, logN, logBlockSize) for logBlockSize in range(logN)]
+
+#    print seqs
+
+    displaySeqs = listSum([[seq]*40 for seq in seqs])
+    dFuncs = [[theta/n]*2**logBlockSize + [eps]*(n-2**logBlockSize) for logBlockSize in range(logN+1)] 
+#    dFuncs = [[theta/n] + [eps]*(n-1)]
+
+    displayDFuncs = listSum([[dFunc]*40 for dFunc in dFuncs])
+
+    freqs = [np.abs(np.fft.fft(seq)) for seq in seqs]
+    for freq in freqs:
+        p.plot(freq[:])
+    p.show()
+
+
+    viewFrame(imageify(np.array(displayDFuncs)/theta*n))
+
+    for i, logTOverN in enumerate(np.linspace(-3, 4, 99)):
+#    for i, logTOverN in enumerate(np.linspace(6, 6, 1)):
+        print i
+
+        t = 10**logTOverN*n
+    #    print np.concatenate((mls(6)[0],[0]), axis=0)
+        seqs = [blockMLS(n, logN, logBlockSize) for logBlockSize in range(logN)]
+        rhos = [sum(seq)/len(seq) for seq in seqs]
+
+ #       viewFrame(imageify(np.array(seqs[::-1])))
+#        viewFrame(imageify(np.array(dFuncs)))
+
+        mseCorrelatedArray = []
+
+        for dFunc in dFuncs:
+            mses = [mseCorrelated(n, theta, rho, W, J, t, freq, dFunc) for rho, freq in zip(rhos, freqs)]
+            maxMSE = max(mses)
+            mseCorrelatedArray.append([mse/maxMSE for mse in mses])
+
+ #       print mses
+
+ #       print mseCorrelatedArray
+
+        viewFrame(imageify(np.array(mseCorrelatedArray)), magnification=1, \
+            filename="ganesh_movie/frame_" + str(padIntegerWithZeros(i, 3) + ".png"))
+
+if UNLUCKY_NUMBER:
+    eps = 1e-20
+
+    n = 17
+
+    theta = 0.01
+    W = 0.001
+    J = 0.0
+
+    t = 1000*n
+
+    minMSE = float("Inf")
+    bestBinList = None
+    bestBinFreqs = None
+
+    for binList in allListsOfSizeX(n):
+        rho = sum(binList)/len(binList)
+        binFreqs = np.abs(np.fft.fft(binList))
+
+        mse = mseIID(n, theta, rho, W, J, t, binFreqs)
+
+        if mse < minMSE:
+            minMSE = mse
+            bestBinList = binList
+            bestBinFreqs = binFreqs
+
+    print bestBinList, minMSE
+
+    nonBinList = [0.5] + [1*quadResidue(i, n) for i in range(1, n)]
+    nonBinFreqs = np.abs(np.fft.fft(nonBinList))
+
+    nonBinMSE = mseIID(n, theta, rho, W, J, t, nonBinFreqs)
+
+    p.plot(bestBinFreqs, "b-")
+    p.plot(nonBinFreqs, "r-")
+    p.show()
+
+    p.plot(mseIIDSingleContribution(n, theta, rho, W, J, t, bestBinFreqs), "b-")
+    p.plot(mseIIDSingleContribution(n, theta, rho, W, J, t, nonBinFreqs), "r-")
+    p.show()
+
+    print nonBinList, nonBinMSE
+
+    print np.linalg.det(circulant(nonBinList))
+    print np.linalg.det(circulant(bestBinList))
+    print np.linalg.det(circulant([0,0,1,0,1,1,1,1,\
+        1,0,1,1,1]))
+
+if GREEDY_SEARCH:
+    n = 1000
+
+
+    theta = 1
+    W = 0.001
+    J = 0.0
+
+    t = 0.1*n
+
+
+    aVec = np.array([theta/n]*n)
+
+#    startingEpsBinary = [1*(random.random() < 0.5) for _ in range(n)]
+    startingEpsBinary = [0]*n
+    evaluateEpsilon = evaluateEpsilonMaker(aVec, binary=True)
+    evaluateEpsilonOptimized = evaluateEpsilonOptimizedMaker(aVec)
+
+    slow=False
+    fast=True
+
+    if slow:
+
+        localMinBinary = randomGreedySearch(startingEpsBinary, evaluateEpsilon, maxOrMin="max", \
+            verbose=True, helper=False)
+        localMin = convertBinaryToOneMinusOne(localMinBinary)
+
+    if fast:
+
+        localMinBinary = randomGreedySearch(startingEpsBinary, evaluateEpsilon, maxOrMin="max", \
+            verbose=True, helper=True, evalFuncOptimized=evaluateEpsilonOptimized)
+        localMin = convertBinaryToOneMinusOne(localMinBinary)
+
+    print localMin
+
+if FIND_BEST_RHO:
+
+    eps = 1e-20
+
+    n = 13
+
+    theta = 0.01
+    W = 0.001
+    J = 0.001
+
+    t = 10*n
+
+    minMSE = float("Inf")
+    bestBinList = None
+    bestBinFreqs = None
+
+    numOnes = 6
+
+    indices = range(numOnes)
+
+    while True:
+        binList = binMap(indices, 13)
+
+        print binList
+
+        rho = sum(binList)/len(binList)
+        binFreqs = np.abs(np.fft.fft(binList))
+
+        mse = mseIID(n, theta, rho, W, J, t, binFreqs)
+
+        if mse < minMSE:
+            minMSE = mse
+            bestBinList = binList
+            bestBinFreqs = binFreqs
+
+        indices = fixedBitIncrement(indices)
+
+        if max(indices) >= 13:
+            break
+
+
+    print bestBinList, minMSE, sum(bestBinList)
+
+
+    mses = []
+
+    epses = np.linspace(0, 1, 1000)
+
+    for eps in epses:
+
+        nonBinList = [eps] + [(1-2*eps/(n-1))*quadResidue(i, n) for i in range(1, n)]
+        nonBinFreqs = np.abs(np.fft.fft(nonBinList))
+
+        nonBinMSE = mseIID(n, theta, rho, W, J, t, nonBinFreqs)
+        mses.append(nonBinMSE)
+
+        print eps, nonBinMSE, sum(nonBinList)
+
+        #print nonBinList
+
+    p.plot(epses, mses, "r-")
+    p.plot(epses, [minMSE]*len(epses), "b-")
+
+    redPatch = mpatches.Patch(color='red', label="Nonbinary")
+    bluePatch = mpatches.Patch(color='blue', label="binary")
+
+    p.legend(handles=[redPatch, bluePatch])
+    p.xlabel("eps")
+    p.ylabel("MSE")
+
+    p.show()
+
+    p.plot(bestBinFreqs, "b-")
+    p.plot(nonBinFreqs, "r-")
+    p.show()
+
+    p.plot(mseIIDSingleContribution(n, theta, rho, W, J, t, bestBinFreqs), "b-")
+    p.plot(mseIIDSingleContribution(n, theta, rho, W, J, t, nonBinFreqs), "r-")
+    p.show()
+
+    print nonBinList, nonBinMSE, sum(nonBinList)
+
+    print np.linalg.det(circulant(nonBinList))
+    print np.linalg.det(circulant(bestBinList))
+    print np.linalg.det(circulant([0,0,1,0,1,1,1,1,\
+        1,0,1,1,1]))    

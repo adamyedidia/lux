@@ -551,6 +551,22 @@ def getAttenuationMatrix(occluderWindowShape, beta):
 
     return np.array(returnArray)
 
+def getAttenuationMatrixOneOverF(occluderWindowShape):
+    returnArray = []
+
+    maxX = occluderWindowShape[0]
+    maxY = occluderWindowShape[1]
+
+    hypotenuse = sqrt(maxX*maxX + maxY*maxY)
+
+    for i in range(occluderWindowShape[0]):
+        returnArray.append([])
+
+        for j in range(occluderWindowShape[1]):
+            returnArray[-1].append(1/(1 + sqrt(i*i + j*j)/hypotenuse))
+
+    return np.array(returnArray)
+
 def getRecoveryWindowSophisticated(occluderWindow, beta, snr):
     occluderWindowFrequencies = np.fft.fft2(occluderWindow)
 
@@ -618,6 +634,75 @@ def getRecoveryWindowSophisticated(occluderWindow, beta, snr):
 #    p.show()
 
     return recoveryWindow*1.3
+
+def getRecoveryWindowOneOverF(occluderWindow, snr):
+    occluderWindowFrequencies = np.fft.fft2(occluderWindow)
+
+    attenMat = getAttenuationMatrixOneOverF(occluderWindow.shape)
+
+#    p.matshow(attenMat)
+#    p.colorbar()
+#    p.show()
+
+
+    oneOverXVectorized = np.vectorize(lambda x: 1/x)
+
+    modifiedFreqs = snr*abs(np.multiply(occluderWindowFrequencies, occluderWindowFrequencies))
+
+#    print modifiedFreqs
+#    print "a"
+#    p.matshow(np.log(np.abs(modifiedFreqs)))
+#    p.colorbar()
+#    p.show()
+
+    modifiedFreqs = np.multiply(modifiedFreqs, attenMat)
+#    modifiedFreqs = np.abs(np.multiply(modifiedFreqs, attenMat))
+
+#    print modifiedFreqs
+
+#    print "b"
+#    p.matshow(np.log(np.abs(modifiedFreqs)))
+#    p.colorbar()
+#    p.show()
+
+    modifiedFreqs += np.ones(occluderWindow.shape)
+
+#    print modifiedFreqs
+
+#    print "c"
+#    p.matshow(np.log(np.abs(modifiedFreqs)))
+#    p.colorbar()
+#    p.show()
+
+    occluderWindowFrequenciesDoubleInverted = oneOverXVectorized(modifiedFreqs)
+
+#    print occluderWindowFrequenciesDoubleInverted
+
+
+#    print "d"
+#    p.matshow(np.log(np.abs(occluderWindowFrequenciesDoubleInverted)))
+#    p.colorbar()
+#    p.show()
+
+    occluderWindowFrequenciesInverted = snr*np.multiply(occluderWindowFrequenciesDoubleInverted, \
+        np.conj(occluderWindowFrequencies))
+
+#    print "e"
+#    p.matshow(np.log(np.abs(occluderWindowFrequenciesInverted)))
+#    p.colorbar()
+#    p.show()
+
+    recoveryWindow = np.fft.ifft2(occluderWindowFrequenciesInverted)
+
+#    print recoveryWindow
+
+#    p.matshow(np.real(recoveryWindow))
+#    p.colorbar()
+#    print "recovery window: lower left"
+#    p.show()
+
+    return recoveryWindow*1.3
+
 
 def averageVertically(im):
     listOfSums = []
@@ -992,11 +1077,11 @@ if ALRIGHT_LETS_DO_THIS:
 #    im = np.array(imRaw).astype(float)
 
     IM_BRIGHTNESS = 1e10
-    THERMAL_NOISE = 1e8
+    THERMAL_NOISE = 1e9
 #    THERMAL_NOISE = 1
 
 
-    beta = 0.3
+    beta = 0.1
 #    beta = 1
 
 #    snr = IM_BRIGHTNESS / THERMAL_NOISE
@@ -1034,7 +1119,7 @@ if ALRIGHT_LETS_DO_THIS:
 #    viewFrame(averageVertically(im), 1e-10)
 
 
-    occluderWindow = pinCircle(imSpatialDimensions, 1/8)
+#    occluderWindow = pinCircle(imSpatialDimensions, 1/8)
 #    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
 #    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
 #    occluderWindow = fineCheckerBoard(imSpatialDimensions)
@@ -1045,7 +1130,7 @@ if ALRIGHT_LETS_DO_THIS:
 #    occluderWindow = randomOccluder(imSpatialDimensions)
 #    occluderWindow = lens2(imSpatialDimensions)
 #    occluderWindow = verticalColumn(imSpatialDimensions, 1/4)
-#    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
+    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
 
 #    viewRepeatedOccluder(occluderWindow)
     viewSingleOccluder(occluderWindow)
@@ -1074,7 +1159,9 @@ if ALRIGHT_LETS_DO_THIS:
 #    recoveredImSimple = doFuncToEachChannel(convolve2dMaker(recoveryWindowSimple), \
 #        noisyObsPlaneIm)
 
-    recoveryWindowSophisticated = recoveryWindowSophisticated(occluderWindow, beta, snr)
+#    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+    recoveryWindowSophisticated = getRecoveryWindowOneOverF(occluderWindow, snr)
+
     recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
         noisyObsPlaneIm)
 
@@ -1102,7 +1189,7 @@ if ALRIGHT_LETS_DO_THIS:
 
 #    print recoveredImSophisticated - 3*noisyObsPlaneIm
 
-    viewFrame(recoveredImSophisticated, 6e-11)
+    viewFrame(recoveredImSophisticated, 4e-11)
 #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=True, meanSubtraction=True)
 #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=True, meanSubtraction=True)
 

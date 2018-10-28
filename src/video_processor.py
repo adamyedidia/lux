@@ -33,6 +33,9 @@ downSample2 = False
 rawWithSubtract = False
 rawWithBlur = False
 batchMovie = False
+batchSmallerMovie = False
+batchRickMortyMovie = False
+processBlindDeconvVideo = True
 downsampleWinnie = False
 weirdAngle = False
 weirdAngleSim = False
@@ -195,8 +198,8 @@ def convertArrayToVideo(arr, magnification, filename, frameRate):
     print "logNumFrames", logNumFrames
 
     for i, frame in enumerate(arr):
-        print frame.shape
-        print type(frame[0][0][0])
+#        print frame.shape
+ #       print type(frame[0][0][0])
         viewFrame(frame, magnification=magnification, filename="video_trash/" + filename + "_" + \
             padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=True)
 
@@ -216,6 +219,8 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
 
     arr = turnVideoIntoArray(vid, firstFrame, lastFrame)
     arr = batchAndDifferentiate(arr, listOfResponses)
+
+    print arr.shape
 
     numFramesInOriginalVideo = len(vid)
     originalFrameRate = numFramesInOriginalVideo / convertTimeToSeconds(vidLength)
@@ -795,6 +800,69 @@ if __name__ == "__main__":
         processVideo(vid, VIDEO_TIME, \
             np.array([(10, False), (10, False), (10, False), (1, False)]), \
             "doorway_vid", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame)
+
+    if batchSmallerMovie:
+        pathToDir = "/Users/adamyedidia/walls/src/"
+        path = "smaller_movie.mov"
+
+        vid = imageio.get_reader(path,  'ffmpeg')
+
+        VIDEO_TIME = "0:30"
+        START_TIME = "0:00"
+        END_TIME = "0:30"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        print firstFrame, lastFrame
+
+        processVideo(vid, VIDEO_TIME, \
+            np.array([(1, True), (8, False), (8, False), (1, False)]), \
+            "smaller_movie_batched_diff", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=True)        
+
+    if batchRickMortyMovie:
+        pathToDir = "/Users/adamyedidia/walls/src/"
+        path = "rick_morty.mp4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:26"
+        START_TIME = "0:00"
+        END_TIME = "0:26"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideo(vid, VIDEO_TIME, \
+            np.array([(1, False), (20, False), (20, False), (1, False)]), \
+            "rick_morty_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+
+        print firstFrame, lastFrame
+
+    if processBlindDeconvVideo:
+        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:44"
+        START_TIME = "0:01"
+        END_TIME = "0:10"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideo(vid, VIDEO_TIME, \
+            np.array([(2, False), (15, False), (15, False), (1, False)]), \
+            "blind_deconv_cardboard_1", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+
+        print firstFrame, lastFrame
+
 
     if test:
     #    FILE_NAME = "ir_video_rc_car.m4v"; VIDEO_TIME = "3:57"

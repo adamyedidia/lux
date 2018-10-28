@@ -7,12 +7,14 @@ from cr2_processor import convertRawFileToArray
 from scipy.signal import convolve2d
 from scipy.ndimage.filters import gaussian_filter
 from video_processor import processVideo, batchAndDifferentiate
+from image_distortion_simulator import imageify, imageifyComplex
 import pickle
 import scipy.io
 import sys
+import imageio
 
 radialRectify1 = False
-radialRectify2 = True
+radialRectify2 = False
 oldRectify = False
 rawRectify = False
 wrongRectify = False
@@ -22,6 +24,7 @@ subtractRectify = False
 subtractRectify2 = False
 hallwayImaging = False
 batchMovie = False
+rectifyVideo = True
 
 def displayFlattenedFrame(flattenedFrame, height, magnification=1, \
     differenceImage=False, filename=None):
@@ -97,7 +100,7 @@ def makeGrid(corner, p1, p2, oppCorner, steps1, steps2):
     for i in range(steps1):
         returnArray.append([])
 
-        print "Making grid:", i, "/", steps1
+#        print "Making grid:", i, "/", steps1
 
         vec2 = (i/steps1 * (oppCorner - p2) + (steps1 - i)/steps1 * (p1 - corner))/steps2
 
@@ -123,7 +126,7 @@ def rectify(arr, corner, p1, p2, oppCorner, steps1, steps2):
     for j in range(steps2):
         returnArray.append([])
 
-        print "Rectifying:", j, "/", steps2
+#        print "Rectifying:", j, "/", steps2
 
         for i in range(steps1):
             vec = grid[i][j]
@@ -596,3 +599,30 @@ if __name__ == "__main__":
         print "Writing..."
         pickle.dump(rectifiedArr, open(path2, "w"))
         print "Done!"
+
+    if rectifyVideo:
+        CORNER = np.array([100, 0])
+        P1 = np.array([200, 43])
+        OPP_CORNER = np.array([200, 100])
+        P2 = np.array([100, 125])
+
+        path = "/Users/adamyedidia/walls/src/blind_deconv_cardboard_1.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 125)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array([rectifiedVideo]), open("blind_deconv_cardboard_1_rect.p", "w"))
+
+

@@ -13,6 +13,11 @@ def randomFlip(l):
 
     return lCopy
 
+def flipSingleEntry(l, i):
+    lCopy = l[:]
+    lCopy[i] = 1 - lCopy[i]    
+    return lCopy
+
 def allListsOfSizeX(x):
     if x == 0:
         return [[]]
@@ -43,19 +48,81 @@ def randomGreedyStep(l, evalFunc, maxOrMin, maxTries):
 
     return "Exceeded max tries!"
 
+def betterRandomGreedyStep(l, evalFunc, maxOrMin, helper=False,
+    evalFuncOptimized=None, currentVal=None, currentHelperVal=None):
+    
+    if currentVal == None:
+        currentVal, currentHelperVal = evalFunc(l)
 
-def randomGreedySearch(initList, evalFunc, maxOrMin="min", maxTries=None):
-    if maxTries == None:
-        maxTries = len(initList)
+    indices = range(len(l))
+    random.shuffle(indices)
 
-    currentResult = initList
+    for i in indices:
 
-    while currentResult != "Exceeded max tries!":
-        oldResult = currentResult
-        currentResult = randomGreedyStep(currentResult, evalFunc, maxOrMin, \
-            maxTries)
+#        print i
 
-    return oldResult
+        if helper:
+            tweakedList = flipSingleEntry(l, i)            
+            tweakedVal, helperVal = evalFuncOptimized(currentHelperVal, i)
+
+#            print "r", tweakedList, tweakedVal, currentHelperVal
+
+        else:    
+            tweakedList = flipSingleEntry(l, i)
+            tweakedVal, _ = evalFunc(tweakedList)
+
+        if maxOrMin == "min":
+            if tweakedVal < currentVal:
+                if helper:
+                    return tweakedList, tweakedVal, helperVal
+                else:
+                    return tweakedList, tweakedVal
+
+        elif maxOrMin == "max":
+            if tweakedVal > currentVal:
+                if helper:
+                    return tweakedList, tweakedVal, helperVal
+                else:
+                    return tweakedList, tweakedVal
+
+        else:
+            pront("Error: illegal value " + maxOrMin + " for argument maxOrMin")
+            raise
+
+    if helper:
+        return "Local minimum!", None, None
+    else:
+        return "Local minimum!", None
+
+def randomGreedySearch(initList, evalFunc, maxOrMin="min", verbose=False, \
+    helper=False, evalFuncOptimized=None):
+
+    currentList = initList
+    currentVal, currentHelperVal = evalFunc(currentList)
+
+    iterCount = 0
+
+    while currentList != "Local minimum!":
+        oldList = currentList
+        if verbose:
+            print "Current value:", currentVal
+
+        if helper:
+            currentList, currentVal, currentHelperVal = \
+                betterRandomGreedyStep(currentList, evalFunc, maxOrMin, \
+                helper=helper, evalFuncOptimized=evalFuncOptimized, \
+                currentVal=currentVal, currentHelperVal=currentHelperVal)
+
+        else:
+            currentList, currentVal = betterRandomGreedyStep(currentList, evalFunc, maxOrMin, \
+                currentVal=currentVal)
+
+        iterCount += 1
+
+    if verbose:
+        print "Iteration count:", iterCount
+
+    return oldList
 
 def exhaustiveSearch(n, evalFunc, maxOrMin="min"):
     if maxOrMin == "min":

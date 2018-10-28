@@ -3,11 +3,12 @@ import numpy as np
 import random
 from video_magnifier import viewFrame, viewFrameR, viewFlatFrame
 from image_distortion_simulator import imageify, imageifyComplex
-from scipy.signal import convolve, deconvolve, argrelextrema
+from scipy.signal import convolve, deconvolve, argrelextrema, convolve2d
 from numpy.fft import fft, ifft
 from math import sqrt, pi, exp, log, sin, cos, floor, ceil
-from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup
-from image_distortion_simulator import doFuncToEachChannelVec, doFuncToEachChannel, circleSpeck
+from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup, stretchArray
+from image_distortion_simulator import doFuncToEachChannelVec, doFuncToEachChannel, circleSpeck,\
+    getAttenuationMatrixOneOverF, getAttenuationMatrix
 import pickle
 from numpy.polynomial.polynomial import Polynomial, polyfromroots
 import matplotlib.pyplot as p
@@ -23,9 +24,12 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.optimize import broyden1, fmin_bfgs, fmin_cg, fmin_tnc, fmin
 from pynverse import inversefunc
 from scipy.integrate import quad
-from video_processor import batchArrayAlongAxis
+from video_processor import batchArrayAlongAxis, batchAndDifferentiate
 from scipy.linalg import toeplitz
-from phase_retrieval import retrievePhase
+from scipy.linalg import dft as dftMat
+from phase_retrieval import retrievePhase, retrievePhase2D
+import imageio
+from best_matrix import padIntegerWithZeros
 
 LOOK_AT_FREQUENCY_PROFILES = False
 DIVIDE_OUT_STRATEGY = False
@@ -41,13 +45,27 @@ POLYNOMIAL_EXPERIMENT_FRANKENSTEIN = False
 POLYNOMIAL_EXPERIMENT_RECOVERY = False
 SIMPLE_BLIND_DECONV_TEST = False
 RECOVER_FREQ_MAGNITUDES = False
-RECOVER_FREQ_MAGNITUDES_2 = True
+RECOVER_FREQ_MAGNITUDES_2 = False
+BLIND_2D_SIM = False
+STUPID_METHOD_2D = False
+SPLIT_FRAMES = False
+FOURIER_BURST_ACCUMULATION = False
+LOOK_AT_AGG_FRAME = False
+STUPID_METHOD_2D_2 = False
+STUPID_METHOD_2D_3 = False
+STUPID_METHOD_2D_4 = False
+ANALYZE_EXTRACTED_OCCLUDER = False
+CREATE_RECONSTRUCTION_MOVIE = False
+VIEW_FRAMES = False
+DIFF_EXP_VIDEO = False
+PROCESS_EXP_VIDEO = False
+VIEW_OCC = True
 
 ZERO_DENSITY = 2
 NONZERO_DENSITY = 20
 FLIP_DENSITY = 10
 SIGNAL_SIGMA = 1
-NOISE_SIGMA = 0
+NOISE_SIGMA = 100
 
 output = open("trash.txt", "w")
 
@@ -65,8 +83,246 @@ def divideNoDivZero(x, y):
     else:
         return x / y
 
+
 numpyDivideNoDivZero = np.vectorize(divideNoDivZero)
 mscale.register_scale(LogLaplaceScale)
+
+def generateSparseFrame(x, y):
+    protoOnOrOff = np.random.binomial(1, 0.3, (x, y))
+    onOrOff = majorityGame(protoOnOrOff, 10)
+
+    shotVal = np.random.exponential(1, (x, y))
+
+    return np.multiply(onOrOff, shotVal)
+
+def majorityGame(arr, coolingTime):
+    maxX = arr.shape[0]
+    maxY = arr.shape[1]
+
+    for i in range(coolingTime):
+        newArr = np.zeros(arr.shape)
+
+        print i
+
+        for x in range(-1, maxX-1):
+            for y in range(-1, maxY-1):
+                voteCounter = 0
+                for deltaX in [-1, 0, 1]:
+                    for deltaY in [-1, 0, 1]:
+                        voteCounter += arr[x+deltaX][y+deltaY]
+                if voteCounter > 4:
+                    newArr[x][y] = 1
+
+        arr = newArr
+    return arr
+
+def sparsify(arr, cutoffFactor=1):
+    averageVal = np.sum(np.abs(arr))/np.size(arr)
+
+    biggerThanCutoff = np.vectorize(lambda x: 1*(x>averageVal/cutoffFactor))
+
+    viewFrame(imageify(biggerThanCutoff(np.abs(arr))), adaptiveScaling=True, \
+        differenceImage=True)
+
+    return np.multiply(arr, biggerThanCutoff(np.abs(arr)))
+
+def largeMajorityGame(arr, coolingTime, voteRadius):
+    maxX = arr.shape[0]
+    maxY = arr.shape[1]
+
+    for i in range(coolingTime):
+        newArr = np.zeros(arr.shape)
+
+        print i
+
+        for x in range(-1, maxX-1):
+            for y in range(-1, maxY-1):
+                voteCounter = 0
+                numVotes = 0
+                for deltaX in range(-int(ceil(voteRadius)), int(ceil(voteRadius))+1):
+                    for deltaY in range(-int(ceil(voteRadius)), int(ceil(voteRadius))+1):
+                        if sqrt(deltaX*deltaX + deltaY*deltaY) < voteRadius:
+                            if x+deltaX < maxX and x-deltaX >= 0:
+                                if y+deltaY < maxY and y-deltaY >= 0: 
+                                    voteCounter += arr[x+deltaX][y+deltaY]
+                                    numVotes += 1
+
+                if voteCounter/numVotes > 1/2:
+                    newArr[x][y] = 1
+
+        arr = newArr
+    return arr    
+
+def generateSparseMovie(x, y, t):
+    return [generateSparseFrame(x, y) for _ in range(t)]
+
+def generateRandomCorrelatedOccluder(x, y):
+    arr = np.random.binomial(1, 0.5, (x, y))
+
+    return majorityGame(arr, 10)
+
+def generateRandomVeryCorrelatedOccluder(x, y, voteRadius):
+    arr = np.random.binomial(1, 0.5, (x, y))
+
+    return largeMajorityGame(arr, 6, voteRadius)
+
+def convolve2DToeplitz(arr1, arr2):
+    return convolve2d(arr1, arr2, mode="valid")
+
+def convolve2DToeplitzFull(arr1, arr2):
+    return convolve2d(arr1, arr2, mode="full")
+
+def convolve2D(arr1, arr2):
+    return np.real(np.fft.ifft2(np.multiply(np.fft.fft2(arr1), np.fft.fft2(arr2))))
+
+def deconvolve2D(arr1, arr2):
+    return np.real(np.fft.ifft2(np.multiply(np.fft.fft2(arr1), np.fft.fft2(arr2))))
+
+def convolve2Images(arr1, arr2):
+    return convolve2d(arr1, arr2, mode="full", boundary="fill", fillvalue=0)    
+
+def makeImpulseFrame(shape, impulseLoc):
+    returnArray = np.zeros(shape)
+    returnArray[impulseLoc] += 1
+    return returnArray
+
+def makeRandomImpulseFrame(shape):
+    returnArray = np.zeros(shape)
+    impulseLoc = tuple([random.randint(0,i-1) for i in shape])
+
+    returnArray[impulseLoc] += 1
+    return returnArray
+
+def makeMultipleImpulseFrame(shape, numImpulses):
+    returnArray = np.zeros(shape)
+    impulseLocs = [tuple([random.randint(0,i-1) for i in shape]) for _ in range(numImpulses)]
+
+    for impulseLoc in impulseLocs:
+        returnArray[impulseLoc] += 1
+
+    return returnArray
+
+def multidim_cumsum(a):
+    out = a[...,::-1].cumsum(-1)[...,::-1]
+    for i in range(2,a.ndim+1):
+        np.cumsum(out, axis=-i, out=out)
+    return out
+
+def getCompensationFactorFromArray(a):
+    upperRight = multidim_cumsum(a)
+    upperLeft = np.flip(multidim_cumsum(np.flip(a, 0)), 0)
+    lowerRight = np.flip(multidim_cumsum(np.flip(a, 1)), 1)
+    lowerLeft = np.flip(np.flip(multidim_cumsum(np.flip(np.flip(a, 0), 1)), 0), 1)
+
+    overall = np.concatenate([np.concatenate([lowerRight, lowerLeft], 0),\
+                np.concatenate([upperRight, upperLeft], 0)], 1)
+
+    overallShape = overall.shape
+
+    overall = np.delete(np.delete(overall, int(overallShape[0]/2), 0), int(overallShape[1]/2), 1)
+
+#    print overall.shape
+#    viewFrame(imageify(overall), adaptiveScaling=True)
+
+    return overall
+
+
+def getCenteringFactor(i, j, arrShape0, arrShape1, minCompensation):
+    xCompensation = arrShape0 - abs(i - arrShape0)
+    yCompensation = arrShape1 - abs(j - arrShape1)
+
+    return np.power(max(xCompensation*yCompensation, minCompensation*xCompensation, minCompensation*yCompensation, \
+        minCompensation**2), 0.2)
+
+def getCenteringArray(arrShape):
+
+    ciShape = [2*i-1 for i in arrShape]
+
+    return np.transpose(np.array([[getCenteringFactor(i,j,arrShape[0], \
+            arrShape[1],0) for i in \
+            range(ciShape[0])] for j in range(ciShape[1])])) 
+
+def getCompensationArray(arr1, arr2, minCompensation):
+    ca1 = getCompensationFactorFromArray(arr1)
+    ca2 = getCompensationFactorFromArray(arr2)
+
+    return np.maximum(np.multiply(np.sqrt(ca1), doubleFlip(np.sqrt(ca2))), minCompensation*np.ones(ca1.shape))
+
+def doubleFlip(a):
+    return np.flip(np.flip(a, 0), 1)
+
+def getMatchArray(arr1, arr2, minCompensation=10):
+    arrShape = arr1.shape
+
+    centeringArray = getCenteringArray(arrShape)
+
+    compensationArray = getCompensationArray(np.abs(arr1), np.abs(arr2), minCompensation)
+
+#    viewFrame(imageify(compensationArray), adaptiveScaling=True)
+
+#    viewFrame(imageify(arr1), adaptiveScaling=True)
+ #   viewFrame(imageify(arr2), adaptiveScaling=True)
+    convolvedArray = np.abs(convolve2d(arr1, doubleFlip(arr2)))
+
+#    print arr1
+#    print arr2
+#    print convolvedArray
+
+#    viewFrame(imageify(centeringArray), adaptiveScaling=True)
+
+#    viewFrame(imageify(convolvedArray), adaptiveScaling=True)
+
+    matchArray = np.multiply(np.divide(convolvedArray, compensationArray), centeringArray)
+
+    bestIndex = np.unravel_index(np.argmax(matchArray, axis=None), matchArray.shape)
+
+#   `    viewFrame(imageify(matchArray), adaptiveScaling=True)
+
+    matchQuality = matchArray[bestIndex]
+
+    bestMatchArray = np.zeros(matchArray.shape)
+    bestMatchArray[bestIndex] += 1
+
+
+
+    return matchArray, bestMatchArray, bestIndex, matchQuality
+
+def getOverlapArray(arr1, arr2, bestIndex):
+    arrShape = arr1.shape
+
+    firstIndex = bestIndex[0] - arrShape[0]
+    secondIndex = bestIndex[1] - arrShape[1]
+
+#    print "first, second", firstIndex, secondIndex
+
+    if firstIndex >= 1 and secondIndex >= 1:
+        arr2Snapshot = arr2[:-firstIndex+1:,:-secondIndex+1]
+        arr1Snapshot = arr1[firstIndex-1:,secondIndex-1:]
+
+    elif firstIndex < 1 and secondIndex >= 1:
+        arr2Snapshot = arr2[-firstIndex-1:,:-secondIndex+1]
+        arr1Snapshot = arr1[:firstIndex+1,secondIndex-1:]        
+
+    elif firstIndex >= 1 and secondIndex < 1:
+        arr2Snapshot = arr2[:-firstIndex+1,-secondIndex-1:]
+        arr1Snapshot = arr1[firstIndex-1:,:secondIndex+1]
+
+    elif firstIndex < 1 and secondIndex < 1:
+        arr2Snapshot = arr2[-firstIndex-1:,-secondIndex-1:]
+        arr1Snapshot = arr1[:firstIndex+1,:secondIndex+1]        
+
+    return arr1Snapshot, arr2Snapshot
+
+def isSparse(x):
+    if abs(x) > 1e-4:
+        return 0
+    return 1
+
+def sparsity(arr):
+    return np.sum(np.sum(np.vectorize(isSparse)(arr)))
+
+def getMags(arr):
+    return np.real(np.fft.fft2(arr))
 
 def generateSparseSeq(n):
     oddsOfZeroNonzeroTransition = ZERO_DENSITY/n
@@ -589,6 +845,33 @@ def displayRoots(polynomial, listOfExistingRoots, blueThresh, numPolynomialsCoun
     p.show()
     
     return listOfRepeatedRoots    
+
+def aggregateFrames(listOfFrames, P):
+    dftFrames = [np.fft.fft2(frame) for frame in listOfFrames]
+
+    for dftFrame in dftFrames:
+        viewFrame(imageify(np.abs(dftFrame)), adaptiveScaling=True,
+            magnification=sqrt(dftFrame.shape[0]*dftFrame.shape[1]))
+
+    absDftFramesToTheP = [np.power(np.abs(dftFrame), P) for \
+        dftFrame in dftFrames]
+
+    sumAbsDftFramesToTheP = np.sum(np.array(absDftFramesToTheP), axis=0)
+
+ #   print sumAbsDftFramesToTheP.shape
+    viewFrame(imageify(sumAbsDftFramesToTheP), adaptiveScaling=True,
+        magnification=sqrt(sumAbsDftFramesToTheP.shape[0]*dftFrame.shape[1]))
+
+    weightedDft = np.sum(np.array([np.divide(np.multiply(absDftFrameToTheP, \
+            dftFrame), sumAbsDftFramesToTheP) for \
+            absDftFrameToTheP, dftFrame in \
+            zip(absDftFramesToTheP, dftFrames)]), \
+            axis = 0)
+
+#   print weightedDft[0]
+    viewFrame(imageify(np.abs(weightedDft)), adaptiveScaling=True)
+
+    return np.fft.ifft2(weightedDft)
 
 def deconv(seq):
     
@@ -1395,7 +1678,7 @@ def getNormalizationAngleDistant(listOfSeqs):
     return normalizationAngle
 
 def warpPoint(point, evenPoints):
-    print point
+ #   print point
 
     return np.array([point[0], warpR(point[1], evenPoints)])
 
@@ -1450,7 +1733,7 @@ def findRootsRadial(listOfSeqs, correctRoots=[], showy=False):
 
             gridPoints.append(startingPoint)
 
-            print thetaGridPoint, warpR(rGridPoint, evenPoints)
+ #           print thetaGridPoint, warpR(rGridPoint, evenPoints)
 
 #            try:
             nearbyRoot = findNearbyRoot(listOfSeqs, normalizationAngle, evenPoints, startingPoint, mu, sigma)
@@ -2003,6 +2286,348 @@ def wrapConvolve(seq1, seq2):
 
 def wrapDeconvolve(seq1, seq2):
     return np.fft.ifft(np.divide(np.fft.fft(seq1), np.fft.fft(seq2)))/sqrt(n)
+
+def padArrayToShape(arr, shape):
+    arrShape = arr.shape
+
+    diff0 = shape[0] - arrShape[0]
+    diff1 = shape[1] - arrShape[1]
+
+    diff0above = int(diff0/2)
+    diff0below = diff0 - diff0above
+
+    diff1above = int(diff1/2)
+    diff1below = diff1 - diff1above
+
+    return np.pad(arr, [(diff0above, diff0below), (diff1above, diff1below)], "constant")
+
+def getForwardModelMatrix2DToeplitzFull(occ):
+    returnMat = []
+    occShape = occ.shape
+
+    paddedOcc = padArrayToShape(occ, (3*occShape[0]-2, 3*occShape[1]-2))
+
+    for i in range(2*occShape[0]-1):
+        for j in range(2*occShape[1]-1):
+            returnMat.append((paddedOcc[i:i+occShape[0], j:j+occShape[1]]).flatten())
+
+    return np.flip(np.array(returnMat), 1)
+
+def getPseudoInverse(mat, snr):
+    n = mat.shape[1]
+
+    print mat.shape
+
+    thingToBeInverted = snr*np.dot(np.transpose(mat), mat) + np.identity(n)
+
+#    p.matshow(thingToBeInverted)
+#    p.show()
+
+    return snr*np.dot(np.linalg.inv(thingToBeInverted), np.transpose(mat))
+
+def getPseudoInverseSmooth(mat, convolvedFrameShape, snr):
+    n = mat.shape[0]
+    m = mat.shape[1]
+
+    attenMat = getAttenuationMatrix(convolvedFrameShape, 0.1)
+#    print attenMat.shape
+
+#    p.matshow(attenMat)
+#    p.colorbar()
+#    p.show()
+
+    print "computing diag..."
+
+    diagAttenMat = np.dot(np.dot(np.kron(dftMat(convolvedFrameShape[0]), dftMat(convolvedFrameShape[1])), \
+        np.diag(attenMat.flatten())), \
+        np.kron(np.conj(dftMat(convolvedFrameShape[0])), np.conj(dftMat(convolvedFrameShape[1]))))
+
+#    p.matshow(np.real(diagAttenMat))
+#    p.colorbar()
+#    p.show()
+
+    print "computing pseudoinverse..."
+
+#    print diagAttenMat.shape
+
+    return (snr+1)*np.dot(np.linalg.inv(snr*np.dot(np.dot(np.transpose(mat), diagAttenMat), mat) + \
+        np.identity(m)), np.transpose(mat))
+
+#    return (snr+1)*np.dot(np.transpose(mat), np.linalg.inv(snr*np.dot(np.dot(mat, diagAttenMat), np.transpose(mat)) + \
+#        np.identity(n)))
+
+
+def vectorizedDot(mat, arr, targetShape):
+    return np.reshape(np.dot(mat, arr.flatten()), targetShape)
+
+def getFirstMatch(diffVid, occ, vid):
+
+    frame = random.choice(diffVid)
+    convolvedFrame = np.abs(convolve2DToeplitzFull(frame, occ))
+
+    canvas = convolvedFrame
+    canvasShape = canvas.shape
+
+    occShape = occ.shape
+
+    frameCounter = 1
+
+    canvasSimilarities = []
+
+#    random.shuffle(vid)
+
+    while frameCounter < 200:
+
+        print frameCounter
+
+        if frameCounter % 20 == 0:
+
+#            viewFrame(imageify(canvas), adaptiveScaling=True, differenceImage=True)
+
+            extractedOcc = extractOccluderFromCanvas(canvas, occShape)
+
+            viewFrame(imageify(extractedOcc), adaptiveScaling=True, filename="occluder_" + str(frameCounter) + ".png")
+
+            randomFrame = random.choice(vid)
+
+            convolvedRandomFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), randomFrame))
+
+            forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(extractedOcc)
+#            p.matshow(forwardModelMatrix)
+#            p.show()
+
+            inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+#            inversionMatrixSmooth = getPseudoInverseSmooth(forwardModelMatrix, randomFrame.shape[:-1], 1e1)            
+
+            recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, randomFrame.shape[:-1]), \
+                convolvedRandomFrame)
+
+#            recoveredFrameSmooth = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixSmooth, x, randomFrame.shape[:-1]), \
+#                convolvedRandomFrame)           
+
+
+            viewFrame(randomFrame, filename="frame_gt_" + str(frameCounter) + ".png")
+
+
+            viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1, filename="frame_recovery_" \
+                + str(frameCounter) + "_mag1.png")
+
+            viewFrame(recoveredFrame, adaptiveScaling=True, magnification=3, filename="frame_recovery_" \
+                + str(frameCounter) + "_mag3.png")
+
+            viewFrame(recoveredFrame, adaptiveScaling=True, magnification=10, filename="frame_recovery_" \
+                + str(frameCounter) + "_mag10.png")
+
+
+
+            for i, candidateOcc in enumerate(convertOccToZeroOne(extractedOcc)):
+
+                fractionOfOnes = np.sum(candidateOcc)/np.size(candidateOcc)
+
+                if fractionOfOnes > 0.25 and fractionOfOnes < 0.75:
+
+                    viewFrame(imageify(candidateOcc), adaptiveScaling=True, filename="occluder_" + str(frameCounter) + "_" + \
+                        str(i) + ".png")
+
+                    print "computing forward model"
+
+                    forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(candidateOcc)
+#                    p.matshow(forwardModelMatrix)
+ #                   p.show()
+                    print "computing pseudoinverse"
+
+
+                    inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+        #            inversionMatrixSmooth = getPseudoInverseSmooth(forwardModelMatrix, randomFrame.shape[:-1], 1e1)            
+
+                    print "doing recovery"
+
+
+
+
+#                    diffFrame = random.choice(diffVid)
+
+#                    recoveredDiffFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+
+         
+
+
+                    recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, randomFrame.shape[:-1]), \
+                        convolvedRandomFrame)
+
+        #            recoveredFrameSmooth = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixSmooth, x, randomFrame.shape[:-1]), \
+        #                convolvedRandomFrame)                
+
+                    viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1, filename="frame_recovery_" \
+                        + str(frameCounter) + "_" + str(i) + "_mag1.png")
+
+                    viewFrame(recoveredFrame, adaptiveScaling=True, magnification=3, filename="frame_recovery_" \
+                        + str(frameCounter) + "_" + str(i) + "_mag3.png")
+
+                    viewFrame(recoveredFrame, adaptiveScaling=True, magnification=10, filename="frame_recovery_" \
+                        + str(frameCounter) + "_" + str(i) + "_mag10.png")
+        
+
+#            viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1, filename="frame_recovery_" \
+ #               + str(frameCounter) + "_smooth_mag1.png")
+
+#            viewFrame(recoveredFrame, adaptiveScaling=True, magnification=3, filename="frame_recovery_" \
+ #               + str(frameCounter) + "_smooth_mag3.png")
+
+#            viewFrame(recoveredFrame, adaptiveScaling=True, magnification=10, filename="frame_recovery_" \
+ #               + str(frameCounter) + "_smooth_mag10.png")
+
+        frame = random.choice(diffVid)
+#        print frame
+#        print convolvedFrame
+
+        convolvedFrame = np.abs(addNoise(convolve2DToeplitzFull(frame, occ)))
+
+        viewFrame(imageify(convolvedFrame), adaptiveScaling=True, differenceImage=False)
+        viewFrame(imageify(canvas), adaptiveScaling=True, differenceImage=False)
+
+
+        matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
+            getMatchArray(canvas, convolvedFrame)
+
+        viewFrame(imageify(matchArray), adaptiveScaling=True)
+
+        overlapArray1, overlapArray2 = getOverlapArray(canvas, \
+            convolvedFrame, bestMatchIndex)
+
+        viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+
+        if np.shape(overlapArray1)[0] > 30 and np.shape(overlapArray1)[1] > 30 and \
+            np.shape(overlapArray2)[0] > 30 and np.shape(overlapArray2)[1] > 30:
+
+            overallOverlapArray = np.multiply(np.power(overlapArray1, frameCounter/(frameCounter+1)), \
+                np.power(overlapArray2, 1/(frameCounter+1)))
+
+            viewFrame(imageify(overallOverlapArray), adaptiveScaling=True)
+
+            canvas = padArrayToShape(overallOverlapArray, canvasShape)
+
+            viewFrame(imageify(canvas), adaptiveScaling=True)
+
+#        viewFrame(imageify(canvas), differenceImage=False, adaptiveScaling=True)
+
+        extractedOcc = extractOccluderFromCanvas(canvas, occShape)
+
+        canvasSimilarity = np.sum(np.multiply(extractedOcc, occ))/np.sum(np.sqrt(extractedOcc))/np.sum(np.sqrt(occ))
+        canvasSimilarities.append(canvasSimilarity)
+
+#        viewFrame(imageify(extractedOcc), adaptiveScaling=True, filename="canvas_video/extracted_occ_" + \
+#            padIntegerWithZeros(frameCounter, 3) + ".png")
+#        viewFrame(imageify(convolvedFrame), adaptiveScaling=True, differenceImage=True, filename="canvas_video/conv_frame_" + \
+#            padIntegerWithZeros(frameCounter, 3) + ".png")
+
+        frameCounter += 1
+
+    pickle.dump(extractedOcc, open("extracted_occ.p", "w"))
+
+#    p.clf()
+#    p.plot(canvasSimilarities)
+ #   p.savefig("canvas_video/canvas_similarities.png")
+
+def estimateOccluderFromDifferenceFrames(diffVid):
+
+    random.shuffle(diffVid)
+
+    convolvedFrame = diffVid[0]
+
+    canvas = np.abs(convolvedFrame)
+    canvasShape = canvas.shape
+
+    frameCounter = 1
+    viewFrame(imageify(canvas), adaptiveScaling=True)
+
+    for convolvedFrame in diffVid[1:]:
+
+        absConvolvedFrame = np.abs(convolvedFrame)
+
+        if np.sum(convolvedFrame) > 0:
+
+            matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
+                getMatchArray(canvas, absConvolvedFrame)
+
+    #        viewFrame(imageify(matchArray), adaptiveScaling=True)
+
+            overlapArray1, overlapArray2 = getOverlapArray(canvas, \
+                absConvolvedFrame, bestMatchIndex)
+
+            print "hi"
+#            viewFrame(imageify(overlapArray1), adaptiveScaling=True, differenceImage=True)
+#            viewFrame(imageify(overlapArray2), adaptiveScaling=True, differenceImage=True)
+
+
+
+            if np.shape(overlapArray1)[0] > 30 and np.shape(overlapArray1)[1] > 30 and \
+                np.shape(overlapArray2)[0] > 30 and np.shape(overlapArray2)[1] > 30:
+
+                overallOverlapArray = np.multiply(np.power(overlapArray1, frameCounter/(frameCounter+1)), \
+                    np.power(overlapArray2, 1/(frameCounter+1)))
+
+#                viewFrame(imageify(overallOverlapArray), adaptiveScaling=True)
+
+
+
+                canvas = padArrayToShape(overallOverlapArray, canvasShape)
+
+                print "ho"
+#                viewFrame(imageify(convolvedFrame), adaptiveScaling=True)
+#                viewFrame(imageify(canvas), adaptiveScaling=True)
+
+    #        viewFrame(imageify(canvas), differenceImage=False, adaptiveScaling=True)
+
+    #        extractedOcc = extractOccluderFromCanvas(canvas, occShape)
+
+    #        canvasSimilarity = np.sum(np.multiply(extractedOcc, occ))/np.sum(np.sqrt(extractedOcc))/np.sum(np.sqrt(occ))
+    #        canvasSimilarities.append(canvasSimilarity)
+
+    #        viewFrame(imageify(extractedOcc), adaptiveScaling=True, filename="canvas_video/extracted_occ_" + \
+    #            padIntegerWithZeros(frameCounter, 3) + ".png")
+    #        viewFrame(imageify(convolvedFrame), adaptiveScaling=True, differenceImage=True, filename="canvas_video/conv_frame_" + \
+    #            padIntegerWithZeros(frameCounter, 3) + ".png")
+
+            frameCounter += 1
+
+    pickle.dump(canvas, open("extracted_occ_exp.p", "w"))    
+
+    return canvas
+
+def convertOccToZeroOne(occ):
+
+    averageVal = np.sum(occ)/np.size(occ)
+
+    candidateOccs = []
+
+    for logOffset in np.linspace(-0.5, 0.3, 10):
+
+        offset = 10**logOffset
+
+        candidateOccs.append(np.vectorize(lambda x: 1.0*(x > offset*averageVal))(occ))
+
+    return candidateOccs
+
+def extractOccluderFromCanvas(canvas, occShape):
+    convolvedWithWhite = convolve2DToeplitz(np.ones(occShape), canvas)
+
+    bestIndex = np.unravel_index(np.argmax(convolvedWithWhite, axis=None), convolvedWithWhite.shape)
+
+    return canvas[bestIndex[0]:bestIndex[0]+occShape[0], bestIndex[1]:bestIndex[1]+occShape[1]]
+
+
+
+#def deconvolve
+
+#        viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+ #       viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+        
+ #       viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
+
+ #       if matchQuality > 20000 and overlapArray1.shape[0] > 30 and overlapArray2.shape[1] > 30:
+ #           break
 
 if LOOK_AT_FREQUENCY_PROFILES:
 
@@ -2911,26 +3536,451 @@ if RECOVER_FREQ_MAGNITUDES_2:
 
     viewFrame(imageify(np.array(observedMovie[:100])), magnification=1)
 
-    estimatedOccluder, solutionFound = retrievePhase(estimatedFreqs)
-    print "Do we think we found a solution?", solutionFound
+ #   estimatedOccluder, solutionFound = retrievePhase(estimatedFreqs)
+ #   print "Do we think we found a solution?", solutionFound
 
 
-    viewFlatFrame(imageify(estimatedOccluder), magnification=6)
-    viewFlatFrame(imageify(gaussianOccluder))
-    print estimatedOccluder
-    print gaussianOccluder
+ #   viewFlatFrame(imageify(estimatedOccluder), magnification=6)
+ #   viewFlatFrame(imageify(gaussianOccluder))
+ #   print estimatedOccluder
+ #   print gaussianOccluder
 
 
-    print occluderFreqs
-    print estimatedFreqs
+#    print occluderFreqs
+ #   print estimatedFreqs
     offset = np.divide(occluderFreqs, estimatedFreqs)
 
-    print offset
-#    p.hist(offset, bins=100, range=(0.85,1.15))
-#    p.hist(offset, bins=100)
-#    p.show()
+#    print offset
+    p.hist(offset, bins=100, range=(0.85,1.15))
+    p.hist(offset, bins=100)
+    p.show()
 
 
 
  #   viewFlatFrame(imageify(occluderFreqs), magnification=1)
   #  viewFlatFrame(imageify(np.array(estimatedFreqs)), magnification=1)
+
+if BLIND_2D_SIM:
+    x = 100
+    y = 100
+
+    truthFrame = generateSparseFrame(x, y)
+    blurryTruthFrame = batchAndDifferentiate(truthFrame, \
+        [(25, False), (25, False)])
+    viewFrame(imageify(truthFrame))
+    viewFrame(imageify(blurryTruthFrame), magnification=1e1)
+
+    occ = generateRandomCorrelatedOccluder(x, y)
+    blurryOcc = batchAndDifferentiate(occ, \
+        [(25, False), (25, False)])
+    viewFrame(imageify(occ))
+    viewFrame(imageify(blurryOcc))
+
+    convolvedFrame = convolve2D(truthFrame, occ)
+    blurryConvolvedFrame = batchAndDifferentiate(convolvedFrame, \
+        [(25, False), (25, False)])
+
+    otherBlurryConvolvedFrame = convolve2D(blurryTruthFrame, blurryOcc)
+
+    print otherBlurryConvolvedFrame.shape, otherBlurryConvolvedFrame
+
+    viewFrame(imageify(convolvedFrame), magnification=3e-2)
+    viewFrame(imageify(blurryConvolvedFrame), magnification=3e-2)
+    viewFrame(imageify(otherBlurryConvolvedFrame), magnification=1e1)
+
+    mags = getMags(blurryOcc)
+
+    counter = 0
+    while True:
+        solution, foundSolution, errors = retrievePhase2D(mags, tol=1e-10)
+        counter += 1
+        print counter
+
+        solution = blurryOcc
+
+#        viewFrame(imageify(solution))
+        resultingFrame = deconvolve2D(blurryConvolvedFrame, solution)
+#        viewFrame(imageify(resultingFrame))
+        if sparsity(resultingFrame) > 6:
+            break
+
+    viewFrame(imageify(solution))
+    viewFrame(imageify(resultingFrame))
+
+
+
+#    viewFrame(imageify(generateSparseFrame(x, y)))
+#    viewFrame(imageify(generateRandomCorrelatedOccluder(x, y)))
+
+if STUPID_METHOD_2D:
+#    path = "smaller_movie.mov"
+#    vid = imageio.get_reader(path,  'ffmpeg')
+
+#    numFrames = len(vid)
+
+#    for i in range(numFrames):
+ #       if i % 50 == 0:
+
+#            im = vid.get_data(i)
+#            frame = np.array(im).astype(float)
+#
+#            viewFrame(frame)
+    vid = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
+
+    frameDims = [90,160]
+
+#    frameDims = vid[0].shape
+
+ #   print frameDims
+
+#    frameDims = [10,10]
+
+#    occDims = [2*i-1 for i in frameDims]
+#    occ = generateRandomVeryCorrelatedOccluder(occDims[0], occDims[1], 13)
+
+    occ = pickle.load(open("corr_occ.p", "r"))
+    
+#    occ = generateRandomCorrelatedOccluder(occDims[0], occDims[1])
+
+    viewFrame(imageify(occ))
+
+#    pickle.dump(occ, open("corr_occ.p", "w"))
+
+#    for i, frame in enumerate(vid):
+#        if i % 50 == 0:
+#            viewFrame(imageify(occ))
+#            viewFrame(imageify(frame)/20)
+ #           viewFrame(imageify(convolve2DToeplitz(occ, frame))/20)
+
+#    frame1 = random.choice(vid)
+#    frame2 = random.choice(vid)
+
+    frame1 = vid[1200]
+    frame2 = vid[200]
+
+    frame1Stretched = stretchArray(frame1, (256, 256))
+    frame1Sparsified = sparsify(frame1Stretched, 0.3)
+
+    print frame1Stretched.shape
+    viewFrame(imageify(frame1Sparsified), adaptiveScaling=True, differenceImage=True)
+
+    pickle.dump(frame1Sparsified, open("sparse_vickie_movement.p", "w"))
+
+#    frame1 = makeRandomImpulseFrame(frameDims)
+ #   frame2 = makeRandomImpulseFrame(frameDims)
+
+#    frame1 = makeMultipleImpulseFrame(frameDims, 2)
+#    frame2 = makeMultipleImpulseFrame(frameDims, 2)
+
+#    frame1 = makeImpulseFrame(frameDims, tuple([int(i2) for i in frameDims]))
+#    frame2 = makeImpulseFrame(frameDims, tuple([int(i/2) for i in frameDims]))
+
+#    frame1 = makeImpulseFrame(frameDims, (45,80))
+ #   frame2 = makeImpulseFrame(frameDims, (80,120))
+
+    viewFrame(imageify(frame1), magnification=1, adaptiveScaling=True, differenceImage=True)
+    viewFrame(imageify(frame2), magnification=1, adaptiveScaling=True, differenceImage=True)
+
+    convolvedFrame1 = convolve2DToeplitz(frame1, occ)
+    convolvedFrame2 = convolve2DToeplitz(frame2, occ)
+
+    viewFrame(imageify(convolvedFrame1), magnification=1, adaptiveScaling=True, differenceImage=False)
+    viewFrame(imageify(convolvedFrame2), magnification=1, adaptiveScaling=True, differenceImage=False)
+
+    matchArray, bestMatchArray, bestMatchIndex = getMatchArray(np.abs(convolvedFrame1), \
+        np.abs(convolvedFrame2))
+
+    print bestMatchIndex
+
+    overlapArray1, overlapArray2 = getOverlapArray(np.abs(convolvedFrame1), \
+        np.abs(convolvedFrame2), bestMatchIndex)
+
+#    viewFrame(convolvedFrame[frameDims])
+
+    viewFrame(imageify(matchArray), \
+        magnification=1, adaptiveScaling=True, differenceImage=False)
+
+    viewFrame(imageify(bestMatchArray), adaptiveScaling=True)
+
+    viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+    viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+
+    viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
+
+    print "max", np.amax(matchArray)
+
+    x = 100        
+    y = 100    
+
+if SPLIT_FRAMES:
+    vid = pickle.load(open("blind_deconv_cardboard_1_rect_diff.p", "r"))
+
+    vid = np.swapaxes(np.swapaxes(vid,2,3),1,2)
+
+    listOfSingleColorFrames = []
+
+    for frame in vid:
+        for singleColorFrame in frame:
+            listOfSingleColorFrames.append(singleColorFrame)
+
+    pickle.dump(listOfSingleColorFrames, open("blind_deconv_cardboard_1_rect_diff_framesplit.p", "w"))        
+
+if FOURIER_BURST_ACCUMULATION:
+    listOfSingleColorFrames = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
+
+    occ = pickle.load(open("corr_occ.p", "r"))
+
+    listOfFramesToAggregate = []
+
+    for _ in range(20):
+        frame = random.choice(listOfSingleColorFrames)
+
+        viewFrame(imageify(convolve2DToeplitzFull(frame, occ)), \
+            adaptiveScaling=True)
+
+        listOfFramesToAggregate.append(convolve2DToeplitzFull(frame, occ))
+
+    aggregatedFrame = aggregateFrames(listOfFramesToAggregate, 3)
+
+    print aggregatedFrame
+    viewFrame(imageify(aggregatedFrame), adaptiveScaling=True)
+    pickle.dump(aggregatedFrame, open("agg_frame", "w"))
+
+if LOOK_AT_AGG_FRAME:
+
+    aggFrame = pickle.load(open("agg_frame", "r"))
+
+    viewFrame(imageify(aggFrame), adaptiveScaling=True, magnification=1e5)
+
+if STUPID_METHOD_2D_2:
+
+    vid = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
+
+    frameDims = [90,160]
+
+    occ = pickle.load(open("corr_occ.p", "r"))
+    
+#    occ = generateRandomCorrelatedOccluder(occDims[0], occDims[1])
+
+    viewFrame(imageify(occ))
+
+    frame1 = random.choice(vid)
+    frame2 = random.choice(vid)
+
+    viewFrame(imageify(frame1), magnification=1, adaptiveScaling=True, differenceImage=True)
+    viewFrame(imageify(frame2), magnification=1, adaptiveScaling=True, differenceImage=True)
+
+    convolvedFrame1 = convolve2DToeplitzFull(frame1, occ)
+    convolvedFrame2 = convolve2DToeplitzFull(frame2, occ)
+
+    viewFrame(imageify(convolvedFrame1), magnification=1, adaptiveScaling=True, differenceImage=False)
+    viewFrame(imageify(convolvedFrame2), magnification=1, adaptiveScaling=True, differenceImage=False)
+
+    matchArray, bestMatchArray, bestMatchIndex, matchQuality = getMatchArray(np.abs(convolvedFrame1), \
+        np.abs(convolvedFrame2))
+
+    print bestMatchIndex
+    print matchQuality
+
+    overlapArray1, overlapArray2 = getOverlapArray(np.abs(convolvedFrame1), \
+        np.abs(convolvedFrame2), bestMatchIndex)
+
+#    viewFrame(convolvedFrame[frameDims])
+
+    viewFrame(imageify(matchArray), \
+        magnification=1, adaptiveScaling=True, differenceImage=False)
+
+    viewFrame(imageify(bestMatchArray), adaptiveScaling=True)
+
+    viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+    viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+
+    viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
+
+    print "max", np.amax(matchArray)
+
+    x = 100        
+    y = 100    
+
+if STUPID_METHOD_2D_3:
+    vid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
+    occ = pickle.load(open("corr_occ_2.p", "r"))
+
+    lenVid = len(vid)
+
+#    occ = generateRandomVeryCorrelatedOccluder(36, 64, 3)
+
+    viewFrame(imageify(occ))
+#    pickle.dump(occ, open("corr_occ_2.p", "w"))
+
+    frame = random.choice(vid)
+
+    frameShape = frame.shape
+
+    viewFrame(imageify(frame), differenceImage=True, adaptiveScaling=True)
+
+    convolvedFrame = convolve2DToeplitzFull(frame, occ)
+
+    convolvedFrameShape = convolvedFrame.shape
+    print convolvedFrameShape
+
+    viewFrame(imageify(convolvedFrame), differenceImage=True, adaptiveScaling=True)
+
+    otherConvolvedFrame = np.reshape(np.dot(getForwardModelMatrix2DToeplitzFull(occ), frame.flatten()), convolvedFrameShape)
+
+    viewFrame(imageify(otherConvolvedFrame), differenceImage=True, adaptiveScaling=True)
+
+    pseudoInverse = getPseudoInverseSmooth(getForwardModelMatrix2DToeplitzFull(occ), convolvedFrameShape, 1e6)
+
+    recoveredFrame = np.reshape(np.dot(pseudoInverse, convolvedFrame.flatten()), frameShape)
+
+    viewFrame(imageify(frame), differenceImage=True, adaptiveScaling=True)
+
+if STUPID_METHOD_2D_4:
+    diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
+#    diffVid = pickle.load(open("rick_morty_batched_diff_framesplit.p", "r"))
+
+    occ = pickle.load(open("corr_occ_2.p", "r"))
+#    viewFrame(imageify(occ))
+
+    vid = pickle.load(open("steven_batched.p", "r"))
+#    vid = pickle.load(open("rick_morty_batched.p", "r"))
+
+
+    lenVid = len(vid)   
+
+    firstMatch = getFirstMatch(diffVid, occ, vid)
+
+
+#        viewFrame(imageify(convolvedFrame1), adaptiveScaling=True, differenceImage=True)
+#        viewFrame(imageify(convolvedFrame2), adaptiveScaling=True, differenceImage=True)
+
+           
+
+#        matchArray, bestMatchArray, bestMatchIndex, matchQuality = getMatchArray(np.abs(convolvedFrame1), \
+#            np.abs(convolvedFrame2))
+
+if ANALYZE_EXTRACTED_OCCLUDER:
+    diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
+    recoveredOcc = pickle.load(open("extracted_occ.p"))
+
+    diffFrame = random.choice(diffVid)
+
+    viewFrame(imageify(recoveredOcc), adaptiveScaling=True)
+
+    occ = pickle.load(open("corr_occ_2.p", "r"))
+
+    print occ.shape
+
+    convolvedDiffFrame = np.abs(addNoise(convolve2DToeplitzFull(diffFrame, occ)))
+
+    print convolvedDiffFrame.shape
+
+    forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(occ)
+
+    inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+
+    recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+
+    viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
+    viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
+
+    print "sumabs", np.sum(np.abs(recoveredFrame))
+
+
+    forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(recoveredOcc)
+
+    inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+
+    recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+
+#    viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
+#    viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
+    print "sumabs", np.sum(np.abs(recoveredFrame))
+
+    for i, candidateOcc in enumerate(convertOccToZeroOne(recoveredOcc)):
+        print i
+
+        forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(candidateOcc)
+
+        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+
+        recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+
+        viewFrame(imageify(candidateOcc))
+
+#        viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
+#        viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
+
+        print "sumabs", np.sum(np.abs(recoveredFrame))
+
+if CREATE_RECONSTRUCTION_MOVIE:
+    vid = pickle.load(open("steven_batched.p", "r"))
+
+    occ = pickle.load(open("corr_occ_2.p", "r"))
+
+    diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
+    recoveredOcc = pickle.load(open("extracted_occ.p"))
+    binaryOcc = convertOccToZeroOne(recoveredOcc)[6]
+
+    viewFrame(imageify(recoveredOcc), adaptiveScaling=True)
+    viewFrame(imageify(binaryOcc))
+
+    forwardModelMatrixApproximate = getForwardModelMatrix2DToeplitzFull(binaryOcc)
+    inversionMatrixApproximate = getPseudoInverse(forwardModelMatrixApproximate, 1e1)
+
+    forwardModelMatrixClean = getForwardModelMatrix2DToeplitzFull(occ)
+    inversionMatrixClean = getPseudoInverse(forwardModelMatrixClean, 1e1)    
+
+    for i, frame in enumerate(vid):
+        print i
+
+        obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame))
+
+        recoveredFrameClean = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixClean, x, frame.shape[:-1]), \
+            obsFrame)    
+
+        recoveredFrameApproximate = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixApproximate, x, \
+            frame.shape[:-1]), obsFrame)    
+
+        p.clf()
+
+        p.subplot(221)
+        viewFrame(frame, filename="pass", relax=True)
+        p.subplot(222)
+        viewFrame(obsFrame, filename="pass", relax=True, adaptiveScaling=True)
+        p.subplot(223)
+        viewFrame(recoveredFrameClean, filename="pass", relax=True)
+        p.subplot(224)
+        viewFrame(recoveredFrameApproximate, filename="pass", relax=True)
+
+        p.savefig("blind_deconv_movie/frame_" + padIntegerWithZeros(i, 3) + ".png")
+
+if VIEW_FRAMES:
+    vid = pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))
+
+    frame = vid[5]
+    obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame))
+
+    viewFrame(vid[5])    
+    viewFrame(imageify(occ))
+    viewFrame(obsFrame, adaptiveScaling=True)
+
+if DIFF_EXP_VIDEO:
+    vid = pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))
+
+    diffVid = batchAndDifferentiate(vid[0], [(1, True), (1, False), (1, False), (1, False)])
+
+    pickle.dump(diffVid, open("blind_deconv_cardboard_1_rect_diff.p", "w"))
+
+if PROCESS_EXP_VIDEO:
+    diffVid = pickle.load(open("blind_deconv_cardboard_1_rect_diff_framesplit.p", "r"))
+
+    occ = estimateOccluderFromDifferenceFrames(diffVid)
+
+    viewFrame(occ, adaptiveScaling=True, differenceImage=False)
+
+if VIEW_OCC:
+    occ = pickle.load(open("extracted_occ_exp.p", "r"))    
+
+    viewFrame(occ, adaptiveScaling=True)

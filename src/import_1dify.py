@@ -256,6 +256,17 @@ def stretchOccluderArray(smallOccluderArray, newLength):
     untrimmedOccluderArray = np.repeat(smallOccluderArray, numRepeats)
     return untrimmedOccluderArray[:newLength]
 
+def stretchArray(arr, newShape):
+    oldShape = arr.shape
+
+    newArray = []
+    for i in np.linspace(0, oldShape[0]-1, newShape[0]):
+        newArray.append([])
+        for j in np.linspace(0, oldShape[1]-1, newShape[1]):
+            newArray[-1].append(fuzzyLookup2D(arr, i, j))
+
+    return np.array(newArray)
+
 def generateRandomOccluder(length, pSwitch):
     currentValue = 1
 

@@ -110,7 +110,11 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
 
 #    print frame, magnification
 #    print type(frame[0][0][0]), type(magnification)
-    adjustedFrame = adjustedFrame*magnification/scalingFactor
+
+#    print type(adjustedFrame)
+#    print adjustedFrame
+
+    adjustedFrame = (adjustedFrame*magnification)/scalingFactor
 
 #    print adjustedFrame
 

@@ -164,6 +164,8 @@ def fuzzyLookup2D(array, i, j):
     fIcJ = array[floorI][ceilJ]
     cIfJ = array[ceilI][floorJ]
     cIcJ = array[ceilI][ceilJ]
+
+#    print fIfJ, fIcJ, cIfJ, cIcJ
     
     return (1-resI)*(1-resJ)*fIfJ + \
         (1-resI)*resJ*fIcJ + \

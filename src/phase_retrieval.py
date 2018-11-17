@@ -16,6 +16,7 @@ DIVIDE_AND_CONQUER = False
 CHRISTOS_INFER_PHASES_TEST = False
 CHRISTOS_INFER_PHASES = False
 PHASE_RETRIEVAL_2D_LARGE = False
+PHASE_RETRIEVAL_CVPR = False
 
 def cis(val):
     angle = np.angle(val, deg=False)
@@ -160,7 +161,7 @@ def retrievePhase2D(mags, primalDomainFunc, maxTries=100, giveUpLevel=100, tol=1
 		giveUpCounter = 0
 		print tryCounter
 		if initializationFunc == None:
-			initialization = np.random.binomial(1, 0.5, (n, n)).astype(float)
+			initialization = np.random.binomial(1, 0.5, mags.shape).astype(float)
 		else:
 			initialization = initializationFunc()
 	
@@ -644,3 +645,34 @@ if PHASE_RETRIEVAL_2D_LARGE:
 	print "error over time"
 	p.plot(errors[1:])
 	p.show()
+
+if PHASE_RETRIEVAL_CVPR:
+	occ = pickle.load(open("corr_occ_2.p", "r"))
+
+	mags = np.abs(np.fft.fft2(occ)+np.random.normal(0,0.1))	
+
+	print mags.shape
+
+	def primalDomainFunc(x):
+		I = np.identity(x.shape[0]*x.shape[1])
+
+		newVec = fista(I, convertArrToVec(x), 0.1, 100)[0]
+		diff = newVec - convertArrToVec(x)
+		error = np.sum(np.multiply(diff, diff))
+
+#		print "error", error
+
+#		viewFrame(imageify(x))
+
+#		viewFrame(imageify(convertVecToArr(newVec)))
+
+		return np.reshape(newVec, x.shape), error
+
+	arr = retrievePhase2D(mags, primalDomainFunc, maxTries=1, giveUpLevel=100, tol=1e-6,
+		initializationFunc=None)[0]
+
+	pickle.dump(arr, open("phase_retrieve_cvpr.p", "w"))
+
+	viewFrame(imageify(arr))
+
+

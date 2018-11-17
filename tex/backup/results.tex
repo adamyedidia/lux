@@ -1,0 +1,10 @@
+In this section we present a brief summary our results, both simulated and experimental. We leave the bulk of our results to the supplementary materials, as demonstrating a reconstruction of a moving scene is best left to a video. However, for the benefit of readers who do not have the video available, we do show our reconstructions of occluders, along with a few still frames of reconstructed video. Note that the still frames of reconstructed video are far less intelligible in this form; in the presence of noise, the human brain is far more adept at making sense of a moving image than a static one.
+
+\subsection{Simulations}
+
+In this section we show the result of simulations in an ideal scenario (all of the assumptions explored in Section~\ref{sec:deviations} are assumed to hold perfectly). The moving scene is the introduction to a popular children's cartoon\footnotemark. It was chosen for its simplicity, and for the relative sparsity of the difference video\footnotemark. The ground-truth occluder was generated via a random correlated process. The observation plane is assumed to display the full convolution of the moving scene with the occluder, plus additive IID Gaussian noise. The signal-to-noise ratio on the observation plane is 25 dB.
+
+Figure~\ref{fig:occ_recovery_sim} shows the result of occluder recovery alongside its ground-truth counterpart. Figure~\ref{fig:scene_recovery_sim} shows a recovered still frame from the moving scene.
+
+\footnotetext{\emph{Steven Universe.}}
+\footnotetext{When choosing a realistic moving scene to use as the ground truth, one wants to use one in which motion is somewhat sparse (because that's the case in real life) but not so sparse as to be unrealistic; if more than a handful of the ground-truth difference frames are a single impulse, the problem of occluder recovery becomes trivial. We think that this movie strikes the right balance. In the supplementary materials, we show the entire difference video; we believe the skeptical reader will be satisfied that the ground-truth difference video is not excessively sparse.}

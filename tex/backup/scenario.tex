@@ -1,0 +1,18 @@
+\subsection{Setup}
+
+Our model of the scenario consists of three elements: a hidden moving scene, an occluder, and the observation plane. We model each of these elements as 2D planes parallel to each other. See Fig.~\ref{fig:scenario} for an illustration. 
+
+The hidden scene is presumed to be a collection of diffuse reflectors, shining light uniformly in all directions towards the occluder and observation plane. The hidden scene is also presumed to contain some motion. The unknown occluder is presumed to be a set of perfectly black, planar objects. We assume the hidden scene, unknown occluder, and observation planes to each be a substantial distance apart, relative to their sizes.
+
+The observation plane is presumed to be perfectly Lambertian. In simulations, we also presume the observation plane to be white and uniform, and that all of the light reaching the observation plane comes from the scene; in our experiments, we use mean-subtraction to account for non-white, non-uniform observations with ambient ``nuisance'' light sources, a method also employed in other work (e.g. [citations]). This allows us to apply our method to most realistic scenarios with minimal adaptations to the core algorithm. We explore the effect of other deviations from the idealized sceenario we present here in Section~\ref{sec:deviations}. 
+
+\subsection{Light Propagation}
+
+We model the propagation of light from the scene through the occluder as a simple 2D convolution of the scene with the occluder. This follows from the assumptions laid out in the previous sections, in particular the ones that posit that the three scenario elements are distant parallel planes. Ours is not the first work to model Lambertian occluder-based light propagation as a convolution; indeed, an identical assumption is made in [citations], where it is explained in depth why the assumptions we make imply such a model for light propagation. In this paper, we limit our explanation of this phenomenon to the illustration in Fig.~\ref{fig:scenario} and accompanying caption, and describe how robust this assumption is in the real world in Section~\ref{sec:deviations}.
+
+In simulations, we assume that we see the full convolution of the scene and the occluder on the wall. If the scene is a plane of size $x_s \times y_s$ and the occluder a plane of size $x_o \times y_o$, this corresponds to an observation of $(x_s + 2x_o) \times (y_s + 2y_o)$. See Fig.~\ref{fig:scenario} for an illustration of why this is.
+
+
+
+
+

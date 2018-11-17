@@ -1,0 +1,6 @@
+We present a novel method for inferring a hidden moving scene from faint shadows cast on a diffuse surface by an unknown occluder. We model the system as a simple 2D convolution between the scene and the occluder. Thus, we formulate the task of jointly recovering the unknown scene and unknown occluder as a blind deconvolution problem.
+
+Blind deconvolution is a notoriously ill-posed problem. To help solve it, we assume the hidden scene contains motion, which helps us solve the problem for two reasons. First, each frame of the observation gives us the occluder convolved with a different kernel, providing many different ``views'' of the same object. Second, motion in realistic scenes is typically sparse, which we make use of in our reconstruction.
+
+We demonstrate our method to be effective with simulations and experiments under a variety of settings. We also explore the dual problem, in which there is a fixed scene and moving occluder.
+

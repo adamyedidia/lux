@@ -67,7 +67,7 @@ CHECK_SPECTRALLY_FLAT_CONSTANT_BUSINESS_GANESH = False
 CHECK_SF_DIFFERENT_VALS = False
 UNLUCKY_NUMBER = False
 GREEDY_SEARCH = False
-FIND_BEST_RHO = True
+FIND_BEST_RHO = False
 
 # compute a^b mod c
 def modularExponentiation(a, b, c):

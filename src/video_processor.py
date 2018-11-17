@@ -35,12 +35,20 @@ rawWithBlur = False
 batchMovie = False
 batchSmallerMovie = False
 batchRickMortyMovie = False
-processBlindDeconvVideo = True
+processBlindDeconvVideo = False
 downsampleWinnie = False
 weirdAngle = False
 weirdAngleSim = False
 weirdAngleSimMovie = False
 weirdAngleSimRecovery = False
+processDualVideo = False
+macarena = False
+video36225 = False
+orange = False
+bld66 = False
+bld34 = False
+stata = False
+fan = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -189,7 +197,7 @@ def batchAndIntegrate(arr, listOfResponses):
 
 
 
-def convertArrayToVideo(arr, magnification, filename, frameRate):
+def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling=True):
     assert len(arr.shape) == 4
 
     print arr.shape
@@ -201,7 +209,7 @@ def convertArrayToVideo(arr, magnification, filename, frameRate):
 #        print frame.shape
  #       print type(frame[0][0][0])
         viewFrame(frame, magnification=magnification, filename="video_trash/" + filename + "_" + \
-            padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=True)
+            padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=True, adaptiveScaling=adaptiveScaling)
 
     numDigits = ceil(log(len(arr), 10))
 
@@ -227,6 +235,38 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
 
     newFrameRate = originalFrameRate / listOfResponses[0][0]
 
+    if toVideo:
+        convertArrayToVideo(arr, magnification, filename, newFrameRate)
+    else:
+        pickle.dump(arr, open(filename + ".p", "w"))
+
+def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1,
+    firstFrame=0, lastFrame=None, toVideo=False):
+
+    listOfBatchedFrames = []
+
+    for i in range(firstFrame, lastFrame):
+        print i-firstFrame, "/", lastFrame - firstFrame
+
+        try:
+            im = vid.get_data(i)
+        except:
+            im = vid[i]
+
+        frame = np.array(im).astype(float)
+        batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+
+        listOfBatchedFrames.append(batchedFrame)
+
+#    print listOfResponses
+
+    arr = batchAndDifferentiate(np.array(listOfBatchedFrames), \
+        [listOfResponses[0]] + [(1, False), (1, False), (1, False)])
+
+    numFramesInOriginalVideo = len(vid)
+    originalFrameRate = numFramesInOriginalVideo / convertTimeToSeconds(vidLength)
+
+    newFrameRate = originalFrameRate / listOfResponses[0][0]       
     if toVideo:
         convertArrayToVideo(arr, magnification, filename, newFrameRate)
     else:
@@ -824,7 +864,7 @@ if __name__ == "__main__":
 
     if batchRickMortyMovie:
         pathToDir = "/Users/adamyedidia/walls/src/"
-        path = "rick_morty.mp4"
+        path = "steven.mp4"
 
         vid = imageio.get_reader(path, 'ffmpeg')
         VIDEO_TIME = "0:26"
@@ -835,21 +875,45 @@ if __name__ == "__main__":
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
-        processVideo(vid, VIDEO_TIME, \
+        processVideoCheap(vid, VIDEO_TIME, \
             np.array([(1, False), (20, False), (20, False), (1, False)]), \
-            "rick_morty_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            "steven_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)        
 
 
         print firstFrame, lastFrame
 
     if processBlindDeconvVideo:
-        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
+        path = "/Users/adamyedidia/blind_deconv_videos/C0016.MP4"
 
         vid = imageio.get_reader(path, 'ffmpeg')
-        VIDEO_TIME = "0:44"
-        START_TIME = "0:01"
-        END_TIME = "0:10"
+        VIDEO_TIME = "0:33"
+        START_TIME = "0:00"
+        END_TIME = "0:24"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            np.array([(2, False), (15, False), (15, False), (1, False)]), \
+            "hourglass", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+
+        print firstFrame, lastFrame
+
+    if processDualVideo:
+        path = "/Users/adamyedidia/walls/src/IMG_0495.m4v"
+
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0016.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "2:47"
+        START_TIME = "1:40"
+        END_TIME = "1:50"
         numFrames = len(vid)
 
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
@@ -863,6 +927,28 @@ if __name__ == "__main__":
 
         print firstFrame, lastFrame
 
+    if macarena:
+        path = "/Users/adamyedidia/walls/src/IMG_0497.m4v"
+
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0016.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "4:19"
+        START_TIME = "1:15"
+        END_TIME = "1:30"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideo(vid, VIDEO_TIME, \
+            np.array([(2, False), (15, False), (15, False), (1, False)]), \
+            "macarena_dark_fixed", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+
+        print firstFrame, lastFrame
 
     if test:
     #    FILE_NAME = "ir_video_rc_car.m4v"; VIDEO_TIME = "3:57"
@@ -1345,5 +1431,151 @@ if __name__ == "__main__":
 
         viewFrame(goodRecoveredIm, differenceImage=True, magnification=1)
 
+    if video36225:
+        path = "/Users/adamyedidia/walls/src/IMG_0503.m4v"
+
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
+#        path = "/Users/adamyedidia/blind_deconv_videos/C0016.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "1:42"
+        START_TIME = "0:34"
+        END_TIME = "1:00"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideo(vid, VIDEO_TIME, \
+            np.array([(2, False), (15, False), (15, False), (1, False)]), \
+            "36225_bright_fixed", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
 
 
+        print firstFrame, lastFrame
+
+    if orange:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9422.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+#        viewFrame(np.array(vid.get_data(500)).astype(float))
+
+        VIDEO_TIME = "1:00"
+        START_TIME = "0:30"
+        END_TIME = "1:00"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (15, False), (15, False), (1, False)], \
+            "36225_bright_fixed", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+    if orange:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9422.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+#        viewFrame(np.array(vid.get_data(500)).astype(float))
+
+        VIDEO_TIME = "1:00"
+        START_TIME = "0:30"
+        END_TIME = "1:00"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (15, False), (15, False), (1, False)], \
+            "36225_bright_fixed", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame
+
+    if bld66:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9424.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+#        viewFrame(np.array(vid.get_data(500)).astype(float))
+
+        VIDEO_TIME = "1:51"
+        START_TIME = "1:21"
+        END_TIME = "1:51"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (15, False), (15, False), (1, False)], \
+            "bld66", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame        
+
+    if bld34:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9418.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+#        viewFrame(np.array(vid.get_data(500)).astype(float))
+
+        VIDEO_TIME = "3:29"
+        START_TIME = "0:13"
+        END_TIME = "0:43"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (15, False), (15, False), (1, False)], \
+            "stata", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame           
+
+    if stata:
+        path = "/Users/adamyedidia/walls/src/IMG_0541.m4v"    
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        VIDEO_TIME = "3:29"
+        START_TIME = "0:13"
+        END_TIME = "0:43"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (10, False), (10, False), (1, False)], \
+            "stata", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame           
+
+    if fan:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9435.MOV"    
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        VIDEO_TIME = "2:33"
+        START_TIME = "1:20"
+        END_TIME = "1:53"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (10, False), (10, False), (1, False)], \
+            "fan", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame           

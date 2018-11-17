@@ -32,6 +32,7 @@ DIFFERENT_DEPTHS_SIM = False
 ACTIVE_SIM = False
 ANGLE_CORNER = False
 LIGHT_OF_THE_SUN_SIM = False
+SPHERE_DISK_COMPARISON = False
 
 def hasOptimalCirculant(x):
     if int(log(x+1, 2)) == log(x+1, 2):
@@ -421,6 +422,108 @@ def doFuncToEachChannel(func, rgbIm):
 
     resultIm = np.swapaxes(np.swapaxes(np.array([funkyR, funkyG, \
         funkyB]), 1, 2), 0, 2)
+
+    return resultIm
+
+def doFuncToEachChannelSeparated(func, rgbIm):
+    rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
+    rIm = rearrangedIm[0]
+    gIm = rearrangedIm[1]
+    bIm = rearrangedIm[2]
+
+    funkyR = func(rIm)
+    funkyG = func(gIm)
+    funkyB = func(bIm)
+
+    return np.array([funkyR, funkyG, funkyB])
+
+def doFuncToEachChannelTwoInputs(func, rgbIm1, rgbIm2):
+    rearrangedIm1 = np.swapaxes(np.swapaxes(rgbIm1, 0, 2), 1, 2)
+    rearrangedIm2 = np.swapaxes(np.swapaxes(rgbIm2, 0, 2), 1, 2)
+
+
+    rIm1 = rearrangedIm1[0]
+    gIm1 = rearrangedIm1[1]
+    bIm1 = rearrangedIm1[2]
+
+    rIm2 = rearrangedIm2[0]
+    gIm2 = rearrangedIm2[1]
+    bIm2 = rearrangedIm2[2]
+
+    funkyR = func(rIm1, rIm2)
+    funkyG = func(gIm1, gIm2)
+    funkyB = func(bIm1, gIm2)
+
+    resultIm = np.swapaxes(np.swapaxes(np.array([funkyR, funkyG, \
+        funkyB]), 1, 2), 0, 2)
+
+    return resultIm
+
+
+def doFuncToEachChannelSeparatedTwoInputs(func, rgbIm1, rgbIm2):
+    rearrangedIm1 = np.swapaxes(np.swapaxes(rgbIm1, 0, 2), 1, 2)
+    rearrangedIm2 = np.swapaxes(np.swapaxes(rgbIm2, 0, 2), 1, 2)
+
+
+    rIm1 = rearrangedIm1[0]
+    gIm1 = rearrangedIm1[1]
+    bIm1 = rearrangedIm1[2]
+
+    rIm2 = rearrangedIm2[0]
+    gIm2 = rearrangedIm2[1]
+    bIm2 = rearrangedIm2[2]
+
+    funkyR = func(rIm1, rIm2)
+    funkyG = func(gIm1, gIm2)
+    funkyB = func(bIm1, gIm2)
+
+    return np.array([funkyR, funkyG, funkyB])
+
+def doSeparateFuncToEachChannel(separateFunc, arr):
+    funkyR = separateFunc[0](arr)
+    funkyG = separateFunc[1](arr)
+    funkyB = separateFunc[2](arr)
+
+#    viewFrame(imageify(funkyR), adaptiveScaling=True)
+#    viewFrame(imageify(funkyG), adaptiveScaling=True)
+#    viewFrame(imageify(funkyB), adaptiveScaling=True)
+
+
+    resultIm = np.swapaxes(np.swapaxes(np.array([funkyR, funkyG, \
+        funkyB]), 1, 2), 0, 2)
+
+    return resultIm
+
+def doSeparateFuncToEachChannelSeparated(separateFunc, rgbIm):
+    rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
+    rIm = rearrangedIm[0]
+    gIm = rearrangedIm[1]
+    bIm = rearrangedIm[2]
+
+    funkyR = separateFunc[0](rIm)
+    funkyG = separateFunc[1](gIm)
+    funkyB = separateFunc[2](bIm)
+
+    resultIm = np.swapaxes(np.swapaxes(np.array([funkyR, funkyG, \
+        funkyB]), 1, 2), 0, 2)
+
+    return resultIm
+
+
+def swapChannels(arr, channel1, channel2):
+    rearrangedIm = np.swapaxes(np.swapaxes(arr, 0, 2), 1, 2)
+
+    newIm = []
+
+    for i in range(3):
+        if i == channel1:
+            newIm.append(rearrangedIm[channel2])
+        elif i == channel2:
+            newIm.append(rearrangedIm[channel1])
+        else:
+            newIm.append(rearrangedIm[i])
+
+    resultIm = np.swapaxes(np.swapaxes(np.array(newIm), 1, 2), 0, 2)
 
     return resultIm
 
@@ -1019,6 +1122,133 @@ def make2DTransferMatrix(sceneDimensions, occluder):
             returnMat.append(matRow)
 
     return np.array(returnMat)
+
+def makeEllipseSnapshot(sceneDimensions, focus1, focus2, semiMajor, verbose=False):
+    sceneMaxX = sceneDimensions[0]
+    sceneMaxY = sceneDimensions[1]
+
+#    print sceneDimensions, focus1, focus2, semiMajor
+
+    mat = []
+
+    for x in range(sceneMaxX):
+        mat.append([])
+
+        for y in range(sceneMaxY):
+
+            if sqrt((x - focus1[0])**2 + (y - focus1[1])**2) + \
+                sqrt((x - focus2[0])**2 + (y - focus2[1])**2) > 2*semiMajor:
+
+                mat[-1].append(1)
+
+            else:
+#                print "hi"
+                mat[-1].append(0)
+
+
+#    viewFrame()
+
+#    if (random.random() < 0.005):
+    
+    if verbose:
+        viewFrame(imageify(np.array(mat)))
+        distanceAttenuationMat = distanceAttenuation(sceneDimensions, min(sceneMaxX, sceneMaxY)*3, \
+            np.array([sceneMaxX - focus1[0], sceneMaxY - focus1[1]]), flat=False)
+
+        viewFrame(imageify(np.multiply(np.array(mat), distanceAttenuationMat)), adaptiveScaling=True)
+
+    return np.array(mat).flatten()
+
+def distanceAttenuation(sceneDimensions, distance, centerPoint, flat=True):
+
+    sceneMaxX = sceneDimensions[0]
+    sceneMaxY = sceneDimensions[1]
+
+#    print sceneDimensions, focus1, focus2, semiMajor
+
+    centerX = centerPoint[0]
+    centerY = centerPoint[1]
+
+    mat = []
+
+    for x in range(sceneMaxX):
+        mat.append([])
+
+        for y in range(sceneMaxY):
+
+            mat[-1].append(distance/((centerX-x)**2 + (centerY-y)**2 + distance**2)**(3/2))
+
+#    viewFrame()
+
+#    if (random.random() < 0.005):
+    
+#    if verbose:
+#        viewFrame(imageify(np.array(mat)))
+
+    if flat:
+        return np.array(mat).flatten()
+    else:
+        return np.array(mat)
+
+def makeSphereTransferMatrix(sceneDimensions):
+    distanceToSphere = 30
+    sphereRadius = 1/4
+
+    planeDistance = 1
+
+    sceneMaxX = sceneDimensions[0]
+    sceneMaxY = sceneDimensions[1]
+
+    centerX = sceneDimensions[0]/2
+    centerY = sceneDimensions[1]/2
+
+    center = np.array([centerX, centerY])
+
+    sphereMat = []
+    diskMat = []
+    nearMat = []
+
+    for x in range(sceneMaxX):
+        for y in range(sceneMaxY):
+
+            semiMinor = sphereRadius*min(sceneDimensions[0], sceneDimensions[1])
+            distanceFromCenter = sqrt((x - centerX)**2 + (y - centerY)**2)
+            eccentricity = distanceFromCenter / sqrt(distanceToSphere**2 + distanceFromCenter**2)
+            semiMajor = semiMinor/sqrt(1 - eccentricity**2)
+            focalDistance = sqrt(semiMajor**2 - semiMinor**2)
+            ellipseCenter = np.array([x, y])
+            towardsEllipseVector = ellipseCenter - center
+            towardsEllipseUnitVector = towardsEllipseVector / np.linalg.norm(towardsEllipseVector)
+            focus1 = ellipseCenter + towardsEllipseUnitVector*focalDistance
+            focus2 = ellipseCenter - towardsEllipseUnitVector*focalDistance
+            focus1 = ellipseCenter + 1.5*towardsEllipseUnitVector*focalDistance
+            focus2 = ellipseCenter - 0.5*towardsEllipseUnitVector*focalDistance
+
+            if x == 10 and y == 10:
+#            if False:
+
+                disk = makeEllipseSnapshot(sceneDimensions, ellipseCenter, ellipseCenter, \
+                    semiMinor, verbose=True)
+
+                sphereMat.append(makeEllipseSnapshot(sceneDimensions, focus1, focus2, semiMajor, \
+                    verbose=True))
+                distanceAttenuationVec = distanceAttenuation(sceneDimensions, min(sceneMaxX, sceneMaxY)*3, \
+                    np.array([sceneMaxX - x, sceneMaxY - y]))
+
+                diskMat.append(disk)
+                nearMat.append(np.multiply(disk, distanceAttenuationVec))
+            else:
+                disk = makeEllipseSnapshot(sceneDimensions, ellipseCenter, ellipseCenter, \
+                    semiMinor, verbose=False)
+                sphereMat.append(makeEllipseSnapshot(sceneDimensions, focus1, focus2, semiMajor, \
+                    verbose=False))
+                distanceAttenuationVec = distanceAttenuation(sceneDimensions, min(sceneMaxX, sceneMaxY)*3, \
+                    np.array([sceneMaxX - x, sceneMaxY - y]))                
+                diskMat.append(makeEllipseSnapshot(sceneDimensions, ellipseCenter, ellipseCenter, \
+                    semiMinor, verbose=False))
+                nearMat.append(np.multiply(disk, distanceAttenuationVec))
+
+    return np.array(sphereMat), np.array(diskMat), np.array(nearMat)
 
 def estimateBinaryOccluderFromSunsShadow(obs, highVal):
     intensityArray = np.mean(obs, axis=2)
@@ -1741,5 +1971,38 @@ if LIGHT_OF_THE_SUN_SIM:
 
     viewFrame(vectorToImage(recoveredScene, imSpatialDimensions), 8e-14)
 
+if SPHERE_DISK_COMPARISON:
+
+    im = pickle.load(open("dora_very_downsampled.p", "r"))
+    imSpatialDimensions = np.array(im).shape[:2]
+    
+#    viewFrame(im)
+
+    sphereMat, diskMat, nearMat = makeSphereTransferMatrix(imSpatialDimensions)
+
+    obsSphere = doFuncToEachChannelVec(lambda x: np.dot(sphereMat, x), imageToVector(im))
+    obsNear = doFuncToEachChannelVec(lambda x: np.dot(nearMat, x), imageToVector(im))
+    obsDisk = doFuncToEachChannelVec(lambda x: np.dot(diskMat, x), imageToVector(im))
+
+    viewFrame(vectorToImage(obsSphere, imSpatialDimensions), adaptiveScaling=True)
+    viewFrame(vectorToImage(obsNear, imSpatialDimensions), adaptiveScaling=True)
+    viewFrame(vectorToImage(obsDisk, imSpatialDimensions), adaptiveScaling=True)
 
 
+    inverseMatrixSphere = np.dot(np.linalg.inv(np.dot(np.transpose(diskMat), diskMat) + \
+        2e3*np.identity(diskMat.shape[0])), np.transpose(diskMat))
+
+    inverseMatrixNear = np.dot(np.linalg.inv(np.dot(np.transpose(diskMat), diskMat) + \
+        2e1*np.identity(diskMat.shape[0])), np.transpose(diskMat))
+
+#    viewFrame(vectorToImage(obs, imSpatialDimensions), adaptiveScaling=True)
+
+    recoverySphere = doFuncToEachChannelVec(lambda x: np.dot(inverseMatrixSphere, x), obsSphere)
+    recoveryNear = doFuncToEachChannelVec(lambda x: np.dot(inverseMatrixSphere, x), obsNear)
+
+
+    viewFrame(vectorToImage(recoverySphere, imSpatialDimensions), adaptiveScaling=True, \
+        magnification=1)
+
+    viewFrame(vectorToImage(recoveryNear, imSpatialDimensions), adaptiveScaling=True, \
+        magnification=1)

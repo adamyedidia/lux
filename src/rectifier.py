@@ -24,7 +24,14 @@ subtractRectify = False
 subtractRectify2 = False
 hallwayImaging = False
 batchMovie = False
-rectifyVideo = True
+rectifyVideo = False
+rectifyVideo2 = False
+rectifyVideo3 = False
+rectifyOrange = False
+rectifyBld66 = False
+rectifyBld34 = False
+rectifyStata = False
+rectifyFan = True
 
 def displayFlattenedFrame(flattenedFrame, height, magnification=1, \
     differenceImage=False, filename=None):
@@ -601,21 +608,27 @@ if __name__ == "__main__":
         print "Done!"
 
     if rectifyVideo:
-        CORNER = np.array([100, 0])
+        CORNER = np.array([90, 0])
         P1 = np.array([200, 43])
         OPP_CORNER = np.array([200, 100])
-        P2 = np.array([100, 125])
+        P2 = np.array([90, 125])
 
-        path = "/Users/adamyedidia/walls/src/blind_deconv_cardboard_1.p"
+        path = "/Users/adamyedidia/walls/src/hourglass.p"
 
         arr = pickle.load(open(path, "r"))
 
         rectifiedVideo = []
 
         for i, frame in enumerate(arr):
+            print i
+
+#            viewFrame(frame)
+
             rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 125)
 
-            print i
+#            viewFrame(rectifiedArr)
+
+#            print i
 #            print rectifiedArr
 #            print rectifiedArr.shape
 
@@ -623,6 +636,226 @@ if __name__ == "__main__":
 
             rectifiedVideo.append(rectifiedArr)
 
-        pickle.dump(np.array([rectifiedVideo]), open("blind_deconv_cardboard_1_rect.p", "w"))
+        pickle.dump(np.array(rectifiedVideo), open("hourglass_rect.p", "w"))
 
+    if rectifyVideo2:
 
+        path = "/Users/adamyedidia/walls/src/macarena_dark_fixed.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+            viewFrame(frame)
+
+#            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 125)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array([rectifiedVideo]), open("macarena_dark_fixed_rect.p", "w"))
+
+    if rectifyVideo3:
+        CORNER = np.array([7, 43])
+        P2 = np.array([58, 33])
+        OPP_CORNER = np.array([57, 115])
+        P1 = np.array([4, 107])
+
+        path = "/Users/adamyedidia/walls/src/36225_bright_fixed.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 75, 75)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array(rectifiedVideo), open("36225_bright_fixed_rect.p", "w"))    
+
+    if rectifyOrange:
+
+        # HI-RES:
+
+        # CORNER = np.array([471, 47])
+        # P2 = np.array([1182, 151])
+        # OPP_CORNER = np.array([1200, 499])
+        # P1 = np.array([474, 564])
+
+        CORNER = np.array([31, 3])
+        P2 = np.array([79, 10])
+        OPP_CORNER = np.array([80, 33])
+        P1 = np.array([31, 38])
+
+        path = "/Users/adamyedidia/walls/src/orange.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 75, 75)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array(rectifiedVideo), open("orange_rect.p", "w"))
+
+    if rectifyBld66:
+        CORNER = np.array([9, 0])
+        P2 = np.array([80, 0])
+        OPP_CORNER = np.array([81, 43])
+        P1 = np.array([8, 42])
+
+        path = "/Users/adamyedidia/walls/src/bld66.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 40)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+    if rectifyBld34:
+        CORNER = np.array([24, 0])
+        P2 = np.array([74, 8])
+        OPP_CORNER = np.array([74, 37])
+        P1 = np.array([24, 46])
+
+        path = "/Users/adamyedidia/walls/src/bld34.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 40)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array(rectifiedVideo), open("bld34_rect.p", "w"))            
+
+    if rectifyStata:
+#        CORNER = np.array([24, 0])
+ #       P2 = np.array([74, 8])
+#        OPP_CORNER = np.array([74, 37])
+ #       P1 = np.array([24, 46])
+
+        CORNER = np.array([3, 53])
+        P2 = np.array([63, 33])
+        OPP_CORNER = np.array([71, 95])
+        P1 = np.array([4, 95])
+
+        path = "/Users/adamyedidia/walls/src/stata.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 40)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array(rectifiedVideo), open("stata.p", "w"))          
+
+    if rectifyFan:
+        CORNER = np.array([67, 7])
+        P2 = np.array([95, 0])
+        OPP_CORNER = np.array([107, 65])
+        P1 = np.array([72, 60])
+
+        path = "/Users/adamyedidia/walls/src/fan.p"
+
+        arr = pickle.load(open(path, "r"))
+
+        rectifiedVideo = []
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 40)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array(rectifiedVideo), open("fan_rect.p", "w"))          

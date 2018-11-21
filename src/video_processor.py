@@ -48,7 +48,10 @@ orange = False
 bld66 = False
 bld34 = False
 stata = False
-fan = True
+fan = False
+fan_monitor = False
+plant = False
+plant_monitor = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -1579,3 +1582,62 @@ if __name__ == "__main__":
             toVideo=False)        
 
         print firstFrame, lastFrame           
+
+    if fan_monitor:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9432.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:35"
+        START_TIME = "0:03"        
+        END_TIME = "0:29"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (10, False), (10, False), (1, False)], \
+            "fan_monitor", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+    if plant:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9437.MOV"    
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        VIDEO_TIME = "1:16"
+        START_TIME = "0:36"
+        END_TIME = "1:16"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (10, False), (10, False), (1, False)], \
+            "plant", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame
+
+    if plant_monitor:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9438.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:33"
+        START_TIME = "0:03"        
+        END_TIME = "0:29"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (10, False), (10, False), (1, False)], \
+            "plant_monitor", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)      
+

@@ -74,11 +74,12 @@ PROCESS_EXP_OCCLUDER = False
 PROCESS_EXP_OCCLUDER_2 = False
 PROCESS_EXP_OCCLUDER_BIN_ONLY = False
 CREATE_RECONSTRUCTION_MOVIE_EXP = False
-CREATE_RECONSTRUCTION_MOVIE_EXP_2 = False
+CREATE_RECONSTRUCTION_MOVIE_EXP_2 = True
 EXTRACT_MATRIX_FROM_IMAGE = False
 WIENER_FILTER_TEST = False
 CROP = False
 MEAN_SUBTRACTION = False
+MEAN_SUBTRACTION_POSITIVE = False
 UNIFORM_MEAN_SUBTRACTION = False
 SIM_COMPARISON = False
 TIME_DIFF = False
@@ -102,7 +103,7 @@ AUTOCORR_TEST = False
 AUTOCORR_TEST_2 = False
 JANK_RECOVERY = False
 CVPR_EXAMPLES = False
-CVPR_COMPUTE_HAMMING_DISTANCE = True
+CVPR_COMPUTE_HAMMING_DISTANCE = False
 
 ZERO_DENSITY = 2
 NONZERO_DENSITY = 20
@@ -368,13 +369,15 @@ def getMatchArrayUnequalSize(arr1, arr2, minCompensation=10):
 def getMatchArray(arr1, arr2, minCompensation=10):
     arrShape = arr1.shape
 
-    centeringArray = getCenteringArray(arrShape)
+#    centeringArray = getCenteringArray(arrShape)
 
-    compensationArray = getCompensationArray(np.abs(arr1), np.abs(arr2), minCompensation)
+#    compensationArray = getCompensationArray(np.abs(arr1), np.abs(arr2), minCompensation)
 
     convolvedArray = np.abs(convolve2d(arr1, doubleFlip(arr2)))
 
-    matchArray = np.multiply(np.divide(convolvedArray, compensationArray), centeringArray)
+#    matchArray = np.multiply(np.divide(convolvedArray, compensationArray), centeringArray)
+    
+    matchArray = convolvedArray
 
     bestIndex = np.unravel_index(np.argmax(matchArray, axis=None), matchArray.shape)
 
@@ -2885,26 +2888,33 @@ def estimateOccluderFromDifferenceFramesOld(diffVid):
 def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 
 #    random.shuffle(diffVid)
+    
+    start = 1
 
-    convolvedFrame = random.choice(diffVid)
+    convolvedFrame = diffVid[start]
+
+#    convolvedFrame = random.choice(diffVid)
+#    convolvedFrame = 1e-5*np.ones(diffVid[0].shape)
 
     print len(diffVid)
 
-    canvas = np.abs(convolvedFrame)
+#    canvas = np.abs(convolvedFrame)
+    canvas = convolvedFrame
 
     viewFrame(imageify(canvas), adaptiveScaling=True)
     canvasShape = canvas.shape
 
-    pickle.dump(canvas, open("fan_extracted_occ.p", "w"))    
-
+#    pickle.dump(canvas, open("fan_extracted_occ.p", "w"))    
 
     print canvasShape
 
-    frameCounter = 1
+    frameCounter = start
 #    viewFrame(imageify(canvas), adaptiveScaling=True)
 
 
-    for i, convolvedFrame in enumerate(diffVid[1:]):
+    for i, convolvedFrame in enumerate(diffVid[start:]):
+
+        convolvedFrame = diffVid[frameCounter]
 
 #        viewFrame(imageify(convolvedFrame), adaptiveScaling=True)
 
@@ -2914,9 +2924,9 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 
         absConvolvedFrame = np.abs(convolvedFrame)
 
-        if frameCounter % 10 == 0:
+        if frameCounter % 1 == 0:
 #            viewFrame(imageify(np.log(canvas + np.ones(canvasShape))), adaptiveScaling=True)
-   #         viewFrame(imageify(canvas), adaptiveScaling=True)
+            viewFrame(imageify(canvas), adaptiveScaling=True)
 
 #            for recoveredOcc in convertOccToZeroOne(canvas):
 #                viewFrame(imageify(recoveredOcc))
@@ -2927,7 +2937,7 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
             matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
                 getMatchArray(canvas, absConvolvedFrame)
 
-            viewFrame(imageify(absConvolvedFrame), adaptiveScaling=True)
+#            viewFrame(imageify(absConvolvedFrame), adaptiveScaling=True)
 
     #        viewFrame(imageify(matchArray), adaptiveScaling=True)
 
@@ -2942,8 +2952,11 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 #                np.shape(overlapArray2)[0] > canvasShape[0]*0.75 and \
 #                np.shape(overlapArray2)[1] > canvasShape[1]*0.75:
 
-            overallOverlapArray = np.multiply(np.power(canvas, frameCounter/(frameCounter+1)), \
-                np.power(overlapArray, 1/(frameCounter+1)))
+#            overallOverlapArray = np.multiply(np.power(canvas, frameCounter/(frameCounter+1)), \
+#                np.power(overlapArray, 1/(frameCounter+1)))
+
+            overallOverlapArray = canvas*(frameCounter/(frameCounter+1)) + \
+                overlapArray* (1/(frameCounter+1))
 
 #            overallOverlapArray = np.exp(((frameCounter-1)/frameCounter)*np.log(canvas + np.ones(canvasShape)) \
 #                                + (1/frameCounter)*np.log(overlapArray + np.ones(canvasShape)))
@@ -2960,20 +2973,24 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
     #        viewFrame(imageify(convolvedFrame), adaptiveScaling=True, differenceImage=True, filename="canvas_video/conv_frame_" + \
     #            padIntegerWithZeros(frameCounter, 3) + ".png")
 
-            frameCounter += 1
+            frameCounter += 3
 
-            if frameCounter > 1:
+            if frameCounter > start + 30:
                 break
 
-    pickle.dump(canvas, open("fan_extracted_occ.p", "w"))    
+    pickle.dump(canvas, open("plant_extracted_occ.p", "w"))    
 
     return canvas
 
 def estimateSceneFromDifferenceFramesCanvasPreserving(diffVid):
     convolvedFrame = random.choice(diffVid)
 
+    start
+
     diffVidShuffled = diffVid.copy()
     random.shuffle(diffVidShuffled)
+
+#    print len(diffVid)
 
     canvasDims = convolvedFrame.shape[:-1]
     canvas = None
@@ -2984,7 +3001,7 @@ def estimateSceneFromDifferenceFramesCanvasPreserving(diffVid):
 
     overlapArray = np.zeros(convolvedFrame.shape)
 
-    for i, convolvedFrame in enumerate(diffVidSorted):
+    for i, convolvedFrame in enumerate(diffVidSorted[1500:]):
 #        convolvedFrame = random.choice(diffVidShuffled)
 
         if i % 100 == 0 and i > 0:
@@ -3038,6 +3055,9 @@ def estimateSceneFromDifferenceFramesCanvasPreserving(diffVid):
 
                 overallOverlapArray = canvas/canvasStrength * (frameCounter/(frameCounter+1)) + \
                     overlapArray/convolvedFrameStrength * (1/frameCounter)
+
+#                overallOverlapArray = canvas *(frameCounter/(frameCounter+1)) + \
+#                    overlapArray*(1/frameCounter)
 
     #            overallOverlapArray = np.exp(((frameCounter-1)/frameCounter)*np.log(canvas + np.ones(canvasShape)) \
     #                                + (1/frameCounter)*np.log(overlapArray + np.ones(canvasShape)))
@@ -4193,7 +4213,7 @@ if STUPID_METHOD_2D:
     y = 100    
 
 if SPLIT_FRAMES:
-    vid = pickle.load(open("fan_rect_meansub.p", "r"))
+    vid = pickle.load(open("plant_rect_meansub_pos.p", "r"))
 
     vid = np.swapaxes(np.swapaxes(vid,2,3),1,2)
 
@@ -4203,7 +4223,7 @@ if SPLIT_FRAMES:
         for singleColorFrame in frame:
             listOfSingleColorFrames.append(singleColorFrame)
 
-    pickle.dump(listOfSingleColorFrames, open("fan_rect_meansub_framesplit.p", "w"))        
+    pickle.dump(listOfSingleColorFrames, open("plant_rect_meansub_pos_framesplit.p", "w"))        
 
 if FOURIER_BURST_ACCUMULATION:
     listOfSingleColorFrames = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
@@ -4511,7 +4531,8 @@ if CONV_SIM_VIDEO:
 if PROCESS_SIM_VIDEO:
 #    diffVid = pickle.load(open("steven_batched_diff_conv_framesplit.p", "r"))
 #    diffVid = pickle.load(open("blind_deconv_hourglass_rect_diff_framesplit.p", "r"))
-    diffVid = pickle.load(open("fan_rect_meansub_framesplit.p", "r"))
+#    diffVid = pickle.load(open("fan_rect_meansub_framesplit.p", "r"))
+    diffVid = pickle.load(open("plant_rect_meansub_pos_framesplit.p", "r"))
 
     frameShape = diffVid[0].shape
 
@@ -4631,45 +4652,47 @@ if PROCESS_EXP_OCCLUDER:
     pickle.dump(inversionMatrix, open("extracted_inverter_exp_hourglass.p", "w"))
 
 if PROCESS_EXP_OCCLUDER_2:
-    rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
+    rawOcc = pickle.load(open("plant_extracted_occ.p", "r"))
     viewFrame(imageify(rawOcc), adaptiveScaling=True)
 
-    medFiltOcc = medfilt(rawOcc)
-    viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
+#    medFiltOcc = medfilt(rawOcc)
+#    viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
+
+    medFiltOcc = rawOcc
 
     occZeroOne = convertOccToZeroOne(medFiltOcc)
 
-    print rawOcc.shape
+#    print rawOcc.shape
 
-    i = 20
+    i = 23
 
 #    viewFrame(imageify(occZeroOne[12]))    
 
-    recoveredOcc = cutArrayDownToShape(occZeroOne[i], (39, 70), reverse=False)
-#    recoveredOcc = cutArrayDownToShape(occZeroOne[i], occZeroOne[i].shape, reverse=True)
+#    recoveredOcc = cutArrayDownToShape(occZeroOne[i], (39, 70), reverse=False)
+    recoveredOcc = cutArrayDownToShape(occZeroOne[i], occZeroOne[i].shape, reverse=True)
 
-    downsampledArray = resizeArray(recoveredOcc, (40, 70))
-#    downsampledArray = recoveredOcc
+#    downsampledArray = resizeArray(recoveredOcc, (40, 70))
+    downsampledArray = recoveredOcc
 
     print type(downsampledArray)
 
     viewFrame(imageify(downsampledArray))
 
-    pickle.dump(downsampledArray, open("binary_occ_exp_fan.p", "w"))
+    pickle.dump(downsampledArray, open("binary_occ_exp_plant.p", "w"))
 
 if PROCESS_EXP_OCCLUDER_BIN_ONLY:
 #    viewFrame(imageify(occZeroOne[8]))
 
-    downsampledArray = pickle.load(open("binary_occ_exp_fan.p", "r"))
+    downsampledArray = pickle.load(open("binary_occ_exp_plant.p", "r"))
 
     viewFrame(imageify(downsampledArray))
 
     forwardModelMatrix = getForwardModelMatrix2DToeplitzFullFlexibleShape(downsampledArray, \
-        downsampledArray.shape, (40, 70), padVal=1)
+        downsampledArray.shape, (30, 50), padVal=1)
 
     inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
 
-    pickle.dump(inversionMatrix, open("extracted_inverter_exp.p", "w"))
+    pickle.dump(inversionMatrix, open("extracted_inverter_exp_plant.p", "w"))
 
 if CREATE_RECONSTRUCTION_MOVIE_EXP:
     groundTruthVid = pickle.load(open("steven_batched.p", "r"))
@@ -4776,11 +4799,14 @@ if CREATE_RECONSTRUCTION_MOVIE_EXP:
 if CREATE_RECONSTRUCTION_MOVIE_EXP_2:
 #    groundTruthVid = pickle.load(open("steven_batched.p", "r"))
 
-    vid = pickle.load(open("fan_rect_meansub.p", "r"))
+    vid = pickle.load(open("plant_rect_meansub.p", "r"))
+#    vid = pickle.load(open("fan_rect_meansub.p", "r"))
 
-    inversionMatrix = pickle.load(open("extracted_inverter_exp_fan.p", "r"))
+    inversionMatrix = pickle.load(open("extracted_inverter_exp_plant.p", "r"))
+#    inversionMatrix = pickle.load(open("extracted_inverter_exp_fan.p", "r"))
 
-    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
+    binaryOcc = pickle.load(open("binary_occ_exp_plant.p", "r"))
+#    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
 
     viewFrame(imageify(binaryOcc))
 
@@ -4801,13 +4827,14 @@ if CREATE_RECONSTRUCTION_MOVIE_EXP_2:
 
         p.clf()
 
+        p.axis("off")
 #        p.subplot(211)
 #        viewFrame(groundTruthFrame, filename="pass", relax=True, differenceImage=True, magnification=0.5)
-        p.subplot(212)
+#        p.subplot(212)
         viewFrame(recoveredFrame, filename="pass", adaptiveScaling=True,
-            relax=True, magnification=2, differenceImage=True)
+            relax=True, magnification=1, differenceImage=True)
 
-        p.savefig("blind_deconv_movie_exp/frame_" + padIntegerWithZeros(i, 3) + ".png")
+        p.savefig("blind_deconv_movie_exp_fan/frame_" + padIntegerWithZeros(i, 4) + ".png")
 
 
 if EXTRACT_MATRIX_FROM_IMAGE:
@@ -4838,7 +4865,7 @@ if CROP:
 
 if MEAN_SUBTRACTION:
 
-    vid = pickle.load(open("fan_rect.p", "r"))
+    vid = pickle.load(open("plant_rect.p", "r"))
 
     print vid.shape
 
@@ -4858,7 +4885,7 @@ if MEAN_SUBTRACTION:
     for frame in vid:
         meanSubVid.append(frame - averageFrame)
 
-    pickle.dump(meanSubVid, open("fan_rect_meansub.p", "w"))
+    pickle.dump(meanSubVid, open("plant_rect_meansub.p", "w"))
 
 if UNIFORM_MEAN_SUBTRACTION:
 
@@ -4893,6 +4920,15 @@ if UNIFORM_MEAN_SUBTRACTION:
         meanSubVid.append(frame - summedFrame)
 
     pickle.dump(meanSubVid, open("fan_rect_meansubuniform.p", "w"))    
+
+if MEAN_SUBTRACTION_POSITIVE:
+    vid = np.array(pickle.load(open("plant_rect_meansub.p", "r")))
+
+    mostNegValue = np.min(vid)
+
+    meanSubPosVid = vid - mostNegValue*np.ones(vid.shape)
+
+    pickle.dump(meanSubPosVid, open("plant_rect_meansub_pos.p", "w"))    
 
 if SIM_COMPARISON:
     groundTruthVid = pickle.load(open("steven_batched.p", "r"))
@@ -4931,11 +4967,11 @@ if CAP_ARR_VALS:
     pickle.dump(clampedFrame, open("orange_rect_meansub_clamped.p", "w"))
 
 if TIME_DIFF:
-    arr = pickle.load(open("fan_rect.p", "r"))
+    arr = pickle.load(open("plant_rect.p", "r"))
 
     diffArr = batchAndDifferentiate(arr, [(1, True), (1, False), (1, False), (1, False)])
 
-    pickle.dump(diffArr, open("fan_rect_diff.p", "w"))
+    pickle.dump(diffArr, open("plant_rect_diff.p", "w"))
 
 if MED_FILT:
     arr = pickle.load(open("bld66_rect_diff.p", "r"))
@@ -4945,9 +4981,9 @@ if MED_FILT:
     pickle.dump(medfiltedArr, open("bld66_rect_diff_medfilt.p", "w"))
 
 if MAKE_VIDEO:
-    arr = pickle.load(open("fan_rect_meansubuniform.p", "r"))
+    arr = pickle.load(open("plant_rect_meansub.p", "r"))
 
-    convertArrayToVideo(np.array(arr), 0.5, "fan_rect_meansubuniform", 30, adaptiveScaling=True)
+    convertArrayToVideo(np.array(arr), 0.5, "plant_rect_meansub", 30, adaptiveScaling=True)
 
 if DOWNSIZE_ARR:
     arr = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))

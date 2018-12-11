@@ -425,6 +425,11 @@ def doFuncToEachChannel(func, rgbIm):
 
     return resultIm
 
+def separate(rgbIm):
+    rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
+    
+    return rearrangedIm
+
 def doFuncToEachChannelSeparated(func, rgbIm):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
     rIm = rearrangedIm[0]
@@ -509,6 +514,17 @@ def doSeparateFuncToEachChannelSeparated(separateFunc, rgbIm):
 
     return resultIm
 
+def doSeparateFuncToEachChannelActuallySeparated(separateFunc, rgbIm):
+    rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
+    rIm = rearrangedIm[0]
+    gIm = rearrangedIm[1]
+    bIm = rearrangedIm[2]
+
+    funkyR = separateFunc[0](rIm)
+    funkyG = separateFunc[1](gIm)
+    funkyB = separateFunc[2](bIm)
+
+    return np.array([funkyR, funkyG, funkyB])
 
 def swapChannels(arr, channel1, channel2):
     rearrangedIm = np.swapaxes(np.swapaxes(arr, 0, 2), 1, 2)

@@ -870,9 +870,12 @@ def padIntegerWithZeros(x, maxLength):
     if x == 0:
         return "0"*maxLength
 
+    eps = 1e-8
+
+
     assert log(x+0.0001, 10) < maxLength
 
-    return "0"*(maxLength-int(floor(log(x, 10)))-1) + str(x)
+    return "0"*(maxLength-int(floor(log(x, 10)+eps))-1) + str(x)
 
 def strSum(l):
     returnString = ""

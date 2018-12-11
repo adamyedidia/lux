@@ -24,7 +24,7 @@ subtractRectify = False
 subtractRectify2 = False
 hallwayImaging = False
 batchMovie = False
-rectifyVideo = False
+rectifyVideo = True
 rectifyVideo2 = False
 rectifyVideo3 = False
 rectifyOrange = False
@@ -32,8 +32,9 @@ rectifyBld66 = False
 rectifyBld34 = False
 rectifyStata = False
 rectifyFan = False
-rectifyFanMonitor = True
+rectifyFanMonitor = False
 rectifyPlant = False
+rectifyPlantMonitor = False
 
 def displayFlattenedFrame(flattenedFrame, height, magnification=1, \
     differenceImage=False, filename=None):
@@ -610,12 +611,12 @@ if __name__ == "__main__":
         print "Done!"
 
     if rectifyVideo:
-        CORNER = np.array([90, 0])
+        CORNER = np.array([100, 0])
         P1 = np.array([200, 43])
         OPP_CORNER = np.array([200, 100])
-        P2 = np.array([90, 125])
+        P2 = np.array([100, 120])
 
-        path = "/Users/adamyedidia/walls/src/hourglass.p"
+        path = "/Users/adamyedidia/walls/src/cardboard.p"
 
         arr = pickle.load(open(path, "r"))
 
@@ -626,7 +627,7 @@ if __name__ == "__main__":
 
 #            viewFrame(frame)
 
-            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 125)
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 69, 125)
 
 #            viewFrame(rectifiedArr)
 
@@ -638,7 +639,7 @@ if __name__ == "__main__":
 
             rectifiedVideo.append(rectifiedArr)
 
-        pickle.dump(np.array(rectifiedVideo), open("hourglass_rect.p", "w"))
+        pickle.dump(np.array(rectifiedVideo), open("cardboard_rect.p", "w"))
 
     if rectifyVideo2:
 
@@ -837,7 +838,7 @@ if __name__ == "__main__":
         OPP_CORNER = np.array([107, 65])
         P1 = np.array([72, 60])
 
-        path = "/Users/adamyedidia/walls/src/fan.p"
+        path = "/Users/adamyedidia/walls/src/fan_fine.p"
 
         arr = pickle.load(open(path, "r"))
 
@@ -860,7 +861,9 @@ if __name__ == "__main__":
 
             rectifiedVideo.append(rectifiedArr)
 
-        pickle.dump(np.array(rectifiedVideo), open("fan_rect.p", "w"))          
+        print len(rectifiedVideo)
+
+        pickle.dump(np.array(rectifiedVideo), open("fan_fine_rect.p", "w"))          
 
     if rectifyFanMonitor:
         CORNER = np.array([53, 10])
@@ -868,7 +871,7 @@ if __name__ == "__main__":
         OPP_CORNER = np.array([107, 65])
         P1 = np.array([59, 61])
 
-        path = "/Users/adamyedidia/walls/src/fan_monitor.p"
+        path = "/Users/adamyedidia/walls/src/fan_monitor_fine.p"
 
         arr = pickle.load(open(path, "r"))
 
@@ -891,7 +894,7 @@ if __name__ == "__main__":
 
             rectifiedVideo.append(rectifiedArr)
 
-        pickle.dump(np.array(rectifiedVideo), open("fan_monitor_rect.p", "w"))                
+        pickle.dump(np.array(rectifiedVideo), open("fan_monitor_fine_rect.p", "w"))                
 
     if rectifyPlant:
         CORNER = np.array([67, 7])
@@ -899,7 +902,7 @@ if __name__ == "__main__":
         OPP_CORNER = np.array([107, 65])
         P1 = np.array([72, 60])
 
-        path = "/Users/adamyedidia/walls/src/plant.p"
+        path = "/Users/adamyedidia/walls/src/plant_fine.p"
 
         arr = pickle.load(open(path, "r"))
 
@@ -922,7 +925,9 @@ if __name__ == "__main__":
 
             rectifiedVideo.append(rectifiedArr)
 
-        pickle.dump(np.array(rectifiedVideo), open("plant_rect.p", "w"))      
+        print len(rectifiedVideo)
+
+        pickle.dump(np.array(rectifiedVideo), open("plant_fine_rect.p", "w"))      
 
     if rectifyPlantMonitor:
         CORNER = np.array([67, 7])
@@ -930,18 +935,20 @@ if __name__ == "__main__":
         OPP_CORNER = np.array([107, 65])
         P1 = np.array([72, 60])
 
-        path = "/Users/adamyedidia/walls/src/plant.p"
+        path = "/Users/adamyedidia/walls/src/plant_monitor.p"
 
         arr = pickle.load(open(path, "r"))
 
         rectifiedVideo = []
 
-        for i, frame in enumerate(arr):
-#            viewFrame(frame)
+#        print len(arr)
+
+        for i, frame in enumerate(arr[:200]):
+            viewFrame(frame)
 
             rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 40)
 
-#            viewFrame(rectifiedArr)
+            viewFrame(rectifiedArr)
 
             print i
 #            print rectifiedArr
@@ -953,4 +960,4 @@ if __name__ == "__main__":
 
             rectifiedVideo.append(rectifiedArr)
 
-        pickle.dump(np.array(rectifiedVideo), open("plant_rect.p", "w"))
+        pickle.dump(np.array(rectifiedVideo), open("plant_monitor_rect.p", "w"))

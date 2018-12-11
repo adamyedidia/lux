@@ -89,6 +89,10 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
     else:
         scalingFactor = 1
 
+    if np.isnan(scalingFactor):
+        scalingFactor = np.nanmax(np.abs(frame))/255
+        print "warning: there are nans in your array"
+
     frameShape = frame.shape
 
     if meanSubtraction:

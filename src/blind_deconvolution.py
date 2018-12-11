@@ -73,8 +73,9 @@ OVERLAP_PAD_TEST_2 = False
 PROCESS_EXP_OCCLUDER = False
 PROCESS_EXP_OCCLUDER_2 = False
 PROCESS_EXP_OCCLUDER_BIN_ONLY = False
+PROCESS_EXP_OCCLUDER_CARDBOARD = False
 CREATE_RECONSTRUCTION_MOVIE_EXP = False
-CREATE_RECONSTRUCTION_MOVIE_EXP_2 = True
+CREATE_RECONSTRUCTION_MOVIE_EXP_2 = False
 EXTRACT_MATRIX_FROM_IMAGE = False
 WIENER_FILTER_TEST = False
 CROP = False
@@ -84,7 +85,8 @@ UNIFORM_MEAN_SUBTRACTION = False
 SIM_COMPARISON = False
 TIME_DIFF = False
 MED_FILT = False
-MAKE_VIDEO = False
+AVERAGE_DIVIDE = False
+MAKE_VIDEO = True
 CAP_ARR_VALS = False
 DOWNSIZE_ARR = False
 MACARENA_CORRECT_DECONV_DUMPER = False
@@ -104,12 +106,14 @@ AUTOCORR_TEST_2 = False
 JANK_RECOVERY = False
 CVPR_EXAMPLES = False
 CVPR_COMPUTE_HAMMING_DISTANCE = False
+CVPR_MAKE_EXAMPLE_MOVIE = False
+CVPR_MAKE_EXAMPLE_MOVIE_2 = False
 
 ZERO_DENSITY = 2
 NONZERO_DENSITY = 20
 FLIP_DENSITY = 10
 SIGNAL_SIGMA = 1
-NOISE_SIGMA = 100
+NOISE_SIGMA = 1000
 
 output = open("trash.txt", "w")
 
@@ -281,9 +285,9 @@ def getGaussianKernelVariableLocation(arrShape, centerPoint, pixelsPerSigma):
 
     returnArray = []
 
-    for i in range(arrShape[1]):
+    for i in range(arrShape[0]):
         returnArray.append([])
-        for j in range(arrShape[0]):
+        for j in range(arrShape[1]):
             returnArray[-1].append(exp(-(((i-centerPoint[0])/pixelsPerSigma)**2 + \
                                         ((j-centerPoint[1])/pixelsPerSigma)**2)))
 
@@ -2562,6 +2566,8 @@ def getPseudoInverse(mat, snr):
     print np.dot(np.transpose(mat), mat)[0][0]
 
     p.matshow(thingToBeInverted)
+#    p.matshow(np.log(thingToBeInverted))
+    p.colorbar()
     p.show()
 
     return snr*np.dot(np.linalg.inv(thingToBeInverted), np.transpose(mat))
@@ -2597,6 +2603,9 @@ def getPseudoInverseSmooth(mat, convolvedFrameShape, snr):
 #    return (snr+1)*np.dot(np.transpose(mat), np.linalg.inv(snr*np.dot(np.dot(mat, diagAttenMat), np.transpose(mat)) + \
 #        np.identity(n)))
 
+
+def vectorizedDotToVector(mat, arr):
+    return np.dot(mat, arr.flatten())
 
 def vectorizedDot(mat, arr, targetShape):
     return np.reshape(np.dot(mat, arr.flatten()), targetShape)
@@ -2889,7 +2898,8 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 
 #    random.shuffle(diffVid)
     
-    start = 1
+#    start = 420
+    start = 1172
 
     convolvedFrame = diffVid[start]
 
@@ -2911,6 +2921,7 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
     frameCounter = start
 #    viewFrame(imageify(canvas), adaptiveScaling=True)
 
+    contribCounter = 1
 
     for i, convolvedFrame in enumerate(diffVid[start:]):
 
@@ -2932,7 +2943,7 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 #                viewFrame(imageify(recoveredOcc))
             pass
 
-        if np.sum(convolvedFrame) > 0:
+        if np.sum(absConvolvedFrame) > 3000:
 
             matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
                 getMatchArray(canvas, absConvolvedFrame)
@@ -2955,8 +2966,10 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 #            overallOverlapArray = np.multiply(np.power(canvas, frameCounter/(frameCounter+1)), \
 #                np.power(overlapArray, 1/(frameCounter+1)))
 
-            overallOverlapArray = canvas*(frameCounter/(frameCounter+1)) + \
-                overlapArray* (1/(frameCounter+1))
+            c = contribCounter
+
+            overallOverlapArray = canvas*(c/(c+1)) + \
+                overlapArray* (1/(c+1))
 
 #            overallOverlapArray = np.exp(((frameCounter-1)/frameCounter)*np.log(canvas + np.ones(canvasShape)) \
 #                                + (1/frameCounter)*np.log(overlapArray + np.ones(canvasShape)))
@@ -2973,10 +2986,14 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
     #        viewFrame(imageify(convolvedFrame), adaptiveScaling=True, differenceImage=True, filename="canvas_video/conv_frame_" + \
     #            padIntegerWithZeros(frameCounter, 3) + ".png")
 
-            frameCounter += 3
+            contribCounter += 1
 
-            if frameCounter > start + 30:
-                break
+        frameCounter += 3
+
+        print frameCounter, start+20
+
+        if frameCounter > start + 20:
+            break
 
     pickle.dump(canvas, open("plant_extracted_occ.p", "w"))    
 
@@ -3129,2329 +3146,2502 @@ def extractOccluderFromCanvas(canvas, occShape):
  #       if matchQuality > 20000 and overlapArray1.shape[0] > 30 and overlapArray2.shape[1] > 30:
  #           break
 
-if LOOK_AT_FREQUENCY_PROFILES:
+if __name__ == "__main__":
 
-    n = 100
+    if LOOK_AT_FREQUENCY_PROFILES:
 
-    sparseSeq = generateSparseSeq(n)
-    zeroOneSeq = generateZeroOneSeq(n)
+        n = 100
 
-    #sparseSeq = generateImpulseSeq(n)
-    #zeroOneSeq = generateImpulseSeq(n)
+        sparseSeq = generateSparseSeq(n)
+        zeroOneSeq = generateZeroOneSeq(n)
 
-
-
-
-    viewFlatFrame(imageify(sparseSeq))
-    viewFlatFrame(imageifyComplex(fft(sparseSeq)), differenceImage=True, magnification=0.05)
-    viewFlatFrame(imageify(np.abs(fft(sparseSeq))), differenceImage=False, magnification=0.05)
-    viewFlatFrame(imageifyComplex(fft(sparseSeq)/np.abs(fft(sparseSeq))), differenceImage=True, magnification=1)
-    viewFlatFrame(imageify(zeroOneSeq))
-    viewFlatFrame(imageifyComplex(fft(zeroOneSeq)), differenceImage=True, magnification=0.05)
-    viewFlatFrame(imageify(np.abs(fft(zeroOneSeq))), differenceImage=False, magnification=0.05)
-    viewFlatFrame(imageifyComplex(fft(zeroOneSeq)/np.abs(fft(zeroOneSeq))), differenceImage=True, magnification=1)
+        #sparseSeq = generateImpulseSeq(n)
+        #zeroOneSeq = generateImpulseSeq(n)
 
 
-    convSeq = conv(sparseSeq, zeroOneSeq)
-    noisyConvSeq = addNoise(convSeq)
 
-    viewFlatFrame(imageify(noisyConvSeq))
-    viewFlatFrame(imageifyComplex(fft(noisyConvSeq)), differenceImage=True, magnification=0.0025)
-    viewFlatFrame(imageify(np.abs(fft(noisyConvSeq))), differenceImage=False, magnification=0.0025)
-    viewFlatFrame(imageifyComplex(fft(noisyConvSeq)/np.abs(fft(noisyConvSeq))), differenceImage=True, magnification=1)
 
-    deconv(noisyConvSeq)
+        viewFlatFrame(imageify(sparseSeq))
+        viewFlatFrame(imageifyComplex(fft(sparseSeq)), differenceImage=True, magnification=0.05)
+        viewFlatFrame(imageify(np.abs(fft(sparseSeq))), differenceImage=False, magnification=0.05)
+        viewFlatFrame(imageifyComplex(fft(sparseSeq)/np.abs(fft(sparseSeq))), differenceImage=True, magnification=1)
+        viewFlatFrame(imageify(zeroOneSeq))
+        viewFlatFrame(imageifyComplex(fft(zeroOneSeq)), differenceImage=True, magnification=0.05)
+        viewFlatFrame(imageify(np.abs(fft(zeroOneSeq))), differenceImage=False, magnification=0.05)
+        viewFlatFrame(imageifyComplex(fft(zeroOneSeq)/np.abs(fft(zeroOneSeq))), differenceImage=True, magnification=1)
 
-if DIVIDE_OUT_STRATEGY:
-    n = 100
 
-    sparseSeq1 = generateSparseSeq(n)
-    sparseSeq2 = generateSparseSeq(n)
-    sparseSeq3 = generateSparseSeq(n)
-    zeroOneSeq = generateZeroOneSeq(n)
-    
-    sparseSeqs = [generateSparseSeq(n) for _ in range(10)]
-    
-#    viewFlatFrame(imageify(sparseSeq1), differenceImage=True)
-#    viewFlatFrame(imageify(sparseSeq2), differenceImage=True)
-#    viewFlatFrame(imageify(sparseSeq3), differenceImage=True)
-#    viewFlatFrame(imageify(zeroOneSeq))    
-    
-    viewFlatFrame(imageifyComplex(fft(zeroOneSeq)), differenceImage=True, magnification=0.05)
+        convSeq = conv(sparseSeq, zeroOneSeq)
+        noisyConvSeq = addNoise(convSeq)
 
-    viewFlatFrame(imageifyComplex(fft(sparseSeq1)), differenceImage=True, magnification=0.05)
-    viewFlatFrame(imageifyComplex(fft(sparseSeq2)), differenceImage=True, magnification=0.05)
-    viewFlatFrame(imageifyComplex(fft(sparseSeq3)), differenceImage=True, magnification=0.05)        
+        viewFlatFrame(imageify(noisyConvSeq))
+        viewFlatFrame(imageifyComplex(fft(noisyConvSeq)), differenceImage=True, magnification=0.0025)
+        viewFlatFrame(imageify(np.abs(fft(noisyConvSeq))), differenceImage=False, magnification=0.0025)
+        viewFlatFrame(imageifyComplex(fft(noisyConvSeq)/np.abs(fft(noisyConvSeq))), differenceImage=True, magnification=1)
+
+        deconv(noisyConvSeq)
+
+    if DIVIDE_OUT_STRATEGY:
+        n = 100
+
+        sparseSeq1 = generateSparseSeq(n)
+        sparseSeq2 = generateSparseSeq(n)
+        sparseSeq3 = generateSparseSeq(n)
+        zeroOneSeq = generateZeroOneSeq(n)
         
-    noisyConvSeq1 = addNoise(conv(sparseSeq1, zeroOneSeq))
-    noisyConvSeq2 = addNoise(conv(sparseSeq2, zeroOneSeq))
-    noisyConvSeq3 = addNoise(conv(sparseSeq3, zeroOneSeq))
-    
-    noisyConvSeqs = [addNoise(conv(sparseSeq, zeroOneSeq)) for sparseSeq in sparseSeqs]
-
-    viewFlatFrame(imageifyComplex(fft(noisyConvSeq1)), differenceImage=True, magnification=0.05)
-    viewFlatFrame(imageifyComplex(fft(noisyConvSeq2)), differenceImage=True, magnification=0.05)
-    viewFlatFrame(imageifyComplex(fft(noisyConvSeq3)), differenceImage=True, magnification=0.05)
+        sparseSeqs = [generateSparseSeq(n) for _ in range(10)]
         
-    viewFlatFrame(imageify(sparseSeq1), differenceImage=True)
+    #    viewFlatFrame(imageify(sparseSeq1), differenceImage=True)
+    #    viewFlatFrame(imageify(sparseSeq2), differenceImage=True)
+    #    viewFlatFrame(imageify(sparseSeq3), differenceImage=True)
+    #    viewFlatFrame(imageify(zeroOneSeq))    
+        
+        viewFlatFrame(imageifyComplex(fft(zeroOneSeq)), differenceImage=True, magnification=0.05)
+
+        viewFlatFrame(imageifyComplex(fft(sparseSeq1)), differenceImage=True, magnification=0.05)
+        viewFlatFrame(imageifyComplex(fft(sparseSeq2)), differenceImage=True, magnification=0.05)
+        viewFlatFrame(imageifyComplex(fft(sparseSeq3)), differenceImage=True, magnification=0.05)        
+            
+        noisyConvSeq1 = addNoise(conv(sparseSeq1, zeroOneSeq))
+        noisyConvSeq2 = addNoise(conv(sparseSeq2, zeroOneSeq))
+        noisyConvSeq3 = addNoise(conv(sparseSeq3, zeroOneSeq))
+        
+        noisyConvSeqs = [addNoise(conv(sparseSeq, zeroOneSeq)) for sparseSeq in sparseSeqs]
+
+        viewFlatFrame(imageifyComplex(fft(noisyConvSeq1)), differenceImage=True, magnification=0.05)
+        viewFlatFrame(imageifyComplex(fft(noisyConvSeq2)), differenceImage=True, magnification=0.05)
+        viewFlatFrame(imageifyComplex(fft(noisyConvSeq3)), differenceImage=True, magnification=0.05)
+            
+        viewFlatFrame(imageify(sparseSeq1), differenceImage=True)
+         
+        for i, noisyConvSeq in enumerate(noisyConvSeqs):
+            viewFlatFrame(imageify(sparseSeqs[i]), differenceImage=True)
+            viewFlatFrame(imageify(ifft(numpyDivideNoDivZero(fft(noisyConvSeq1), fft(noisyConvSeq)))), \
+                differenceImage=True) 
+            viewFlatFrame(imageify(ifft(numpyDivideNoDivZero(fft(noisyConvSeq), fft(noisyConvSeq1)))), \
+                differenceImage=True)      
+            
+        divSeq12 = numpyDivideNoDivZero(fft(noisyConvSeq1), fft(noisyConvSeq2))    
+        divSeq13 = numpyDivideNoDivZero(fft(noisyConvSeq1), fft(noisyConvSeq3))    
+        divSeq21 = numpyDivideNoDivZero(fft(noisyConvSeq2), fft(noisyConvSeq1))   
+        divSeq23 = numpyDivideNoDivZero(fft(noisyConvSeq2), fft(noisyConvSeq3))    
+        divSeq31 = numpyDivideNoDivZero(fft(noisyConvSeq3), fft(noisyConvSeq1))   
+        divSeq32 = numpyDivideNoDivZero(fft(noisyConvSeq3), fft(noisyConvSeq2))    
+            
+        
+        
+        
+        
+        
+        viewFlatFrame(imageifyComplex(divSeq12), differenceImage=True, magnification=0.5)
+        viewFlatFrame(imageifyComplex(divSeq13), differenceImage=True, magnification=0.5)
+        viewFlatFrame(imageifyComplex(divSeq23), differenceImage=True, magnification=0.5)
+
+        viewFlatFrame(imageify(np.abs(divSeq12)), differenceImage=False, magnification=0.5)
+        viewFlatFrame(imageify(np.abs(divSeq13)), differenceImage=False, magnification=0.5)
+        viewFlatFrame(imageify(np.abs(divSeq23)), differenceImage=False, magnification=0.5)
+
+        viewFlatFrame(imageifyComplex(divSeq12/np.abs(divSeq12)), differenceImage=True, magnification=1)
+        viewFlatFrame(imageifyComplex(divSeq13/np.abs(divSeq13)), differenceImage=True, magnification=1)
+        viewFlatFrame(imageifyComplex(divSeq23/np.abs(divSeq23)), differenceImage=True, magnification=1)
+
+        viewFlatFrame(imageify(ifft(divSeq12)), differenceImage=True)
+        viewFlatFrame(imageify(ifft(divSeq13)), differenceImage=True)
+        viewFlatFrame(imageify(ifft(divSeq21)), differenceImage=True)
+        viewFlatFrame(imageify(ifft(divSeq23)), differenceImage=True)
+        viewFlatFrame(imageify(ifft(divSeq31)), differenceImage=True)
+        viewFlatFrame(imageify(ifft(divSeq32)), differenceImage=True)    
+        
+    if POLYNOMIAL_STRATEGY:
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+
+        n = len(listOfFlatFrames[0])
+
+        pront("n = " + n)
+
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)]
+
+        occluder = generateZeroOneSeq(2*n-1)
+            
+        viewFlatFrame(imageify(occluder))
+
+        occluderPolynomial = Polynomial(occluder)
+
+        displayRoots(occluderPolynomial, [], 0, 1)
+
+        listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) for frame in listOfFlatDifferenceFrames]
+
+        concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
+        convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
+        
+        viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
+        viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+        
+        
+    #    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+    #        differenceImage=True, rowsPerFrame=1)
+        
+    #    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
+    #        differenceImage=True, rowsPerFrame=1)    
+        
+        listOfPolynomials = getListOfPolynomialsFromConvolvedDifferenceFrames(listOfConvolvedDifferenceFrames)
+        listOfDistractionPolynomials = getListOfPolynomialsFromConvolvedDifferenceFrames(listOfFlatDifferenceFrames)
+        
+      #  random.shuffle(listOfPolynomials)
+        
+        rootDict = {}
+        
+        listOfExistingRoots = [[root, 1] for root in listOfPolynomials[0].roots()]
+        
+        blueThresh = 0.5
+        
+        
+        
+        for i, polynomial in enumerate(listOfPolynomials[:10]):
+            index = random.randint(0, len(listOfPolynomials)-1)
+            polynomial = listOfPolynomials[index]
+
+     #       binaryList = [1*(random.random()<0.5) for _ in range(len(listOfPolynomials))]
+     #       polynomial = averageOverPolysInBinList(listOfPolynomials, binaryList)
+
+            viewFlatFrame(imageify(polynomial.coef), magnification=1, differenceImage=True)
+
+    #        distractionPolynomial = listOfDistractionPolynomials[index]
+            
+            augmentListOfExistingRoots(listOfExistingRoots, polynomial)
+            
+            displayRoots(Polynomial(ryyNew(polynomial.coef)), [], 0, 1)
+            
+      #      viewFlatFrame(imageify(polynomial.coef), magnification=1, differenceImage=True)
+
+      #      viewFlatFrame(imageify(distractionPolynomial.coef), magnification=1, differenceImage=True)
+            
+      #      viewFlatFrame(imageify(occluderPolynomial.coef), magnification=1, differenceImage=True)
+            
+            
+            
+      #      displayRoots(polynomial, [], 0, 1)
+      #      displayRoots(distractionPolynomial, [], 0, 1)
+      #      displayRoots(occluderPolynomial, [], 0, 1)
+
+            listOfRepeatedRoots = displayRoots(polynomial, listOfExistingRoots, blueThresh, i+2)
+            
+        listOfRepeatedRoots = displayRoots(polynomial, listOfExistingRoots, blueThresh, i+2)    
+            
+        fitPoly = polyfromroots(listOfRepeatedRoots)
+        
+        viewFlatFrame(imageify(fitPoly), differenceImage=False)
+            
+    if UNDO_TRUNCATION:
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+
+        n = len(listOfFlatFrames[0])
+
+        pront("n = " + str(n))
+
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+    #        for i in range(len(listOfFlatFrames) - 1)]
+            for i in range(250,350)]
+
+
+        occluder = generateZeroOneSeq(2*n-1)
+            
+        viewFlatFrame(imageify(occluder))
+    #    occluderPolynomial = Polynomial(occluder)
+    #    displayRoots(occluderPolynomial, [], 0, 1)
+
+        listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) for frame in listOfFlatDifferenceFrames]
+
+        assert len(listOfConvolvedDifferenceFrames[0]) == 3*n-2
+
+        listOfTruncatedDifferenceFrames = np.array([[1*((i >= n-1) and (i < 2*n-1)) * val for i,val in enumerate(cdf)] \
+            for cdf in listOfConvolvedDifferenceFrames])
+
+        onVals = np.array([1*((i >= n-1) and (i < 2*n-1)) for i in range(3*n-2)])
+
+        concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
+        convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
+        truncatedDifferenceFrames = np.concatenate(listOfTruncatedDifferenceFrames, 1)
+        
+        gamma = 1e3
+        onValsFreqMat = circ(fft(onVals))
+        p.matshow(np.real(onValsFreqMat))
+        p.colorbar()
+        p.show()
+        
+        onValsFreqMatPseudoInverse = gamma*np.dot(np.linalg.inv(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
+            onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0])), np.conj(np.transpose(onValsFreqMat)))
      
-    for i, noisyConvSeq in enumerate(noisyConvSeqs):
-        viewFlatFrame(imageify(sparseSeqs[i]), differenceImage=True)
-        viewFlatFrame(imageify(ifft(numpyDivideNoDivZero(fft(noisyConvSeq1), fft(noisyConvSeq)))), \
-            differenceImage=True) 
-        viewFlatFrame(imageify(ifft(numpyDivideNoDivZero(fft(noisyConvSeq), fft(noisyConvSeq1)))), \
-            differenceImage=True)      
         
-    divSeq12 = numpyDivideNoDivZero(fft(noisyConvSeq1), fft(noisyConvSeq2))    
-    divSeq13 = numpyDivideNoDivZero(fft(noisyConvSeq1), fft(noisyConvSeq3))    
-    divSeq21 = numpyDivideNoDivZero(fft(noisyConvSeq2), fft(noisyConvSeq1))   
-    divSeq23 = numpyDivideNoDivZero(fft(noisyConvSeq2), fft(noisyConvSeq3))    
-    divSeq31 = numpyDivideNoDivZero(fft(noisyConvSeq3), fft(noisyConvSeq1))   
-    divSeq32 = numpyDivideNoDivZero(fft(noisyConvSeq3), fft(noisyConvSeq2))    
-        
-    
-    
-    
-    
-    
-    viewFlatFrame(imageifyComplex(divSeq12), differenceImage=True, magnification=0.5)
-    viewFlatFrame(imageifyComplex(divSeq13), differenceImage=True, magnification=0.5)
-    viewFlatFrame(imageifyComplex(divSeq23), differenceImage=True, magnification=0.5)
-
-    viewFlatFrame(imageify(np.abs(divSeq12)), differenceImage=False, magnification=0.5)
-    viewFlatFrame(imageify(np.abs(divSeq13)), differenceImage=False, magnification=0.5)
-    viewFlatFrame(imageify(np.abs(divSeq23)), differenceImage=False, magnification=0.5)
-
-    viewFlatFrame(imageifyComplex(divSeq12/np.abs(divSeq12)), differenceImage=True, magnification=1)
-    viewFlatFrame(imageifyComplex(divSeq13/np.abs(divSeq13)), differenceImage=True, magnification=1)
-    viewFlatFrame(imageifyComplex(divSeq23/np.abs(divSeq23)), differenceImage=True, magnification=1)
-
-    viewFlatFrame(imageify(ifft(divSeq12)), differenceImage=True)
-    viewFlatFrame(imageify(ifft(divSeq13)), differenceImage=True)
-    viewFlatFrame(imageify(ifft(divSeq21)), differenceImage=True)
-    viewFlatFrame(imageify(ifft(divSeq23)), differenceImage=True)
-    viewFlatFrame(imageify(ifft(divSeq31)), differenceImage=True)
-    viewFlatFrame(imageify(ifft(divSeq32)), differenceImage=True)    
-    
-if POLYNOMIAL_STRATEGY:
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
-
-    n = len(listOfFlatFrames[0])
-
-    pront("n = " + n)
-
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)]
-
-    occluder = generateZeroOneSeq(2*n-1)
-        
-    viewFlatFrame(imageify(occluder))
-
-    occluderPolynomial = Polynomial(occluder)
-
-    displayRoots(occluderPolynomial, [], 0, 1)
-
-    listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) for frame in listOfFlatDifferenceFrames]
-
-    concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
-    convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
-    
-    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
-    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
-    
-    
-#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
-#        differenceImage=True, rowsPerFrame=1)
-    
-#    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
-#        differenceImage=True, rowsPerFrame=1)    
-    
-    listOfPolynomials = getListOfPolynomialsFromConvolvedDifferenceFrames(listOfConvolvedDifferenceFrames)
-    listOfDistractionPolynomials = getListOfPolynomialsFromConvolvedDifferenceFrames(listOfFlatDifferenceFrames)
-    
-  #  random.shuffle(listOfPolynomials)
-    
-    rootDict = {}
-    
-    listOfExistingRoots = [[root, 1] for root in listOfPolynomials[0].roots()]
-    
-    blueThresh = 0.5
-    
-    
-    
-    for i, polynomial in enumerate(listOfPolynomials[:10]):
-        index = random.randint(0, len(listOfPolynomials)-1)
-        polynomial = listOfPolynomials[index]
-
- #       binaryList = [1*(random.random()<0.5) for _ in range(len(listOfPolynomials))]
- #       polynomial = averageOverPolysInBinList(listOfPolynomials, binaryList)
-
-        viewFlatFrame(imageify(polynomial.coef), magnification=1, differenceImage=True)
-
-#        distractionPolynomial = listOfDistractionPolynomials[index]
-        
-        augmentListOfExistingRoots(listOfExistingRoots, polynomial)
-        
-        displayRoots(Polynomial(ryyNew(polynomial.coef)), [], 0, 1)
-        
-  #      viewFlatFrame(imageify(polynomial.coef), magnification=1, differenceImage=True)
-
-  #      viewFlatFrame(imageify(distractionPolynomial.coef), magnification=1, differenceImage=True)
-        
-  #      viewFlatFrame(imageify(occluderPolynomial.coef), magnification=1, differenceImage=True)
-        
-        
-        
-  #      displayRoots(polynomial, [], 0, 1)
-  #      displayRoots(distractionPolynomial, [], 0, 1)
-  #      displayRoots(occluderPolynomial, [], 0, 1)
-
-        listOfRepeatedRoots = displayRoots(polynomial, listOfExistingRoots, blueThresh, i+2)
-        
-    listOfRepeatedRoots = displayRoots(polynomial, listOfExistingRoots, blueThresh, i+2)    
-        
-    fitPoly = polyfromroots(listOfRepeatedRoots)
-    
-    viewFlatFrame(imageify(fitPoly), differenceImage=False)
-        
-if UNDO_TRUNCATION:
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
-
-    n = len(listOfFlatFrames[0])
-
-    pront("n = " + str(n))
-
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-#        for i in range(len(listOfFlatFrames) - 1)]
-        for i in range(250,350)]
-
-
-    occluder = generateZeroOneSeq(2*n-1)
-        
-    viewFlatFrame(imageify(occluder))
-#    occluderPolynomial = Polynomial(occluder)
-#    displayRoots(occluderPolynomial, [], 0, 1)
-
-    listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) for frame in listOfFlatDifferenceFrames]
-
-    assert len(listOfConvolvedDifferenceFrames[0]) == 3*n-2
-
-    listOfTruncatedDifferenceFrames = np.array([[1*((i >= n-1) and (i < 2*n-1)) * val for i,val in enumerate(cdf)] \
-        for cdf in listOfConvolvedDifferenceFrames])
-
-    onVals = np.array([1*((i >= n-1) and (i < 2*n-1)) for i in range(3*n-2)])
-
-    concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
-    convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
-    truncatedDifferenceFrames = np.concatenate(listOfTruncatedDifferenceFrames, 1)
-    
-    gamma = 1e3
-    onValsFreqMat = circ(fft(onVals))
-    p.matshow(np.real(onValsFreqMat))
-    p.colorbar()
-    p.show()
-    
-    onValsFreqMatPseudoInverse = gamma*np.dot(np.linalg.inv(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
-        onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0])), np.conj(np.transpose(onValsFreqMat)))
- 
-    
- 
-    p.matshow(np.real(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
-        onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0])))
-    p.colorbar()
-    p.show()
- 
-    p.matshow(np.linalg.inv(np.real(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
-        onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0]))))
-    p.colorbar()
-    p.show()
-  
-    p.matshow(np.real(gamma*np.dot(np.linalg.inv(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
-            onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0])), np.conj(np.transpose(onValsFreqMat)))))
-    p.colorbar()
+     
+        p.matshow(np.real(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
+            onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0])))
+        p.colorbar()
+        p.show()
+     
+        p.matshow(np.linalg.inv(np.real(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
+            onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0]))))
+        p.colorbar()
+        p.show()
+      
+        p.matshow(np.real(gamma*np.dot(np.linalg.inv(gamma*np.dot(np.conj(np.transpose(onValsFreqMat)), \
+                onValsFreqMat) + 1*np.identity(onValsFreqMat.shape[0])), np.conj(np.transpose(onValsFreqMat)))))
+        p.colorbar()
+                
+        p.show()
+      
+    #    onValsFreqMatPseudoInverse = np.linalg.inv(onValsFreqMat)
+        p.matshow(np.real(onValsFreqMatPseudoInverse))
+        p.colorbar()
+        p.show()    
             
-    p.show()
-  
-#    onValsFreqMatPseudoInverse = np.linalg.inv(onValsFreqMat)
-    p.matshow(np.real(onValsFreqMatPseudoInverse))
-    p.colorbar()
-    p.show()    
+        displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+            differenceImage=True, rowsPerFrame=1)
         
-    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=1)
-    
-    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=1)    
-
-    displayConcatenatedArray(truncatedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=1)   
-    
-    frameNum = 80
-    
-    tdf = getSingleColorFrames(listOfTruncatedDifferenceFrames[frameNum])[0]
-        
-    viewFlatFrame(imageify(tdf), differenceImage=True, magnification=1)
-    viewFlatFrame(imageifyComplex(fft(tdf)), differenceImage=True, magnification=1)
-    viewFlatFrame(imageify(onVals))
-    viewFlatFrame(imageifyComplex(fft(onVals)), differenceImage=True, magnification=1)
-
-
-    viewFlatFrame(imageifyComplex(np.dot(onValsFreqMatPseudoInverse, fft(tdf))), magnification=1)
-    viewFlatFrame(imageify(np.real(ifft(np.dot(onValsFreqMatPseudoInverse, fft(tdf))))),
-         magnification=1e2, differenceImage=True)
-
-#    viewFlatFrame(imageifyComplex(deconvolve(fft(tdf), fft(onVals))[0]))
- #   viewFlatFrame(imageifyComplex(ifft(deconvolve(fft(tdf), fft(onVals))[0])))
-    
-if BILL_NOISY_POLYNOMIALS:
-        
-#    listOfFlatFrames = batchList(pickle.load(open("flat_frames_fine.p", "r")), 2)
-#    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
-#    listOfFlatFrames = batchList(pickle.load(open("flat_frames_coarse.p", "r")), 2)
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar.p")), 1)
-
-    n = len(listOfFlatFrames[0])
-
-    pront("n = " + str(n))
-
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)]
-
-    print listOfFlatFrames[0]    
-
-#    occluder = generateZeroOneSeq(2*n-1)    
-    occluder = np.array([1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1,0,1,1,0,0,0,1])
-            
-#    occluder = np.array([1,0,0,1,1])
-
-#    print polyfromroots(np.roots(occluder))
-
-    print np.roots(occluder)
-
-    viewFlatFrame(imageify(occluder))
-
-    occluderPolynomial = Polynomial(occluder[::-1])
-
-#    displayRoots(occluderPolynomial, [], 0, 1)
-
-    listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) \
-        for frame in listOfFlatDifferenceFrames]
-
-    listOfConvolvedFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) \
-        for frame in listOfFlatFrames] 
-
-    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 1, axis=1))/255, 1), 0, 1)
-    concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
-    concatenatedConvolvedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfConvolvedDifferenceFrames), 
-        1, axis=1))/255, 1), 0,1)
-    concatenatedConvolvedFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfConvolvedFrames), 
-        1, axis=1))/255, 1), 0,1)
-
-    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=False)
-    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
-    viewFrame(concatenatedConvolvedDifferenceFrames, magnification=100, differenceImage=True)
-    viewFrame(concatenatedConvolvedFrames, magnification=1e-1, differenceImage=False)
-    
-#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
- #       differenceImage=True, rowsPerFrame=10)
-    
-#    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
-#        differenceImage=True, rowsPerFrame=10, stretchFactor=1)
-
-    solveProblem = True
-    singlePoly = False
-    truncation = False
-    movieRecovery = False
-
-    densitySigma = 0.3/sqrt(n)
-  
-    densityFunc = lambda x: logLaplace(x, 0, densitySigma) 
-
-    
-
-    if solveProblem: 
-
-        listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)
-
-        print len(listOfSingleColorFrames)
-
-        listOfRandomlyChosenSingleColorFrames = random.sample(listOfSingleColorFrames, 90)
-
-#        makeRootMagnitudeHistogram(listOfSingleColorFrames, 0.3/sqrt(n))
-
-#        rootsFound = findRoots(listOfSingleColorFrames, np.roots(occluder), showy=True)
-
-        rootsFound = findRoots(listOfRandomlyChosenSingleColorFrames, np.roots(occluder), \
-            numRootsExpected=len(occluder)-1, showy=False)
- 
-        print rootsFound
-
-#        print "correct roots", np.roots(occluder)
- #       print "recovered roots", complexFormRootsFound
-#        print "correct polynomial", polyfromroots(np.roots(occluder))
-#        print "recovered polynomial", polyfromroots(complexFormRootsFound)
-
-#        print rootsFound
-
-#        complexFormRootsFound = [np.exp(1j*root[0])*root[1] for root in rootsFound]
-
-        fitPoly = polyfromroots(rootsFound)
-        
-        pickle.dump(fitPoly, open("fit_poly.p", "w"))
-
-        viewFlatFrame(imageify(fitPoly), differenceImage=True, filename="recovered_occluder.png")
-
-#        THETA, R, Z = makeAggregateRadialMesh(listOfSingleColorFrames, densityFunc)
-        
-#        visualizeRadialColorMesh(THETA, R, Z, densitySigma, np.roots(occluder))
-#        visualizeRadialColorMesh(THETA, R, Z, densitySigma, [])
-        
-#        X, Y, Z = makeAggregateMesh(listOfSingleColorFrames)
-        
-#        visualizeColorMesh(X, Y, Z, np.roots(occluder))
-#        visualizeColorMesh(X, Y, Z, [])        
-            
-
-    if truncation:
-        listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)[:]
-
-        listOfTruncatedSingleColorFrames = truncate(listOfSingleColorFrames)        
-
-        print listOfTruncatedSingleColorFrames.shape
-
-        truncatedDifferenceFrames = np.concatenate(imageify(listOfTruncatedSingleColorFrames), 1)
+        displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
+            differenceImage=True, rowsPerFrame=1)    
 
         displayConcatenatedArray(truncatedDifferenceFrames, magnification=100, \
-            differenceImage=True, rowsPerFrame=1, stretchFactor=25)    
+            differenceImage=True, rowsPerFrame=1)   
+        
+        frameNum = 80
+        
+        tdf = getSingleColorFrames(listOfTruncatedDifferenceFrames[frameNum])[0]
+            
+        viewFlatFrame(imageify(tdf), differenceImage=True, magnification=1)
+        viewFlatFrame(imageifyComplex(fft(tdf)), differenceImage=True, magnification=1)
+        viewFlatFrame(imageify(onVals))
+        viewFlatFrame(imageifyComplex(fft(onVals)), differenceImage=True, magnification=1)
 
-        rootsFound = findRoots(listOfTruncatedSingleColorFrames, np.roots(occluder), \
-            numRootsExpected=len(occluder)-1, showy=False)
 
-    if singlePoly:
-    
-        listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)
+        viewFlatFrame(imageifyComplex(np.dot(onValsFreqMatPseudoInverse, fft(tdf))), magnification=1)
+        viewFlatFrame(imageify(np.real(ifft(np.dot(onValsFreqMatPseudoInverse, fft(tdf))))),
+             magnification=1e2, differenceImage=True)
 
-        randomSingleColorFrameIndex = random.randint(0, len(listOfSingleColorFrames)-1)
-    
-        seq = listOfSingleColorFrames[randomSingleColorFrameIndex]
+    #    viewFlatFrame(imageifyComplex(deconvolve(fft(tdf), fft(onVals))[0]))
+     #   viewFlatFrame(imageifyComplex(ifft(deconvolve(fft(tdf), fft(onVals))[0])))
+        
+    if BILL_NOISY_POLYNOMIALS:
+            
+    #    listOfFlatFrames = batchList(pickle.load(open("flat_frames_fine.p", "r")), 2)
+    #    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+    #    listOfFlatFrames = batchList(pickle.load(open("flat_frames_coarse.p", "r")), 2)
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar.p")), 1)
+
+        n = len(listOfFlatFrames[0])
+
+        pront("n = " + str(n))
+
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)]
+
+        print listOfFlatFrames[0]    
+
+    #    occluder = generateZeroOneSeq(2*n-1)    
+        occluder = np.array([1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1,0,1,1,0,0,0,1])
+                
+    #    occluder = np.array([1,0,0,1,1])
+
+    #    print polyfromroots(np.roots(occluder))
+
+        print np.roots(occluder)
+
+        viewFlatFrame(imageify(occluder))
+
+        occluderPolynomial = Polynomial(occluder[::-1])
+
     #    displayRoots(occluderPolynomial, [], 0, 1)
- 
-        THETA, R, Z = makeRadialMesh(seq, densityFunc)
+
+        listOfConvolvedDifferenceFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) \
+            for frame in listOfFlatDifferenceFrames]
+
+        listOfConvolvedFrames = [addNoise(doFuncToEachChannelVec(convolveMaker(occluder), frame)) \
+            for frame in listOfFlatFrames] 
+
+        concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 1, axis=1))/255, 1), 0, 1)
+        concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
+        concatenatedConvolvedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfConvolvedDifferenceFrames), 
+            1, axis=1))/255, 1), 0,1)
+        concatenatedConvolvedFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfConvolvedFrames), 
+            1, axis=1))/255, 1), 0,1)
+
+        viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=False)
+        viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+        viewFrame(concatenatedConvolvedDifferenceFrames, magnification=100, differenceImage=True)
+        viewFrame(concatenatedConvolvedFrames, magnification=1e-1, differenceImage=False)
         
+    #    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+     #       differenceImage=True, rowsPerFrame=10)
         
+    #    displayConcatenatedArray(convolvedDifferenceFrames, magnification=100, \
+    #        differenceImage=True, rowsPerFrame=10, stretchFactor=1)
+
+        solveProblem = True
+        singlePoly = False
+        truncation = False
+        movieRecovery = False
+
+        densitySigma = 0.3/sqrt(n)
+      
+        densityFunc = lambda x: logLaplace(x, 0, densitySigma) 
+
         
-        makeRootMagnitudeHistogram(seq, densitySigma)
+
+        if solveProblem: 
+
+            listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)
+
+            print len(listOfSingleColorFrames)
+
+            listOfRandomlyChosenSingleColorFrames = random.sample(listOfSingleColorFrames, 90)
+
+    #        makeRootMagnitudeHistogram(listOfSingleColorFrames, 0.3/sqrt(n))
+
+    #        rootsFound = findRoots(listOfSingleColorFrames, np.roots(occluder), showy=True)
+
+            rootsFound = findRoots(listOfRandomlyChosenSingleColorFrames, np.roots(occluder), \
+                numRootsExpected=len(occluder)-1, showy=False)
+     
+            print rootsFound
+
+    #        print "correct roots", np.roots(occluder)
+     #       print "recovered roots", complexFormRootsFound
+    #        print "correct polynomial", polyfromroots(np.roots(occluder))
+    #        print "recovered polynomial", polyfromroots(complexFormRootsFound)
+
+    #        print rootsFound
+
+    #        complexFormRootsFound = [np.exp(1j*root[0])*root[1] for root in rootsFound]
+
+            fitPoly = polyfromroots(rootsFound)
+            
+            pickle.dump(fitPoly, open("fit_poly.p", "w"))
+
+            viewFlatFrame(imageify(fitPoly), differenceImage=True, filename="recovered_occluder.png")
+
+    #        THETA, R, Z = makeAggregateRadialMesh(listOfSingleColorFrames, densityFunc)
+            
+    #        visualizeRadialColorMesh(THETA, R, Z, densitySigma, np.roots(occluder))
+    #        visualizeRadialColorMesh(THETA, R, Z, densitySigma, [])
+            
+    #        X, Y, Z = makeAggregateMesh(listOfSingleColorFrames)
+            
+    #        visualizeColorMesh(X, Y, Z, np.roots(occluder))
+    #        visualizeColorMesh(X, Y, Z, [])        
+                
+
+        if truncation:
+            listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)[:]
+
+            listOfTruncatedSingleColorFrames = truncate(listOfSingleColorFrames)        
+
+            print listOfTruncatedSingleColorFrames.shape
+
+            truncatedDifferenceFrames = np.concatenate(imageify(listOfTruncatedSingleColorFrames), 1)
+
+            displayConcatenatedArray(truncatedDifferenceFrames, magnification=100, \
+                differenceImage=True, rowsPerFrame=1, stretchFactor=25)    
+
+            rootsFound = findRoots(listOfTruncatedSingleColorFrames, np.roots(occluder), \
+                numRootsExpected=len(occluder)-1, showy=False)
+
+        if singlePoly:
         
-        displayRoots(Polynomial(seq[::-1]),\
-            [(i, 1) for i in occluderPolynomial.roots()], 0.5, 1)
+            listOfSingleColorFrames = getListOfSingleColorFrames(listOfConvolvedDifferenceFrames)
 
-        X, Y, Z = makeFuzzyPolynomialMesh(seq)
-    
-        visualizeColorMesh(X, Y, Z, np.roots(seq))
-        visualizeColorMesh(X, Y, Z, [])
-    
+            randomSingleColorFrameIndex = random.randint(0, len(listOfSingleColorFrames)-1)
         
-    if movieRecovery:
-        recoveredPoly = occluder
-        lenPoly = len(recoveredPoly)
+            seq = listOfSingleColorFrames[randomSingleColorFrameIndex]
+        #    displayRoots(occluderPolynomial, [], 0, 1)
+     
+            THETA, R, Z = makeRadialMesh(seq, densityFunc)
+            
+            
+            
+            makeRootMagnitudeHistogram(seq, densitySigma)
+            
+            displayRoots(Polynomial(seq[::-1]),\
+                [(i, 1) for i in occluderPolynomial.roots()], 0.5, 1)
 
-        toeplitzMatrix = toeplitz(recoveredPoly[:int((lenPoly+1)/2)][::-1], recoveredPoly[int((lenPoly-1)/2):])
-        inverseToeplitzMatrix = np.linalg.inv(toeplitzMatrix)
-
-        recoveredMovie = doFuncToEachChannel(lambda x: np.transpose(np.dot(inverseToeplitzMatrix, np.transpose(x))), concatenatedDifferenceFrames)
-
-
-#    visualizePolynomialValues(listOfSingleColorFrames[randomSingleColorFrameIndex])
-
-if DENSITY_TESTS:    
-    sigma = 0.04
-    densityFunc = lambda x: logLaplace(x, 0, sigma)
-    
-    numPointsParam = 10
-    
-#    evenPoints = makeEvenPointsAccordingToDensity(densityFunc, numPointsParam, 0, \
-#        100, 1, 30)
+            X, Y, Z = makeFuzzyPolynomialMesh(seq)
         
-    evenPoints = makeEvenPointsAccordingToDensity(densityFunc, 10*numPointsParam, 0, \
-        100, 1, 300)
-
-if GIANT_GRADIENT_DESCENT:
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames_coarse.p", "r")), 2)
-#    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
-
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)][100:150]
-
-    listOfBWFlatDifferenceFrames = [bwifyFlatFrame(flatFrame) for flatFrame in listOfFlatDifferenceFrames]
-
-#    print np.concatenate(imageify(np.array(listOfBWFlatDifferenceFrames)), 1).shape
-
-#    print np.array(listOfBWFlatDifferenceFrames)
-
-    displayConcatenatedArray(np.concatenate(imageify(np.array(listOfBWFlatDifferenceFrames))/255, 1), magnification=100,
-        differenceImage=True, rowsPerFrame=1)
-
-    occluder = np.array([1, 0, 0, 1, 1])
-#    occluder = np.array([1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1,0,1,1,0,0,0,1])
-
-    numFrames = len(listOfBWFlatDifferenceFrames)
-    unconvolvedFrameLength = len(listOfBWFlatDifferenceFrames[0])
-#    occluder = generateZeroOneSeq(2*unconvolvedFrameLength-1)
-
-    occluderLength = len(occluder)
-
-    viewFlatFrame((imageify(occluder)))
-
-    def getConvolvedFrame(occluderSeq, movieFrame):
-#        print occluderSeq, movieFrame
-
-#        viewFlatFrame(imageify(np.convolve(occluderSeq, movieFrame, mode="full")))
-
-        return np.convolve(occluderSeq, movieFrame, mode="full")
-
-    listOfConvolvedDifferenceFrames = [addNoise(getConvolvedFrame(occluder, frame)) \
-        for frame in listOfBWFlatDifferenceFrames]
-
-#    convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
-
-#    print "convo", np.array(listOfConvolvedDifferenceFrames)
-
-    print imageify(np.array(listOfConvolvedDifferenceFrames)).shape
-
-    displayConcatenatedArray(np.concatenate(imageify(np.array(listOfConvolvedDifferenceFrames))/255,1),
-        magnification=100, differenceImage=True, rowsPerFrame=1)
-
-
-    frameLength = len(listOfConvolvedDifferenceFrames[0])
-
-#    assert occluderLength == 2*frameLength-1
-
-    vecLength = occluderLength + numFrames*frameLength
-    initVec = [np.random.normal() for _ in range(vecLength)]
-
-    lambdas = [
-        100, # occluder [0,1] enforcement (L1)
-        3, # occluder low spatial variability (L1)
-        3, # movie low temporal variability (L1)
-        10, # movie sparsity enforcement (L1)
-        3, # movie low spatial variability (L1)
-        1/NOISE_SIGMA # observation-matching enforcement (L2)
-    ]
-
-    evaluateSequence = evaluateSequenceMaker(occluderLength, listOfConvolvedDifferenceFrames, \
-        getConvolvedFrame, lambdas)
-
-    xopt, nfeval, rc = \
-        fmin_tnc(evaluateSequence, initVec, approx_grad=1, maxfun=10000)
-
-    recoveredOccluder = xopt[:occluderLength]
-
-    viewFlatFrame(imageify(recoveredOccluder))
-
-
-
-
-    print "xopt", xopt
-    print "nfeval", nfeval
-    print "rc", rc
-
-if ROADSIDE_DECONVOLUTION:
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames_fine.p", "r")), 2)
-
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)][:]
-
-#    viewFlatFrame(imageify(bwifyFlatFrame(listOfFlatFrames[30]))/255)
-
-#    viewFlatFrame(listOfFlatFrames[30])
-
-    d = 0.3
-
-    randomIndex = random.randint(0, len(listOfFlatDifferenceFrames)-1)
-    print randomIndex
-
-    randomFlatFrame = bwifyFlatFrame(listOfFlatDifferenceFrames[randomIndex])
-
-    frameLength = len(randomFlatFrame)
-
-    occluder = generateZeroOneSeq(frameLength)
-
-    sceneFunc = sequenceToFunction(randomFlatFrame)
-    occFunc = sequenceToFunction(occluder)
-
-    viewFlatFrame(imageify(randomFlatFrame))
-    viewFlatFrame(imageify(occluder))
-
-    obs = roadsideConvolve(sceneFunc, occFunc, d)
-
-    print obs
-
-    viewFrame(imageify(obs))
-
-if POLYNOMIAL_EXPERIMENT:
-
-#    listOfFlatFrames = pickle.load(open("real_flat_frames_2500_4500_downsampled.p", "r"))
-    listOfFlatFrames = pickle.load(open("flat_frames_grey_bar.p", "r"))
-
-
-    print "list loaded"
-
-    print len(listOfFlatFrames)
-
-    print listOfFlatFrames[0].shape
-
-    print listOfFlatFrames[1].shape
-
-    downsampledFrames = [batchArrayAlongAxis(frame, 0, 1) for frame in listOfFlatFrames]
-
-    listOfFlatDifferenceFrames = [downsampledFrames[i+1] - downsampledFrames[i] \
-        for i in range(len(downsampledFrames) - 1)][:200]
-
-    print len(listOfFlatDifferenceFrames)
-
-
-    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 1, axis=1))/255, 1), 0, 1)
-    concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
-
-
-    print np.array([listOfFlatDifferenceFrames[0]]*100).shape
-
-#    viewFrame(np.array([listOfFlatDifferenceFrames[0]]*100), magnification=100, differenceImage=True)
-
-#    print concatenatedOriginalFrames.shape
-
-#    displayConcatenatedArray(concatenatedOriginalFrames, magnification=100, \
-#        differenceImage=True, rowsPerFrame=10)
-    print concatenatedDifferenceFrames.shape
- 
-    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
-    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
-
-    listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
-
-#    eyeballedRoots = [(-0.39, -1.08),
-#                (-0.15, -0.97),
-#                (0.55, -0.77),
- #               (0.99, -0.49),
- #               (-0.69, -0.66),
- #               (-0.82, -0.42),
- #               (-0.99, -0.25),
-  #              (0.12, -0.87),
-   #             (0.66, -0.31),
-    #            (-1.02, 0)]               
-
-    eyeballedRoots = [(0.86, -0.21),
-                        (0.85, -0.49),
-                        (0.73, -0.81),
-                        (0.49, -0.86),
-                        (0.15, -1.04),
-                        (-0.14, -1.05),
-                        (-0.35, -0.91),
-                        (-0.75, -0.73),
-                        (-0.85, -0.44),
-                        (-0.98, -0.26),
-                        (-1.11, 0)]
-
-
-    eyeballedRootsComplexForm = [i[0] + 1j*i[1] for i in eyeballedRoots] + [i[0] + -1j*i[1] for i in eyeballedRoots[:-1]]
-
-    rootsFound = findRoots(listOfSingleColorFrames, eyeballedRootsComplexForm, \
-        numRootsExpected=19, showy=False)
-
-#    print rootsFound
-
-#    rootsFound = eyeballedRootsComplexForm
-
-#    complexFormRootsFound = [root[0] + 1j*root[1] for root in rootsFound]
-
-#    print "correct roots", np.roots(occluder)
-#    print "recovered roots", complexFormRootsFound
-#    print "correct polynomial", polyfromroots(np.roots(occluder))
-#    print "recovered polynomial", polyfromroots(complexFormRootsFound)
-
-#        print rootsFound
-
-#        complexFormRootsFound = [np.exp(1j*root[0])*root[1] for root in rootsFound]
-
-    fitPoly = polyfromroots(rootsFound)/2
-
-    pickle.dump(fitPoly, open("fit_poly.p", "w"))
-
-    print fitPoly
-    
-    viewFlatFrame(imageify(fitPoly), differenceImage=False, magnification=1, filename="recovered_occluder.png")
-
-
-if POLYNOMIAL_EXPERIMENT_AFTERMATH:
-
-    rootsFound = pickle.load(open("found_roots", "r"))
-
-    for rf in rootsFound:
-        print rf
-
-    complexFormRootsFound = [root[0][0] + 1j*root[0][1] for root in rootsFound]
-
-    print complexFormRootsFound
-
-    recoveredRoots = cleanFoundRoots(complexFormRootsFound, 19)    
-
-    for root in complexFormRootsFound:
-        p.plot(np.real(root), np.imag(root), "ro")
-       
-
-    for root in recoveredRoots:
-        p.plot(np.real(root), np.imag(root), "bo")
-
-
-    p.show()
-
-    fitPoly = polyfromroots(recoveredRoots)
-
-    pickle.dump(fitPoly, open("fit_poly.p", "w"))
-
-    print fitPoly
-
-    viewFlatFrame(imageify(fitPoly), differenceImage=False, magnification=0.5, filename="recovered_occluder.png")
-
-
-#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
-#        differenceImage=True, rowsPerFrame=10, stretchFactor=1)    
-
-if POLYNOMIAL_EXPERIMENT_FRANKENSTEIN:
-    poly1 = pickle.load(open("fit_poly_1.p", "r"))
-
-    viewFlatFrame(imageify(poly1))
-
-    poly2 = pickle.load(open("fit_poly_2.p", "r"))
-
-    viewFlatFrame(imageify(poly2))
-
-    fullOccluder = np.concatenate((poly2, poly1), axis=0)
-
-    viewFlatFrame(imageify(fullOccluder))
-
-if POLYNOMIAL_EXPERIMENT_RECOVERY:
-    listOfFlatFrames = pickle.load(open("real_flat_frames_2500_4500_downsampled.p", "r"))
-
-    print "list loaded"
-
-    print len(listOfFlatFrames)
-
-    print listOfFlatFrames[0].shape
-
-    print listOfFlatFrames[1].shape
-
-    downsampledFrames = [batchArrayAlongAxis(frame, 0, 11) for frame in listOfFlatFrames]
-
-    listOfFlatDifferenceFrames = [downsampledFrames[i+1] - downsampledFrames[i] \
-        for i in range(len(downsampledFrames) - 1)][300:]
-
-    print len(listOfFlatDifferenceFrames)
-
-#    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 10, axis=1))/255, 1), 0, 1)
-    concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
-
-
-    print np.array([listOfFlatDifferenceFrames[0]]*100).shape
-
-#    viewFrame(np.array([listOfFlatDifferenceFrames[0]]*100), magnification=100, differenceImage=True)
-
-#    print concatenatedOriginalFrames.shape
-
-    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
-        differenceImage=True, rowsPerFrame=10)
- #   print concatenatedDifferenceFrames.shape
- 
-#    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
-#    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
-
-    listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
-
-    recoveredPoly = np.flip(np.concatenate((np.real(pickle.load(open("fit_poly_1.p", "r"))), np.array([0])), axis=0), 0)
-    viewFlatFrame(imageify(recoveredPoly))
-
-    lenPoly = len(recoveredPoly)
-
-    print lenPoly
-
-    toeplitzMatrix = toeplitz(recoveredPoly[:int((lenPoly+1)/2)][::-1], recoveredPoly[int((lenPoly-1)/2):])
-
-    print toeplitzMatrix.shape
-
-    inverseToeplitzMatrix = np.linalg.inv(toeplitzMatrix)
-
-    recoveredMovie = doFuncToEachChannel(lambda x: np.transpose(np.dot(inverseToeplitzMatrix, np.transpose(x))), concatenatedDifferenceFrames)
-
-    viewFrame(np.repeat(recoveredMovie, 10, axis=1), magnification=100, differenceImage=True)
-
-    p.matshow(toeplitzMatrix)
-    p.show()
-
-if SIMPLE_BLIND_DECONV_TEST:
-
-    n = 100
-
-    numSamples = 1000
-    listOfFreqs = []
-
-    for _ in range(numSamples):
- 
-        randomNumbers = generateGaussianSeq(n, 1)
- #       randomNumbers = [random.random()*sqrt(12) for _ in range(n)]
- #       randomNumbers = [2*(random.random()>0.5) for _ in range(n)]
-#        randomNumbers = generateZeroOneSeq(n)
-#        randomNumbers = generateSparseSeq(n)
-
-        fftNum = np.fft.fft(randomNumbers)/sqrt(n)
-        listOfFreqs.extend([abs(i) for i in fftNum])
-
-#        listOfFreqs.append(abs(randomNumbers[0]))
-    
-    numBins = 200
-    maxVal = 3
-    xVals = np.linspace(0, maxVal, numBins)
-
-    av = average(listOfFreqs)
-
-    print av
-    offset = 2
-
-#    gammaDist = gammaDistMaker(offset, av/offset)
-    absNormal = absNormalMaker(sqrt(2))
-#    absNormal = absNormalMaker(5)
-
-    invAbsNormal = invAbsNormalMaker(sqrt(2), 2)
-
-
-    print quad(lambda x: x*absNormal(x), 0, np.inf)
-    print quad(invAbsNormal, 0, np.inf)
-
-    p.plot(xVals, [invAbsNormal(x) for x in xVals])
-    p.plot(xVals, [absNormal(x) for x in xVals])
-
-    p.hist(listOfFreqs, bins=200, range=(0, 3), density=True)
-    p.show()
-
-if RECOVER_FREQ_MAGNITUDES:
-    n = 100
-    movieLength = 1000
-
-    numBins = 200
-    maxVal = 3
-    xVals = np.linspace(0, maxVal, numBins)
-
-    gaussianOccluder = generateGaussianSeq(n, 1)
-    occluderFreqs = np.fft.fft(gaussianOccluder)/sqrt(n)
-    trueMovie = [generateGaussianSeq(n, 1) for _ in range(movieLength)]
-
-    convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
-    observedMovie = [addNoise(frame) for frame in convolvedMovie]
-
-    freqDistribs = [[absNormalMaker(sqrt(2))] for _ in range(n)]
-
-    freqs = []
-    for trueFrame in trueMovie:
-        freqs.extend(np.abs(np.fft.fft(trueFrame))/sqrt(n))
-#        freqs.extend(np.fft.fft(trueFrame)/sqrt(n))
-
-    p.hist(freqs, bins=numBins, range=(0, maxVal), density=True)
-    p.plot(xVals, [absNormalMaker(sqrt(2))(x) for x in xVals])
-
-    p.show()
-
-    movieFreqs = []
-    print "trueFreq", np.abs(occluderFreqs[1])
-    trueFreq = np.abs(occluderFreqs[1])
-
-    for j, observedFrame in enumerate(observedMovie):
-        observedFreqs = np.fft.fft(observedFrame)/sqrt(n)
+            visualizeColorMesh(X, Y, Z, np.roots(seq))
+            visualizeColorMesh(X, Y, Z, [])
         
-        print "movieFreq", abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))
-        movieFreq = abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))
+            
+        if movieRecovery:
+            recoveredPoly = occluder
+            lenPoly = len(recoveredPoly)
 
-        finalFreqDistribs = [distribProductMaker(listOfDistribs) for listOfDistribs in freqDistribs]
-#        p.plot(xVals, [finalFreqDistribs[1](x) for x in xVals])
-#        p.show()        
+            toeplitzMatrix = toeplitz(recoveredPoly[:int((lenPoly+1)/2)][::-1], recoveredPoly[int((lenPoly-1)/2):])
+            inverseToeplitzMatrix = np.linalg.inv(toeplitzMatrix)
 
-        for i, freq in enumerate(observedFreqs):
-            if i == 1:
-                print "obsFreq", np.abs(freq), abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))*trueFreq
+            recoveredMovie = doFuncToEachChannel(lambda x: np.transpose(np.dot(inverseToeplitzMatrix, np.transpose(x))), concatenatedDifferenceFrames)
 
- #               print fmin(lambda x: -invAbsNormalMaker(sqrt(2), abs(freq))(x), \
- #                   np.abs(trueFreq)) 
 
-#                p.plot(xVals, [invAbsNormalMaker(sqrt(2)*2/sqrt(pi), abs(freq))(x) for x in xVals])
-#                p.plot(xVals, [invAbsNormalMaker(sqrt(2)/sqrt(3/2), abs(freq))(x) for x in xVals])
+    #    visualizePolynomialValues(listOfSingleColorFrames[randomSingleColorFrameIndex])
 
-#                p.axvline(x=abs(trueFreq), color="green")
-#                p.show()            
+    if DENSITY_TESTS:    
+        sigma = 0.04
+        densityFunc = lambda x: logLaplace(x, 0, sigma)
+        
+        numPointsParam = 10
+        
+    #    evenPoints = makeEvenPointsAccordingToDensity(densityFunc, numPointsParam, 0, \
+    #        100, 1, 30)
+            
+        evenPoints = makeEvenPointsAccordingToDensity(densityFunc, 10*numPointsParam, 0, \
+            100, 1, 300)
 
-            freqDistribs[i].append(invAbsNormalMaker(sqrt(3), np.abs(freq)))
+    if GIANT_GRADIENT_DESCENT:
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames_coarse.p", "r")), 2)
+    #    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    finalFreqDistribs = [logDistribProductMaker(listOfDistribs) for listOfDistribs in freqDistribs]
-    for i in range(n):
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)][100:150]
 
-        print i, np.abs(occluderFreqs[i]), fmin(lambda x: -finalFreqDistribs[i](x), \
-            np.abs(occluderFreqs[i])) 
-        p.plot(xVals, [finalFreqDistribs[i](x) for x in xVals])
-        p.axvline(x=abs(occluderFreqs[i]), color="red")        
-        ax = p.gca()
-        ax.set_ylim(-10000, 10000)
+        listOfBWFlatDifferenceFrames = [bwifyFlatFrame(flatFrame) for flatFrame in listOfFlatDifferenceFrames]
+
+    #    print np.concatenate(imageify(np.array(listOfBWFlatDifferenceFrames)), 1).shape
+
+    #    print np.array(listOfBWFlatDifferenceFrames)
+
+        displayConcatenatedArray(np.concatenate(imageify(np.array(listOfBWFlatDifferenceFrames))/255, 1), magnification=100,
+            differenceImage=True, rowsPerFrame=1)
+
+        occluder = np.array([1, 0, 0, 1, 1])
+    #    occluder = np.array([1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1,0,1,1,0,0,0,1])
+
+        numFrames = len(listOfBWFlatDifferenceFrames)
+        unconvolvedFrameLength = len(listOfBWFlatDifferenceFrames[0])
+    #    occluder = generateZeroOneSeq(2*unconvolvedFrameLength-1)
+
+        occluderLength = len(occluder)
+
+        viewFlatFrame((imageify(occluder)))
+
+        def getConvolvedFrame(occluderSeq, movieFrame):
+    #        print occluderSeq, movieFrame
+
+    #        viewFlatFrame(imageify(np.convolve(occluderSeq, movieFrame, mode="full")))
+
+            return np.convolve(occluderSeq, movieFrame, mode="full")
+
+        listOfConvolvedDifferenceFrames = [addNoise(getConvolvedFrame(occluder, frame)) \
+            for frame in listOfBWFlatDifferenceFrames]
+
+    #    convolvedDifferenceFrames = np.concatenate(listOfConvolvedDifferenceFrames, 1)
+
+    #    print "convo", np.array(listOfConvolvedDifferenceFrames)
+
+        print imageify(np.array(listOfConvolvedDifferenceFrames)).shape
+
+        displayConcatenatedArray(np.concatenate(imageify(np.array(listOfConvolvedDifferenceFrames))/255,1),
+            magnification=100, differenceImage=True, rowsPerFrame=1)
+
+
+        frameLength = len(listOfConvolvedDifferenceFrames[0])
+
+    #    assert occluderLength == 2*frameLength-1
+
+        vecLength = occluderLength + numFrames*frameLength
+        initVec = [np.random.normal() for _ in range(vecLength)]
+
+        lambdas = [
+            100, # occluder [0,1] enforcement (L1)
+            3, # occluder low spatial variability (L1)
+            3, # movie low temporal variability (L1)
+            10, # movie sparsity enforcement (L1)
+            3, # movie low spatial variability (L1)
+            1/NOISE_SIGMA # observation-matching enforcement (L2)
+        ]
+
+        evaluateSequence = evaluateSequenceMaker(occluderLength, listOfConvolvedDifferenceFrames, \
+            getConvolvedFrame, lambdas)
+
+        xopt, nfeval, rc = \
+            fmin_tnc(evaluateSequence, initVec, approx_grad=1, maxfun=10000)
+
+        recoveredOccluder = xopt[:occluderLength]
+
+        viewFlatFrame(imageify(recoveredOccluder))
+
+
+
+
+        print "xopt", xopt
+        print "nfeval", nfeval
+        print "rc", rc
+
+    if ROADSIDE_DECONVOLUTION:
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames_fine.p", "r")), 2)
+
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)][:]
+
+    #    viewFlatFrame(imageify(bwifyFlatFrame(listOfFlatFrames[30]))/255)
+
+    #    viewFlatFrame(listOfFlatFrames[30])
+
+        d = 0.3
+
+        randomIndex = random.randint(0, len(listOfFlatDifferenceFrames)-1)
+        print randomIndex
+
+        randomFlatFrame = bwifyFlatFrame(listOfFlatDifferenceFrames[randomIndex])
+
+        frameLength = len(randomFlatFrame)
+
+        occluder = generateZeroOneSeq(frameLength)
+
+        sceneFunc = sequenceToFunction(randomFlatFrame)
+        occFunc = sequenceToFunction(occluder)
+
+        viewFlatFrame(imageify(randomFlatFrame))
+        viewFlatFrame(imageify(occluder))
+
+        obs = roadsideConvolve(sceneFunc, occFunc, d)
+
+        print obs
+
+        viewFrame(imageify(obs))
+
+    if POLYNOMIAL_EXPERIMENT:
+
+    #    listOfFlatFrames = pickle.load(open("real_flat_frames_2500_4500_downsampled.p", "r"))
+        listOfFlatFrames = pickle.load(open("flat_frames_grey_bar.p", "r"))
+
+
+        print "list loaded"
+
+        print len(listOfFlatFrames)
+
+        print listOfFlatFrames[0].shape
+
+        print listOfFlatFrames[1].shape
+
+        downsampledFrames = [batchArrayAlongAxis(frame, 0, 1) for frame in listOfFlatFrames]
+
+        listOfFlatDifferenceFrames = [downsampledFrames[i+1] - downsampledFrames[i] \
+            for i in range(len(downsampledFrames) - 1)][:200]
+
+        print len(listOfFlatDifferenceFrames)
+
+
+        concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 1, axis=1))/255, 1), 0, 1)
+        concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
+
+
+        print np.array([listOfFlatDifferenceFrames[0]]*100).shape
+
+    #    viewFrame(np.array([listOfFlatDifferenceFrames[0]]*100), magnification=100, differenceImage=True)
+
+    #    print concatenatedOriginalFrames.shape
+
+    #    displayConcatenatedArray(concatenatedOriginalFrames, magnification=100, \
+    #        differenceImage=True, rowsPerFrame=10)
+        print concatenatedDifferenceFrames.shape
+     
+        viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
+        viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
+
+        listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
+
+    #    eyeballedRoots = [(-0.39, -1.08),
+    #                (-0.15, -0.97),
+    #                (0.55, -0.77),
+     #               (0.99, -0.49),
+     #               (-0.69, -0.66),
+     #               (-0.82, -0.42),
+     #               (-0.99, -0.25),
+      #              (0.12, -0.87),
+       #             (0.66, -0.31),
+        #            (-1.02, 0)]               
+
+        eyeballedRoots = [(0.86, -0.21),
+                            (0.85, -0.49),
+                            (0.73, -0.81),
+                            (0.49, -0.86),
+                            (0.15, -1.04),
+                            (-0.14, -1.05),
+                            (-0.35, -0.91),
+                            (-0.75, -0.73),
+                            (-0.85, -0.44),
+                            (-0.98, -0.26),
+                            (-1.11, 0)]
+
+
+        eyeballedRootsComplexForm = [i[0] + 1j*i[1] for i in eyeballedRoots] + [i[0] + -1j*i[1] for i in eyeballedRoots[:-1]]
+
+        rootsFound = findRoots(listOfSingleColorFrames, eyeballedRootsComplexForm, \
+            numRootsExpected=19, showy=False)
+
+    #    print rootsFound
+
+    #    rootsFound = eyeballedRootsComplexForm
+
+    #    complexFormRootsFound = [root[0] + 1j*root[1] for root in rootsFound]
+
+    #    print "correct roots", np.roots(occluder)
+    #    print "recovered roots", complexFormRootsFound
+    #    print "correct polynomial", polyfromroots(np.roots(occluder))
+    #    print "recovered polynomial", polyfromroots(complexFormRootsFound)
+
+    #        print rootsFound
+
+    #        complexFormRootsFound = [np.exp(1j*root[0])*root[1] for root in rootsFound]
+
+        fitPoly = polyfromroots(rootsFound)/2
+
+        pickle.dump(fitPoly, open("fit_poly.p", "w"))
+
+        print fitPoly
+        
+        viewFlatFrame(imageify(fitPoly), differenceImage=False, magnification=1, filename="recovered_occluder.png")
+
+
+    if POLYNOMIAL_EXPERIMENT_AFTERMATH:
+
+        rootsFound = pickle.load(open("found_roots", "r"))
+
+        for rf in rootsFound:
+            print rf
+
+        complexFormRootsFound = [root[0][0] + 1j*root[0][1] for root in rootsFound]
+
+        print complexFormRootsFound
+
+        recoveredRoots = cleanFoundRoots(complexFormRootsFound, 19)    
+
+        for root in complexFormRootsFound:
+            p.plot(np.real(root), np.imag(root), "ro")
+           
+
+        for root in recoveredRoots:
+            p.plot(np.real(root), np.imag(root), "bo")
 
 
         p.show()
 
+        fitPoly = polyfromroots(recoveredRoots)
 
-#        if observedFreqs
+        pickle.dump(fitPoly, open("fit_poly.p", "w"))
 
-if RECOVER_FREQ_MAGNITUDES_2:
-    n = 25
-    movieLength = 10000
+        print fitPoly
 
-    numBins = 200
-    maxVal = 3
-    xVals = np.linspace(0, maxVal, numBins)
+        viewFlatFrame(imageify(fitPoly), differenceImage=False, magnification=0.5, filename="recovered_occluder.png")
 
-#    predictedMean = pi*sqrt(pi)/2
-    predictedMean = sqrt(pi)/2
 
-    gaussianOccluder = generateZeroOneSeqIndep(n)
-    occluderFreqs = np.abs(np.fft.fft(gaussianOccluder)/sqrt(n))
-    trueMovie = [generateGaussianSeq(n,1) for _ in range(movieLength)]
+    #    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+    #        differenceImage=True, rowsPerFrame=10, stretchFactor=1)    
 
-    convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
-    observedMovie = [addNoise(frame) for frame in convolvedMovie]
+    if POLYNOMIAL_EXPERIMENT_FRANKENSTEIN:
+        poly1 = pickle.load(open("fit_poly_1.p", "r"))
 
-    freqDistribs = [[absNormalMaker(sqrt(2))] for _ in range(n)]    
+        viewFlatFrame(imageify(poly1))
 
-    convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
-    observedMovie = [addNoise(frame) for frame in convolvedMovie]
+        poly2 = pickle.load(open("fit_poly_2.p", "r"))
 
-    freqObs = np.array([np.abs(np.fft.fft(frame)/sqrt(n)) for frame in observedMovie])
-    freqObsT = np.transpose(freqObs)
+        viewFlatFrame(imageify(poly2))
 
-    averageFreqs = [average(freq) for freq in freqObsT]
-    estimatedFreqs = np.array([averageFreqs[0]/(predictedMean/1.1)] + \
-        [freq/predictedMean for freq in averageFreqs[1:]])
+        fullOccluder = np.concatenate((poly2, poly1), axis=0)
 
-    viewFrame(imageify(np.array(observedMovie[:100])), magnification=1)
+        viewFlatFrame(imageify(fullOccluder))
 
- #   estimatedOccluder, solutionFound = retrievePhase(estimatedFreqs)
- #   print "Do we think we found a solution?", solutionFound
+    if POLYNOMIAL_EXPERIMENT_RECOVERY:
+        listOfFlatFrames = pickle.load(open("real_flat_frames_2500_4500_downsampled.p", "r"))
 
+        print "list loaded"
 
- #   viewFlatFrame(imageify(estimatedOccluder), magnification=6)
- #   viewFlatFrame(imageify(gaussianOccluder))
- #   print estimatedOccluder
- #   print gaussianOccluder
+        print len(listOfFlatFrames)
 
+        print listOfFlatFrames[0].shape
 
-#    print occluderFreqs
- #   print estimatedFreqs
-    offset = np.divide(occluderFreqs, estimatedFreqs)
+        print listOfFlatFrames[1].shape
 
-#    print offset
-    p.hist(offset, bins=100, range=(0.85,1.15))
-    p.hist(offset, bins=100)
-    p.show()
+        downsampledFrames = [batchArrayAlongAxis(frame, 0, 11) for frame in listOfFlatFrames]
 
+        listOfFlatDifferenceFrames = [downsampledFrames[i+1] - downsampledFrames[i] \
+            for i in range(len(downsampledFrames) - 1)][300:]
 
+        print len(listOfFlatDifferenceFrames)
 
- #   viewFlatFrame(imageify(occluderFreqs), magnification=1)
-  #  viewFlatFrame(imageify(np.array(estimatedFreqs)), magnification=1)
+    #    concatenatedOriginalFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatFrames), 10, axis=1))/255, 1), 0, 1)
+        concatenatedDifferenceFrames = np.swapaxes(np.concatenate(imageify(np.repeat(np.array(listOfFlatDifferenceFrames), 1, axis=1))/255, 1), 0,1)
 
-if BLIND_2D_SIM:
-    x = 100
-    y = 100
 
-    truthFrame = generateSparseFrame(x, y)
-    blurryTruthFrame = batchAndDifferentiate(truthFrame, \
-        [(25, False), (25, False)])
-    viewFrame(imageify(truthFrame))
-    viewFrame(imageify(blurryTruthFrame), magnification=1e1)
+        print np.array([listOfFlatDifferenceFrames[0]]*100).shape
 
-    occ = generateRandomCorrelatedOccluder(x, y)
-    blurryOcc = batchAndDifferentiate(occ, \
-        [(25, False), (25, False)])
-    viewFrame(imageify(occ))
-    viewFrame(imageify(blurryOcc))
+    #    viewFrame(np.array([listOfFlatDifferenceFrames[0]]*100), magnification=100, differenceImage=True)
 
-    convolvedFrame = convolve2D(truthFrame, occ)
-    blurryConvolvedFrame = batchAndDifferentiate(convolvedFrame, \
-        [(25, False), (25, False)])
+    #    print concatenatedOriginalFrames.shape
 
-    otherBlurryConvolvedFrame = convolve2D(blurryTruthFrame, blurryOcc)
+        displayConcatenatedArray(concatenatedDifferenceFrames, magnification=100, \
+            differenceImage=True, rowsPerFrame=10)
+     #   print concatenatedDifferenceFrames.shape
+     
+    #    viewFrame(concatenatedOriginalFrames, magnification=1, differenceImage=True)
+    #    viewFrame(concatenatedDifferenceFrames, magnification=100, differenceImage=True)
 
-    print otherBlurryConvolvedFrame.shape, otherBlurryConvolvedFrame
+        listOfSingleColorFrames = getListOfSingleColorFrames(listOfFlatDifferenceFrames)[:]
 
-    viewFrame(imageify(convolvedFrame), magnification=3e-2)
-    viewFrame(imageify(blurryConvolvedFrame), magnification=3e-2)
-    viewFrame(imageify(otherBlurryConvolvedFrame), magnification=1e1)
+        recoveredPoly = np.flip(np.concatenate((np.real(pickle.load(open("fit_poly_1.p", "r"))), np.array([0])), axis=0), 0)
+        viewFlatFrame(imageify(recoveredPoly))
 
-    mags = getMags(blurryOcc)
+        lenPoly = len(recoveredPoly)
 
-    counter = 0
-    while True:
-        solution, foundSolution, errors = retrievePhase2D(mags, tol=1e-10)
-        counter += 1
-        print counter
+        print lenPoly
 
-        solution = blurryOcc
+        toeplitzMatrix = toeplitz(recoveredPoly[:int((lenPoly+1)/2)][::-1], recoveredPoly[int((lenPoly-1)/2):])
 
-#        viewFrame(imageify(solution))
-        resultingFrame = deconvolve2D(blurryConvolvedFrame, solution)
-#        viewFrame(imageify(resultingFrame))
-        if sparsity(resultingFrame) > 6:
-            break
+        print toeplitzMatrix.shape
 
-    viewFrame(imageify(solution))
-    viewFrame(imageify(resultingFrame))
+        inverseToeplitzMatrix = np.linalg.inv(toeplitzMatrix)
 
+        recoveredMovie = doFuncToEachChannel(lambda x: np.transpose(np.dot(inverseToeplitzMatrix, np.transpose(x))), concatenatedDifferenceFrames)
 
+        viewFrame(np.repeat(recoveredMovie, 10, axis=1), magnification=100, differenceImage=True)
 
-#    viewFrame(imageify(generateSparseFrame(x, y)))
-#    viewFrame(imageify(generateRandomCorrelatedOccluder(x, y)))
+        p.matshow(toeplitzMatrix)
+        p.show()
 
-if STUPID_METHOD_2D:
-#    path = "smaller_movie.mov"
-#    vid = imageio.get_reader(path,  'ffmpeg')
+    if SIMPLE_BLIND_DECONV_TEST:
 
-#    numFrames = len(vid)
+        n = 100
 
-#    for i in range(numFrames):
- #       if i % 50 == 0:
+        numSamples = 1000
+        listOfFreqs = []
 
-#            im = vid.get_data(i)
-#            frame = np.array(im).astype(float)
-#
-#            viewFrame(frame)
-    vid = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
+        for _ in range(numSamples):
+     
+            randomNumbers = generateGaussianSeq(n, 1)
+     #       randomNumbers = [random.random()*sqrt(12) for _ in range(n)]
+     #       randomNumbers = [2*(random.random()>0.5) for _ in range(n)]
+    #        randomNumbers = generateZeroOneSeq(n)
+    #        randomNumbers = generateSparseSeq(n)
 
-    frameDims = [90,160]
+            fftNum = np.fft.fft(randomNumbers)/sqrt(n)
+            listOfFreqs.extend([abs(i) for i in fftNum])
 
-#    frameDims = vid[0].shape
+    #        listOfFreqs.append(abs(randomNumbers[0]))
+        
+        numBins = 200
+        maxVal = 3
+        xVals = np.linspace(0, maxVal, numBins)
 
- #   print frameDims
+        av = average(listOfFreqs)
 
-#    frameDims = [10,10]
+        print av
+        offset = 2
 
-#    occDims = [2*i-1 for i in frameDims]
-#    occ = generateRandomVeryCorrelatedOccluder(occDims[0], occDims[1], 13)
+    #    gammaDist = gammaDistMaker(offset, av/offset)
+        absNormal = absNormalMaker(sqrt(2))
+    #    absNormal = absNormalMaker(5)
 
-    occ = pickle.load(open("corr_occ.p", "r"))
-    
-#    occ = generateRandomCorrelatedOccluder(occDims[0], occDims[1])
+        invAbsNormal = invAbsNormalMaker(sqrt(2), 2)
 
-    viewFrame(imageify(occ))
 
-#    pickle.dump(occ, open("corr_occ.p", "w"))
+        print quad(lambda x: x*absNormal(x), 0, np.inf)
+        print quad(invAbsNormal, 0, np.inf)
 
-#    for i, frame in enumerate(vid):
-#        if i % 50 == 0:
-#            viewFrame(imageify(occ))
-#            viewFrame(imageify(frame)/20)
- #           viewFrame(imageify(convolve2DToeplitz(occ, frame))/20)
+        p.plot(xVals, [invAbsNormal(x) for x in xVals])
+        p.plot(xVals, [absNormal(x) for x in xVals])
 
-#    frame1 = random.choice(vid)
-#    frame2 = random.choice(vid)
+        p.hist(listOfFreqs, bins=200, range=(0, 3), density=True)
+        p.show()
 
-    frame1 = vid[1200]
-    frame2 = vid[200]
+    if RECOVER_FREQ_MAGNITUDES:
+        n = 100
+        movieLength = 1000
 
-    frame1Stretched = stretchArray(frame1, (256, 256))
-    frame1Sparsified = sparsify(frame1Stretched, 0.3)
+        numBins = 200
+        maxVal = 3
+        xVals = np.linspace(0, maxVal, numBins)
 
-    print frame1Stretched.shape
-    viewFrame(imageify(frame1Sparsified), adaptiveScaling=True, differenceImage=True)
+        gaussianOccluder = generateGaussianSeq(n, 1)
+        occluderFreqs = np.fft.fft(gaussianOccluder)/sqrt(n)
+        trueMovie = [generateGaussianSeq(n, 1) for _ in range(movieLength)]
 
-    pickle.dump(frame1Sparsified, open("sparse_vickie_movement.p", "w"))
+        convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
+        observedMovie = [addNoise(frame) for frame in convolvedMovie]
 
-#    frame1 = makeRandomImpulseFrame(frameDims)
- #   frame2 = makeRandomImpulseFrame(frameDims)
+        freqDistribs = [[absNormalMaker(sqrt(2))] for _ in range(n)]
 
-#    frame1 = makeMultipleImpulseFrame(frameDims, 2)
-#    frame2 = makeMultipleImpulseFrame(frameDims, 2)
+        freqs = []
+        for trueFrame in trueMovie:
+            freqs.extend(np.abs(np.fft.fft(trueFrame))/sqrt(n))
+    #        freqs.extend(np.fft.fft(trueFrame)/sqrt(n))
 
-#    frame1 = makeImpulseFrame(frameDims, tuple([int(i2) for i in frameDims]))
-#    frame2 = makeImpulseFrame(frameDims, tuple([int(i/2) for i in frameDims]))
+        p.hist(freqs, bins=numBins, range=(0, maxVal), density=True)
+        p.plot(xVals, [absNormalMaker(sqrt(2))(x) for x in xVals])
 
-#    frame1 = makeImpulseFrame(frameDims, (45,80))
- #   frame2 = makeImpulseFrame(frameDims, (80,120))
+        p.show()
 
-    viewFrame(imageify(frame1), magnification=1, adaptiveScaling=True, differenceImage=True)
-    viewFrame(imageify(frame2), magnification=1, adaptiveScaling=True, differenceImage=True)
+        movieFreqs = []
+        print "trueFreq", np.abs(occluderFreqs[1])
+        trueFreq = np.abs(occluderFreqs[1])
 
-    convolvedFrame1 = convolve2DToeplitz(frame1, occ)
-    convolvedFrame2 = convolve2DToeplitz(frame2, occ)
+        for j, observedFrame in enumerate(observedMovie):
+            observedFreqs = np.fft.fft(observedFrame)/sqrt(n)
+            
+            print "movieFreq", abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))
+            movieFreq = abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))
 
-    viewFrame(imageify(convolvedFrame1), magnification=1, adaptiveScaling=True, differenceImage=False)
-    viewFrame(imageify(convolvedFrame2), magnification=1, adaptiveScaling=True, differenceImage=False)
+            finalFreqDistribs = [distribProductMaker(listOfDistribs) for listOfDistribs in freqDistribs]
+    #        p.plot(xVals, [finalFreqDistribs[1](x) for x in xVals])
+    #        p.show()        
 
-    matchArray, bestMatchArray, bestMatchIndex = getMatchArray(np.abs(convolvedFrame1), \
-        np.abs(convolvedFrame2))
+            for i, freq in enumerate(observedFreqs):
+                if i == 1:
+                    print "obsFreq", np.abs(freq), abs(np.fft.fft(trueMovie[j])[1]/sqrt(n))*trueFreq
 
-    print bestMatchIndex
+     #               print fmin(lambda x: -invAbsNormalMaker(sqrt(2), abs(freq))(x), \
+     #                   np.abs(trueFreq)) 
 
-    overlapArray1, overlapArray2 = getOverlapArray(np.abs(convolvedFrame1), \
-        np.abs(convolvedFrame2), bestMatchIndex)
+    #                p.plot(xVals, [invAbsNormalMaker(sqrt(2)*2/sqrt(pi), abs(freq))(x) for x in xVals])
+    #                p.plot(xVals, [invAbsNormalMaker(sqrt(2)/sqrt(3/2), abs(freq))(x) for x in xVals])
 
-#    viewFrame(convolvedFrame[frameDims])
+    #                p.axvline(x=abs(trueFreq), color="green")
+    #                p.show()            
 
-    viewFrame(imageify(matchArray), \
-        magnification=1, adaptiveScaling=True, differenceImage=False)
+                freqDistribs[i].append(invAbsNormalMaker(sqrt(3), np.abs(freq)))
 
-    viewFrame(imageify(bestMatchArray), adaptiveScaling=True)
+        finalFreqDistribs = [logDistribProductMaker(listOfDistribs) for listOfDistribs in freqDistribs]
+        for i in range(n):
 
-    viewFrame(imageify(overlapArray1), adaptiveScaling=True)
-    viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+            print i, np.abs(occluderFreqs[i]), fmin(lambda x: -finalFreqDistribs[i](x), \
+                np.abs(occluderFreqs[i])) 
+            p.plot(xVals, [finalFreqDistribs[i](x) for x in xVals])
+            p.axvline(x=abs(occluderFreqs[i]), color="red")        
+            ax = p.gca()
+            ax.set_ylim(-10000, 10000)
 
-    viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
 
-    print "max", np.amax(matchArray)
+            p.show()
 
-    x = 100        
-    y = 100    
 
-if SPLIT_FRAMES:
-    vid = pickle.load(open("plant_rect_meansub_pos.p", "r"))
+    #        if observedFreqs
 
-    vid = np.swapaxes(np.swapaxes(vid,2,3),1,2)
+    if RECOVER_FREQ_MAGNITUDES_2:
+        n = 25
+        movieLength = 10000
 
-    listOfSingleColorFrames = []
+        numBins = 200
+        maxVal = 3
+        xVals = np.linspace(0, maxVal, numBins)
 
-    for frame in vid:
-        for singleColorFrame in frame:
-            listOfSingleColorFrames.append(singleColorFrame)
+    #    predictedMean = pi*sqrt(pi)/2
+        predictedMean = sqrt(pi)/2
 
-    pickle.dump(listOfSingleColorFrames, open("plant_rect_meansub_pos_framesplit.p", "w"))        
+        gaussianOccluder = generateZeroOneSeqIndep(n)
+        occluderFreqs = np.abs(np.fft.fft(gaussianOccluder)/sqrt(n))
+        trueMovie = [generateGaussianSeq(n,1) for _ in range(movieLength)]
 
-if FOURIER_BURST_ACCUMULATION:
-    listOfSingleColorFrames = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
+        convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
+        observedMovie = [addNoise(frame) for frame in convolvedMovie]
 
-    occ = pickle.load(open("corr_occ.p", "r"))
+        freqDistribs = [[absNormalMaker(sqrt(2))] for _ in range(n)]    
 
-    listOfFramesToAggregate = []
+        convolvedMovie = [wrapConvolve(gaussianOccluder, frame) for frame in trueMovie]
+        observedMovie = [addNoise(frame) for frame in convolvedMovie]
 
-    for _ in range(20):
-        frame = random.choice(listOfSingleColorFrames)
+        freqObs = np.array([np.abs(np.fft.fft(frame)/sqrt(n)) for frame in observedMovie])
+        freqObsT = np.transpose(freqObs)
 
-        viewFrame(imageify(convolve2DToeplitzFull(frame, occ)), \
-            adaptiveScaling=True)
+        averageFreqs = [average(freq) for freq in freqObsT]
+        estimatedFreqs = np.array([averageFreqs[0]/(predictedMean/1.1)] + \
+            [freq/predictedMean for freq in averageFreqs[1:]])
 
-        listOfFramesToAggregate.append(convolve2DToeplitzFull(frame, occ))
+        viewFrame(imageify(np.array(observedMovie[:100])), magnification=1)
 
-    aggregatedFrame = aggregateFrames(listOfFramesToAggregate, 3)
+     #   estimatedOccluder, solutionFound = retrievePhase(estimatedFreqs)
+     #   print "Do we think we found a solution?", solutionFound
 
-    print aggregatedFrame
-    viewFrame(imageify(aggregatedFrame), adaptiveScaling=True)
-    pickle.dump(aggregatedFrame, open("agg_frame", "w"))
 
-if LOOK_AT_AGG_FRAME:
+     #   viewFlatFrame(imageify(estimatedOccluder), magnification=6)
+     #   viewFlatFrame(imageify(gaussianOccluder))
+     #   print estimatedOccluder
+     #   print gaussianOccluder
 
-    aggFrame = pickle.load(open("agg_frame", "r"))
 
-    viewFrame(imageify(aggFrame), adaptiveScaling=True, magnification=1e5)
+    #    print occluderFreqs
+     #   print estimatedFreqs
+        offset = np.divide(occluderFreqs, estimatedFreqs)
 
-if STUPID_METHOD_2D_2:
+    #    print offset
+        p.hist(offset, bins=100, range=(0.85,1.15))
+        p.hist(offset, bins=100)
+        p.show()
 
-    vid = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
 
-    frameDims = [90,160]
 
-    occ = pickle.load(open("corr_occ.p", "r"))
-    
-#    occ = generateRandomCorrelatedOccluder(occDims[0], occDims[1])
+     #   viewFlatFrame(imageify(occluderFreqs), magnification=1)
+      #  viewFlatFrame(imageify(np.array(estimatedFreqs)), magnification=1)
 
-    viewFrame(imageify(occ))
+    if BLIND_2D_SIM:
+        x = 100
+        y = 100
 
-    frame1 = random.choice(vid)
-    frame2 = random.choice(vid)
+        truthFrame = generateSparseFrame(x, y)
+        blurryTruthFrame = batchAndDifferentiate(truthFrame, \
+            [(25, False), (25, False)])
+        viewFrame(imageify(truthFrame))
+        viewFrame(imageify(blurryTruthFrame), magnification=1e1)
 
-    viewFrame(imageify(frame1), magnification=1, adaptiveScaling=True, differenceImage=True)
-    viewFrame(imageify(frame2), magnification=1, adaptiveScaling=True, differenceImage=True)
+        occ = generateRandomCorrelatedOccluder(x, y)
+        blurryOcc = batchAndDifferentiate(occ, \
+            [(25, False), (25, False)])
+        viewFrame(imageify(occ))
+        viewFrame(imageify(blurryOcc))
 
-    convolvedFrame1 = convolve2DToeplitzFull(frame1, occ)
-    convolvedFrame2 = convolve2DToeplitzFull(frame2, occ)
+        convolvedFrame = convolve2D(truthFrame, occ)
+        blurryConvolvedFrame = batchAndDifferentiate(convolvedFrame, \
+            [(25, False), (25, False)])
 
-    viewFrame(imageify(convolvedFrame1), magnification=1, adaptiveScaling=True, differenceImage=False)
-    viewFrame(imageify(convolvedFrame2), magnification=1, adaptiveScaling=True, differenceImage=False)
+        otherBlurryConvolvedFrame = convolve2D(blurryTruthFrame, blurryOcc)
 
-    matchArray, bestMatchArray, bestMatchIndex, matchQuality = getMatchArray(np.abs(convolvedFrame1), \
-        np.abs(convolvedFrame2))
+        print otherBlurryConvolvedFrame.shape, otherBlurryConvolvedFrame
 
-    print bestMatchIndex
-    print matchQuality
+        viewFrame(imageify(convolvedFrame), magnification=3e-2)
+        viewFrame(imageify(blurryConvolvedFrame), magnification=3e-2)
+        viewFrame(imageify(otherBlurryConvolvedFrame), magnification=1e1)
 
-    overlapArray1, overlapArray2 = getOverlapArray(np.abs(convolvedFrame1), \
-        np.abs(convolvedFrame2), bestMatchIndex)
+        mags = getMags(blurryOcc)
 
-#    viewFrame(convolvedFrame[frameDims])
+        counter = 0
+        while True:
+            solution, foundSolution, errors = retrievePhase2D(mags, tol=1e-10)
+            counter += 1
+            print counter
 
-    viewFrame(imageify(matchArray), \
-        magnification=1, adaptiveScaling=True, differenceImage=False)
+            solution = blurryOcc
 
-    viewFrame(imageify(bestMatchArray), adaptiveScaling=True)
+    #        viewFrame(imageify(solution))
+            resultingFrame = deconvolve2D(blurryConvolvedFrame, solution)
+    #        viewFrame(imageify(resultingFrame))
+            if sparsity(resultingFrame) > 6:
+                break
 
-    viewFrame(imageify(overlapArray1), adaptiveScaling=True)
-    viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+        viewFrame(imageify(solution))
+        viewFrame(imageify(resultingFrame))
 
-    viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
 
-    print "max", np.amax(matchArray)
 
-    x = 100        
-    y = 100    
+    #    viewFrame(imageify(generateSparseFrame(x, y)))
+    #    viewFrame(imageify(generateRandomCorrelatedOccluder(x, y)))
 
-if STUPID_METHOD_2D_3:
-    vid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
-    occ = pickle.load(open("corr_occ_2.p", "r"))
+    if STUPID_METHOD_2D:
+    #    path = "smaller_movie.mov"
+    #    vid = imageio.get_reader(path,  'ffmpeg')
 
-    lenVid = len(vid)
+    #    numFrames = len(vid)
 
-#    occ = generateRandomVeryCorrelatedOccluder(36, 64, 3)
+    #    for i in range(numFrames):
+     #       if i % 50 == 0:
 
-    viewFrame(imageify(occ))
-#    pickle.dump(occ, open("corr_occ_2.p", "w"))
+    #            im = vid.get_data(i)
+    #            frame = np.array(im).astype(float)
+    #
+    #            viewFrame(frame)
+        vid = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
 
-    frame = random.choice(vid)
+        frameDims = [90,160]
 
-    frameShape = frame.shape
+    #    frameDims = vid[0].shape
 
-    viewFrame(imageify(frame), differenceImage=True, adaptiveScaling=True)
+     #   print frameDims
 
-    convolvedFrame = convolve2DToeplitzFull(frame, occ)
+    #    frameDims = [10,10]
 
-    convolvedFrameShape = convolvedFrame.shape
-    print convolvedFrameShape
+    #    occDims = [2*i-1 for i in frameDims]
+    #    occ = generateRandomVeryCorrelatedOccluder(occDims[0], occDims[1], 13)
 
-    viewFrame(imageify(convolvedFrame), differenceImage=True, adaptiveScaling=True)
+        occ = pickle.load(open("corr_occ.p", "r"))
+        
+    #    occ = generateRandomCorrelatedOccluder(occDims[0], occDims[1])
 
-    otherConvolvedFrame = np.reshape(np.dot(getForwardModelMatrix2DToeplitzFull(occ), frame.flatten()), convolvedFrameShape)
+        viewFrame(imageify(occ))
 
-    viewFrame(imageify(otherConvolvedFrame), differenceImage=True, adaptiveScaling=True)
+    #    pickle.dump(occ, open("corr_occ.p", "w"))
 
-    pseudoInverse = getPseudoInverseSmooth(getForwardModelMatrix2DToeplitzFull(occ), convolvedFrameShape, 1e6)
+    #    for i, frame in enumerate(vid):
+    #        if i % 50 == 0:
+    #            viewFrame(imageify(occ))
+    #            viewFrame(imageify(frame)/20)
+     #           viewFrame(imageify(convolve2DToeplitz(occ, frame))/20)
 
-    recoveredFrame = np.reshape(np.dot(pseudoInverse, convolvedFrame.flatten()), frameShape)
+    #    frame1 = random.choice(vid)
+    #    frame2 = random.choice(vid)
 
-    viewFrame(imageify(frame), differenceImage=True, adaptiveScaling=True)
+        frame1 = vid[1200]
+        frame2 = vid[200]
 
-if STUPID_METHOD_2D_4:
-    diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
-#    diffVid = pickle.load(open("rick_morty_batched_diff_framesplit.p", "r"))
+        frame1Stretched = stretchArray(frame1, (256, 256))
+        frame1Sparsified = sparsify(frame1Stretched, 0.3)
 
-    occ = pickle.load(open("corr_occ_2.p", "r"))
-#    viewFrame(imageify(occ))
+        print frame1Stretched.shape
+        viewFrame(imageify(frame1Sparsified), adaptiveScaling=True, differenceImage=True)
 
-    vid = pickle.load(open("steven_batched.p", "r"))
-#    vid = pickle.load(open("rick_morty_batched.p", "r"))
+        pickle.dump(frame1Sparsified, open("sparse_vickie_movement.p", "w"))
 
+    #    frame1 = makeRandomImpulseFrame(frameDims)
+     #   frame2 = makeRandomImpulseFrame(frameDims)
 
-    lenVid = len(vid)   
+    #    frame1 = makeMultipleImpulseFrame(frameDims, 2)
+    #    frame2 = makeMultipleImpulseFrame(frameDims, 2)
 
-    firstMatch = getFirstMatch(diffVid, occ, vid)
+    #    frame1 = makeImpulseFrame(frameDims, tuple([int(i2) for i in frameDims]))
+    #    frame2 = makeImpulseFrame(frameDims, tuple([int(i/2) for i in frameDims]))
 
+    #    frame1 = makeImpulseFrame(frameDims, (45,80))
+     #   frame2 = makeImpulseFrame(frameDims, (80,120))
 
-#        viewFrame(imageify(convolvedFrame1), adaptiveScaling=True, differenceImage=True)
-#        viewFrame(imageify(convolvedFrame2), adaptiveScaling=True, differenceImage=True)
+        viewFrame(imageify(frame1), magnification=1, adaptiveScaling=True, differenceImage=True)
+        viewFrame(imageify(frame2), magnification=1, adaptiveScaling=True, differenceImage=True)
 
-           
+        convolvedFrame1 = convolve2DToeplitz(frame1, occ)
+        convolvedFrame2 = convolve2DToeplitz(frame2, occ)
 
-#        matchArray, bestMatchArray, bestMatchIndex, matchQuality = getMatchArray(np.abs(convolvedFrame1), \
-#            np.abs(convolvedFrame2))
+        viewFrame(imageify(convolvedFrame1), magnification=1, adaptiveScaling=True, differenceImage=False)
+        viewFrame(imageify(convolvedFrame2), magnification=1, adaptiveScaling=True, differenceImage=False)
 
-if ANALYZE_EXTRACTED_OCCLUDER:
-    diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
-    binaryOcc = pickle.load(open("extracted_occ_bin.p"))
+        matchArray, bestMatchArray, bestMatchIndex = getMatchArray(np.abs(convolvedFrame1), \
+            np.abs(convolvedFrame2))
 
-    diffFrame = random.choice(diffVid)
-    frameShape = diffFrame.shape
+        print bestMatchIndex
 
-    occ = pickle.load(open("corr_occ_2.p", "r"))
+        overlapArray1, overlapArray2 = getOverlapArray(np.abs(convolvedFrame1), \
+            np.abs(convolvedFrame2), bestMatchIndex)
 
-    print occ.shape
+    #    viewFrame(convolvedFrame[frameDims])
 
-#    convolvedDiffFrame = np.abs(addNoise(convolve2DToeplitzFull(diffFrame, occ)))
+        viewFrame(imageify(matchArray), \
+            magnification=1, adaptiveScaling=True, differenceImage=False)
 
-#    print convolvedDiffFrame.shape
+        viewFrame(imageify(bestMatchArray), adaptiveScaling=True)
 
-#    forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(occ)
+        viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray2), adaptiveScaling=True)
 
-#    inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+        viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
 
-#    recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+        print "max", np.amax(matchArray)
 
-#    viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
-#    viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
+        x = 100        
+        y = 100    
 
- #   print "sumabs", np.sum(np.abs(recoveredFrame))
+    if SPLIT_FRAMES:
+        vid = pickle.load(open("fan_monitor_rect_diff.p", "r"))
 
-    viewFrame(imageify(binaryOcc))
+        vid = np.swapaxes(np.swapaxes(vid,2,3),1,2)
 
+        listOfSingleColorFrames = []
 
-#    impulseFrame = makeImpulseFrame(frameShape, tuple([int(i/2) for i in frameShape]))
-    impulseFrame = makeMultipleImpulseFrame(frameShape, 10)
+        for frame in vid:
+            for singleColorFrame in frame:
+                listOfSingleColorFrames.append(singleColorFrame)
 
-    viewFrame(imageify(impulseFrame))
+        pickle.dump(listOfSingleColorFrames, open("fan_monitor_rect_diff_framesplit.p", "w"))        
 
-    convolvedFrame = convolve2DToeplitzFull(impulseFrame, occ)
+    if FOURIER_BURST_ACCUMULATION:
+        listOfSingleColorFrames = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
 
-    viewFrame(imageify(convolvedFrame), adaptiveScaling=True)
+        occ = pickle.load(open("corr_occ.p", "r"))
 
-    pseudoinverse = False
-    wienerFilter = True
+        listOfFramesToAggregate = []
 
-    if pseudoinverse:
-        forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(binaryOcc)
+        for _ in range(20):
+            frame = random.choice(listOfSingleColorFrames)
 
-        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+            viewFrame(imageify(convolve2DToeplitzFull(frame, occ)), \
+                adaptiveScaling=True)
 
-        recoveredFrame = vectorizedDot(inversionMatrix, convolvedFrame, frameShape)
-    if wienerFilter:
-        recoveredFrame, _ = restoration.unsupervised_wiener(convolvedFrame, binaryOcc)
+            listOfFramesToAggregate.append(convolve2DToeplitzFull(frame, occ))
 
-    viewFrame(imageify(recoveredFrame), adaptiveScaling=True)
+        aggregatedFrame = aggregateFrames(listOfFramesToAggregate, 3)
 
-#    viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
-#    viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
-    print "sumabs", np.sum(np.abs(recoveredFrame))
+        print aggregatedFrame
+        viewFrame(imageify(aggregatedFrame), adaptiveScaling=True)
+        pickle.dump(aggregatedFrame, open("agg_frame", "w"))
 
-    for i, candidateOcc in enumerate(convertOccToZeroOne(recoveredOcc)):
-        print i
+    if LOOK_AT_AGG_FRAME:
 
-        forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(candidateOcc)
+        aggFrame = pickle.load(open("agg_frame", "r"))
 
-        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+        viewFrame(imageify(aggFrame), adaptiveScaling=True, magnification=1e5)
 
-        recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+    if STUPID_METHOD_2D_2:
 
-        viewFrame(imageify(candidateOcc))
+        vid = pickle.load(open("smaller_movie_batched_diff_framesplit.p", "r"))
 
-#        viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
-#        viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
+        frameDims = [90,160]
 
+        occ = pickle.load(open("corr_occ.p", "r"))
+        
+    #    occ = generateRandomCorrelatedOccluder(occDims[0], occDims[1])
+
+        viewFrame(imageify(occ))
+
+        frame1 = random.choice(vid)
+        frame2 = random.choice(vid)
+
+        viewFrame(imageify(frame1), magnification=1, adaptiveScaling=True, differenceImage=True)
+        viewFrame(imageify(frame2), magnification=1, adaptiveScaling=True, differenceImage=True)
+
+        convolvedFrame1 = convolve2DToeplitzFull(frame1, occ)
+        convolvedFrame2 = convolve2DToeplitzFull(frame2, occ)
+
+        viewFrame(imageify(convolvedFrame1), magnification=1, adaptiveScaling=True, differenceImage=False)
+        viewFrame(imageify(convolvedFrame2), magnification=1, adaptiveScaling=True, differenceImage=False)
+
+        matchArray, bestMatchArray, bestMatchIndex, matchQuality = getMatchArray(np.abs(convolvedFrame1), \
+            np.abs(convolvedFrame2))
+
+        print bestMatchIndex
+        print matchQuality
+
+        overlapArray1, overlapArray2 = getOverlapArray(np.abs(convolvedFrame1), \
+            np.abs(convolvedFrame2), bestMatchIndex)
+
+    #    viewFrame(convolvedFrame[frameDims])
+
+        viewFrame(imageify(matchArray), \
+            magnification=1, adaptiveScaling=True, differenceImage=False)
+
+        viewFrame(imageify(bestMatchArray), adaptiveScaling=True)
+
+        viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+
+        viewFrame(imageify(np.multiply(overlapArray1, overlapArray2)), adaptiveScaling=True)
+
+        print "max", np.amax(matchArray)
+
+        x = 100        
+        y = 100    
+
+    if STUPID_METHOD_2D_3:
+        vid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
+        occ = pickle.load(open("corr_occ_2.p", "r"))
+
+        lenVid = len(vid)
+
+    #    occ = generateRandomVeryCorrelatedOccluder(36, 64, 3)
+
+        viewFrame(imageify(occ))
+    #    pickle.dump(occ, open("corr_occ_2.p", "w"))
+
+        frame = random.choice(vid)
+
+        frameShape = frame.shape
+
+        viewFrame(imageify(frame), differenceImage=True, adaptiveScaling=True)
+
+        convolvedFrame = convolve2DToeplitzFull(frame, occ)
+
+        convolvedFrameShape = convolvedFrame.shape
+        print convolvedFrameShape
+
+        viewFrame(imageify(convolvedFrame), differenceImage=True, adaptiveScaling=True)
+
+        otherConvolvedFrame = np.reshape(np.dot(getForwardModelMatrix2DToeplitzFull(occ), frame.flatten()), convolvedFrameShape)
+
+        viewFrame(imageify(otherConvolvedFrame), differenceImage=True, adaptiveScaling=True)
+
+        pseudoInverse = getPseudoInverseSmooth(getForwardModelMatrix2DToeplitzFull(occ), convolvedFrameShape, 1e6)
+
+        recoveredFrame = np.reshape(np.dot(pseudoInverse, convolvedFrame.flatten()), frameShape)
+
+        viewFrame(imageify(frame), differenceImage=True, adaptiveScaling=True)
+
+    if STUPID_METHOD_2D_4:
+        diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
+    #    diffVid = pickle.load(open("rick_morty_batched_diff_framesplit.p", "r"))
+
+        occ = pickle.load(open("corr_occ_2.p", "r"))
+    #    viewFrame(imageify(occ))
+
+        vid = pickle.load(open("steven_batched.p", "r"))
+    #    vid = pickle.load(open("rick_morty_batched.p", "r"))
+
+
+        lenVid = len(vid)   
+
+        firstMatch = getFirstMatch(diffVid, occ, vid)
+
+
+    #        viewFrame(imageify(convolvedFrame1), adaptiveScaling=True, differenceImage=True)
+    #        viewFrame(imageify(convolvedFrame2), adaptiveScaling=True, differenceImage=True)
+
+               
+
+    #        matchArray, bestMatchArray, bestMatchIndex, matchQuality = getMatchArray(np.abs(convolvedFrame1), \
+    #            np.abs(convolvedFrame2))
+
+    if ANALYZE_EXTRACTED_OCCLUDER:
+        diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
+        binaryOcc = pickle.load(open("extracted_occ_bin.p"))
+
+        diffFrame = random.choice(diffVid)
+        frameShape = diffFrame.shape
+
+        occ = pickle.load(open("corr_occ_2.p", "r"))
+
+        print occ.shape
+
+    #    convolvedDiffFrame = np.abs(addNoise(convolve2DToeplitzFull(diffFrame, occ)))
+
+    #    print convolvedDiffFrame.shape
+
+    #    forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(occ)
+
+    #    inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+
+    #    recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
+
+    #    viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
+    #    viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
+
+     #   print "sumabs", np.sum(np.abs(recoveredFrame))
+
+        viewFrame(imageify(binaryOcc))
+
+
+    #    impulseFrame = makeImpulseFrame(frameShape, tuple([int(i/2) for i in frameShape]))
+        impulseFrame = makeMultipleImpulseFrame(frameShape, 10)
+
+        viewFrame(imageify(impulseFrame))
+
+        convolvedFrame = convolve2DToeplitzFull(impulseFrame, occ)
+
+        viewFrame(imageify(convolvedFrame), adaptiveScaling=True)
+
+        pseudoinverse = False
+        wienerFilter = True
+
+        if pseudoinverse:
+            forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(binaryOcc)
+
+            inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
+
+            recoveredFrame = vectorizedDot(inversionMatrix, convolvedFrame, frameShape)
+        if wienerFilter:
+            recoveredFrame, _ = restoration.unsupervised_wiener(convolvedFrame, binaryOcc)
+
+        viewFrame(imageify(recoveredFrame), adaptiveScaling=True)
+
+    #    viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
+    #    viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
         print "sumabs", np.sum(np.abs(recoveredFrame))
 
-if CREATE_RECONSTRUCTION_MOVIE:
-    vid = pickle.load(open("steven_batched.p", "r"))
+        for i, candidateOcc in enumerate(convertOccToZeroOne(recoveredOcc)):
+            print i
 
-    occ = pickle.load(open("corr_occ_2.p", "r"))
+            forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(candidateOcc)
 
-    diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
-    recoveredOcc = pickle.load(open("extracted_occ.p"))
-    binaryOcc = pickle.load(open("extracted_occ_bin.p"))
-#    binaryOcc = convertOccToZeroOne(recoveredOcc)[6]
+            inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e1)
 
-#    viewFrame(imageify(recoveredOcc), adaptiveScaling=True)
-#    viewFrame(imageify(binaryOcc))
+            recoveredFrame = vectorizedDot(inversionMatrix, convolvedDiffFrame, diffFrame.shape)
 
-    forwardModelMatrixApproximate = getForwardModelMatrix2DToeplitzFull(binaryOcc)
-    inversionMatrixApproximate = getPseudoInverse(forwardModelMatrixApproximate, 1e1)
+            viewFrame(imageify(candidateOcc))
 
-    forwardModelMatrixClean = getForwardModelMatrix2DToeplitzFull(occ)
-    inversionMatrixClean = getPseudoInverse(forwardModelMatrixClean, 1e1)    
+    #        viewFrame(imageify(diffFrame), differenceImage=True, adaptiveScaling=True)
+    #        viewFrame(imageify(recoveredFrame), differenceImage=True, adaptiveScaling=True)
 
-    for i, frame in enumerate(vid):
-        print i
+            print "sumabs", np.sum(np.abs(recoveredFrame))
 
-        print doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame)
+    if CREATE_RECONSTRUCTION_MOVIE:
+        vid = pickle.load(open("steven_batched.p", "r"))
 
-        obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame))
+        occ = pickle.load(open("corr_occ_2.p", "r"))
 
-        recoveredFrameClean = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixClean, x, frame.shape[:-1]), \
-            obsFrame)    
+        oldStuff = False
 
-#        recoveredFrameApproximate = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixApproximate, x, \
- #           frame.shape[:-1]), obsFrame)    
-#        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.unsupervised_wiener(x, binaryOcc)[0], \
- #           obsFrame)
-#        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.richardson_lucy(x, binaryOcc, clip=True), \
-#            obsFrame)
-        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.wiener(x, binaryOcc, 10), \
-            obsFrame)
+        diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
+        recoveredOcc = pickle.load(open("extracted_occ.p"))
+        binaryOcc = pickle.load(open("extracted_occ_bin.p"))
+    #    binaryOcc = convertOccToZeroOne(recoveredOcc)[6]
 
+    #    viewFrame(imageify(recoveredOcc), adaptiveScaling=True)
+    #    viewFrame(imageify(binaryOcc))
 
-        medfiltedRecoveredFrameApproximate = doFuncToEachChannel(medfilt, recoveredFrameApproximate)
+        if oldStuff:
 
-        p.clf()
+            forwardModelMatrixApproximate = getForwardModelMatrix2DToeplitzFull(binaryOcc)
+            inversionMatrixApproximate = getPseudoInverse(forwardModelMatrixApproximate, 1e1)
 
-        p.subplot(221)
-        viewFrame(frame, filename="pass", relax=True)
-        p.subplot(222)
-        viewFrame(obsFrame, filename="pass", relax=True, adaptiveScaling=True)
-        p.subplot(223)
-        viewFrame(recoveredFrameClean, filename="pass", relax=True)
-        p.subplot(224)
-        viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, magnification=1e2)
-#        viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, magnification=2e2)
+            forwardModelMatrixClean = getForwardModelMatrix2DToeplitzFull(occ)
+            inversionMatrixClean = getPseudoInverse(forwardModelMatrixClean, 1e1)    
 
+        for i, frame in enumerate(vid):
+            print i
 
-        p.savefig("blind_deconv_movie_wiener/frame_" + padIntegerWithZeros(i, 3) + ".png")
+    #        print doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame)
 
-if VIEW_FRAMES:
-    vid = pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))
+            obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame))
 
-    frame = vid[5]
-    obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame))
+            p.clf()
 
-    viewFrame(vid[5])    
-    viewFrame(imageify(occ))
-    viewFrame(obsFrame, adaptiveScaling=True)
+            p.subplot(221)
+            p.axis("off")
+            viewFrame(frame, filename="pass", relax=True)
+            p.subplot(222)
+            p.axis("off")        
+            viewFrame(imageify(occ), filename="pass", relax=True)
+            p.subplot(224)
+            p.axis("off")        
+            viewFrame(obsFrame, filename="pass", relax=True, adaptiveScaling=True)
 
-if DIFF_EXP_VIDEO:
-    vid = pickle.load(open("blind_deconv_hourglass_rect.p", "r"))
+            p.savefig("blind_deconv_movie_sim/frame_" + padIntegerWithZeros(i, 4) + ".png")
 
-    diffVid = batchAndDifferentiate(vid[0], [(1, True), (1, False), (1, False), (1, False)])
+            if oldStuff:
 
-    pickle.dump(diffVid, open("blind_deconv_hourglass_rect_diff.p", "w"))
+                recoveredFrameClean = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixClean, x, frame.shape[:-1]), \
+                    obsFrame)    
 
-if PROCESS_EXP_VIDEO:
-    diffVid = pickle.load(open("blind_deconv_hourglass_rect_diff_framesplit.p", "r"))
+        #        recoveredFrameApproximate = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixApproximate, x, \
+         #           frame.shape[:-1]), obsFrame)    
+        #        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.unsupervised_wiener(x, binaryOcc)[0], \
+         #           obsFrame)
+        #        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.richardson_lucy(x, binaryOcc, clip=True), \
+        #            obsFrame)
+                recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.wiener(x, binaryOcc, 10), \
+                    obsFrame)
 
-    frameShape = diffVid[0].shape
 
-    occ = estimateOccluderFromDifferenceFrames(diffVid, [i*2 for i in frameShape])
+                medfiltedRecoveredFrameApproximate = doFuncToEachChannel(medfilt, recoveredFrameApproximate)
 
-    viewFrame(occ, adaptiveScaling=True, differenceImage=False)
+                p.clf()
 
-if CONV_SIM_VIDEO:
-    diffVidUnconvolved = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
+                p.subplot(221)
+                viewFrame(frame, filename="pass", relax=True)
+                p.subplot(222)
+                viewFrame(obsFrame, filename="pass", relax=True, adaptiveScaling=True)
+                p.subplot(223)
+                viewFrame(recoveredFrameClean, filename="pass", relax=True)
+                p.subplot(224)
+                viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, magnification=1e2)
+        #        viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, magnification=2e2)
 
-    occ = pickle.load(open("corr_occ_2.p", "r"))
 
-    convVid = []
+                p.savefig("blind_deconv_movie_wiener/frame_" + padIntegerWithZeros(i, 3) + ".png")
 
-    for i, frame in enumerate(diffVidUnconvolved):
-        print i, "/", len(diffVidUnconvolved)
+    if VIEW_FRAMES:
+        if False:
+            vid = pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))
 
-        convVid.append(convolve2DToeplitzFull(frame, occ)) 
+            frame = vid[5]
+            obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), frame))
 
-    pickle.dump(np.array(convVid), open("steven_batched_diff_conv_framesplit.p", "w"))
+            viewFrame(vid[5])    
+            viewFrame(imageify(occ))
+            viewFrame(obsFrame, adaptiveScaling=True)
 
-if PROCESS_SIM_VIDEO:
-#    diffVid = pickle.load(open("steven_batched_diff_conv_framesplit.p", "r"))
-#    diffVid = pickle.load(open("blind_deconv_hourglass_rect_diff_framesplit.p", "r"))
-#    diffVid = pickle.load(open("fan_rect_meansub_framesplit.p", "r"))
-    diffVid = pickle.load(open("plant_rect_meansub_pos_framesplit.p", "r"))
+        vid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
 
-    frameShape = diffVid[0].shape
+        occ = pickle.load(open("corr_occ_2.p", "r"))
 
-    occ = estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid)
+        frame1 = vid[350]
+        obsFrame1 = addNoise(convolve2DToeplitzFull(frame1, occ))
 
-    viewFrame(imageify(occ), adaptiveScaling=True, differenceImage=False)
+        frame2 = vid[404]
+        obsFrame2 = addNoise(convolve2DToeplitzFull(frame2, occ))
+     
+        matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
+            getMatchArray(obsFrame1, obsFrame2)
 
+    #        viewFrame(imageify(matchArray), adaptiveScaling=True)
 
-if VIEW_OCC:
-    occ = pickle.load(open("extracted_occ_exp.p", "r"))    
+        overlapArray1, overlapArray2 = getOverlapArray(obsFrame1, \
+            obsFrame2, bestMatchIndex)
 
-    viewFrame(occ, adaptiveScaling=True)
+        frame3 = makeImpulseFrame(frame1.shape, (int(frame1.shape[0]/2), int(frame1.shape[1]/2)))
+        obsFrame3 = convolve2DToeplitzFull(frame3, occ)
 
-if OVERLAP_PAD_TEST:
+        viewFrame(imageify(frame3))
+        viewFrame(imageify(occ))
+        viewFrame(imageify(obsFrame3))
 
-    frame1Dims = (10, 20)
-    frame2Dims = (20, 10)
+        viewFrame(imageify(frame1), adaptiveScaling=True, differenceImage=True)    
+        viewFrame(imageify(frame2), adaptiveScaling=True, differenceImage=True)
+        viewFrame(imageify(occ))
+        viewFrame(imageify(np.abs(obsFrame1)), adaptiveScaling=True, differenceImage=True)
+        viewFrame(imageify(np.abs(obsFrame1)), adaptiveScaling=True, differenceImage=False)
+        viewFrame(imageify(np.abs(obsFrame2)), adaptiveScaling=True, differenceImage=False)
 
-    frame1 = makeImpulseFrame(frame1Dims, (4,8))
-    frame2 = makeImpulseFrame(frame2Dims, (8,4))
+        viewFrame(imageify(matchArray), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray2), adaptiveScaling=True)
 
-    occ = pickle.load(open("corr_occ_2.p", "r"))
-    print occ.shape
+        newVersion = np.multiply(np.sqrt(np.abs(overlapArray1)), np.sqrt(np.abs(overlapArray2)))
 
-    viewFrame(imageify(occ))
+        viewFrame(imageify(newVersion), adaptiveScaling=True)
 
+    if DIFF_EXP_VIDEO:
+        vid = pickle.load(open("blind_deconv_hourglass_rect.p", "r"))
 
-    convolvedFrame1 = convolve2DToeplitz(frame1, occ)
-    convolvedFrame2 = convolve2DToeplitz(frame2, occ)
+        diffVid = batchAndDifferentiate(vid[0], [(1, True), (1, False), (1, False), (1, False)])
 
-    viewFrame(imageify(convolvedFrame1))
-    viewFrame(imageify(convolvedFrame2))
+        pickle.dump(diffVid, open("blind_deconv_hourglass_rect_diff.p", "w"))
 
-    matchArray, bestIndex = getMatchArrayUnequalSize(np.abs(convolvedFrame1), \
-        np.abs(convolvedFrame2))
+    if PROCESS_EXP_VIDEO:
+        diffVid = pickle.load(open("blind_deconv_hourglass_rect_diff_framesplit.p", "r"))
 
-    overlapArray1, overlapArray2 = getOverlapArrayPadded(convolvedFrame1, convolvedFrame2, bestIndex)
+        frameShape = diffVid[0].shape
 
-    viewFrame(imageify(overlapArray1))
-    viewFrame(imageify(overlapArray2))    
+        occ = estimateOccluderFromDifferenceFrames(diffVid, [i*2 for i in frameShape])
 
-if OVERLAP_PAD_TEST_2:
+        viewFrame(occ, adaptiveScaling=True, differenceImage=False)
 
-    frame1Dims = (18, 32)
-    frame2Dims = (18, 32)
+    if CONV_SIM_VIDEO:
+        diffVidUnconvolved = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
 
-    frame1 = makeImpulseFrame(frame1Dims, (9, 16))
-    frame2 = makeImpulseFrame(frame2Dims, (8, 12))
+        occ = pickle.load(open("corr_occ_2.p", "r"))
 
-    occ = pickle.load(open("corr_occ_2.p", "r"))
-    print occ.shape
+        convVid = []
 
-    viewFrame(imageify(occ))
+        for i, frame in enumerate(diffVidUnconvolved):
+            print i, "/", len(diffVidUnconvolved)
 
-    viewFrame(imageify(frame1))
-    viewFrame(imageify(frame2))
+            convVid.append(convolve2DToeplitzFull(frame, occ)) 
 
-    convolvedFrame1 = convolve2DToeplitz(frame1, occ)
-    convolvedFrame2 = convolve2DToeplitz(frame2, occ)
+        pickle.dump(np.array(convVid), open("steven_batched_diff_conv_framesplit.p", "w"))
 
-    viewFrame(imageify(convolvedFrame1))
-    viewFrame(imageify(convolvedFrame2))
+    if PROCESS_SIM_VIDEO:
+    #    diffVid = pickle.load(open("steven_batched_diff_conv_framesplit.p", "r"))
+    #    diffVid = pickle.load(open("blind_deconv_hourglass_rect_diff_framesplit.p", "r"))
+    #    diffVid = pickle.load(open("fan_rect_meansub_framesplit.p", "r"))
+        diffVid = pickle.load(open("plant_rect_meansub_pos_framesplit.p", "r"))
+    #    diffVid = pickle.load(open("fan_monitor_rect_diff_framesplit.p", ))
 
-    matchArray, _, bestIndex, _ = getMatchArray(np.abs(convolvedFrame1), \
-        np.abs(convolvedFrame2))
+        frameShape = diffVid[0].shape
 
-    overlapArray = getOverlapArrayFullCanvas(convolvedFrame1, convolvedFrame2, bestIndex)
+        occ = estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid)
 
-    viewFrame(imageify(overlapArray))
+        viewFrame(imageify(occ), adaptiveScaling=True, differenceImage=False)
 
-if CONVERT_ARRAYS_CHRISTOS:
 
+    if VIEW_OCC:
+        occ = pickle.load(open("extracted_occ_exp.p", "r"))    
 
-    binOcc = np.swapaxes(pickle.load(open("binary_occ_exp.p", "r")), 0, 1)
-    vid = np.swapaxes(pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))[0], 1, 2)
+        viewFrame(occ, adaptiveScaling=True)
 
-    viewFrame(imageify(binOcc))
-    viewFrame(vid[10], adaptiveScaling=True)
+    if OVERLAP_PAD_TEST:
 
+        frame1Dims = (10, 20)
+        frame2Dims = (20, 10)
 
+        frame1 = makeImpulseFrame(frame1Dims, (4,8))
+        frame2 = makeImpulseFrame(frame2Dims, (8,4))
 
-    dic = {}
-    dic["occluder_array"] = binOcc
-    dic["observations"] = vid
+        occ = pickle.load(open("corr_occ_2.p", "r"))
+        print occ.shape
 
-    scipy.io.savemat("experiment_data.mat", dic)
+        viewFrame(imageify(occ))
 
-if PROCESS_EXP_OCCLUDER:
-    rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
-    viewFrame(imageify(rawOcc), adaptiveScaling=True)
 
-    medFiltOcc = medfilt(rawOcc)
-    viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
+        convolvedFrame1 = convolve2DToeplitz(frame1, occ)
+        convolvedFrame2 = convolve2DToeplitz(frame2, occ)
 
-    occZeroOne = convertOccToZeroOne(medFiltOcc)
+        viewFrame(imageify(convolvedFrame1))
+        viewFrame(imageify(convolvedFrame2))
 
-    print rawOcc.shape
+        matchArray, bestIndex = getMatchArrayUnequalSize(np.abs(convolvedFrame1), \
+            np.abs(convolvedFrame2))
 
+        overlapArray1, overlapArray2 = getOverlapArrayPadded(convolvedFrame1, convolvedFrame2, bestIndex)
 
-#    viewFrame(imageify(occZeroOne[12]))    
+        viewFrame(imageify(overlapArray1))
+        viewFrame(imageify(overlapArray2))    
 
-#    recoveredOcc = cutArrayDownToShape(occZeroOne[8], (63, 36), reverse=True)
-    recoveredOcc = cutArrayDownToShape(occZeroOne[8], occZeroOne[8].shape, reverse=True)
+    if OVERLAP_PAD_TEST_2:
 
-    downsampledArray = resizeArray(recoveredOcc, (63, 35))
+        frame1Dims = (18, 32)
+        frame2Dims = (18, 32)
 
-    print type(downsampledArray)
+        frame1 = makeImpulseFrame(frame1Dims, (9, 16))
+        frame2 = makeImpulseFrame(frame2Dims, (8, 12))
 
-    viewFrame(imageify(downsampledArray))
+        occ = pickle.load(open("corr_occ_2.p", "r"))
+        print occ.shape
 
-    pickle.dump(downsampledArray, open("binary_occ_exp_hourglass.p", "w"))
+        viewFrame(imageify(occ))
 
-    forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(downsampledArray)
+        viewFrame(imageify(frame1))
+        viewFrame(imageify(frame2))
 
-    inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
+        convolvedFrame1 = convolve2DToeplitz(frame1, occ)
+        convolvedFrame2 = convolve2DToeplitz(frame2, occ)
 
-    pickle.dump(inversionMatrix, open("extracted_inverter_exp_hourglass.p", "w"))
+        viewFrame(imageify(convolvedFrame1))
+        viewFrame(imageify(convolvedFrame2))
 
-if PROCESS_EXP_OCCLUDER_2:
-    rawOcc = pickle.load(open("plant_extracted_occ.p", "r"))
-    viewFrame(imageify(rawOcc), adaptiveScaling=True)
+        matchArray, _, bestIndex, _ = getMatchArray(np.abs(convolvedFrame1), \
+            np.abs(convolvedFrame2))
 
-#    medFiltOcc = medfilt(rawOcc)
-#    viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
+        overlapArray = getOverlapArrayFullCanvas(convolvedFrame1, convolvedFrame2, bestIndex)
 
-    medFiltOcc = rawOcc
+        viewFrame(imageify(overlapArray))
 
-    occZeroOne = convertOccToZeroOne(medFiltOcc)
+    if CONVERT_ARRAYS_CHRISTOS:
 
-#    print rawOcc.shape
 
-    i = 23
+        binOcc = np.swapaxes(pickle.load(open("binary_occ_exp.p", "r")), 0, 1)
+        vid = np.swapaxes(pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))[0], 1, 2)
 
-#    viewFrame(imageify(occZeroOne[12]))    
+        viewFrame(imageify(binOcc))
+        viewFrame(vid[10], adaptiveScaling=True)
 
-#    recoveredOcc = cutArrayDownToShape(occZeroOne[i], (39, 70), reverse=False)
-    recoveredOcc = cutArrayDownToShape(occZeroOne[i], occZeroOne[i].shape, reverse=True)
 
-#    downsampledArray = resizeArray(recoveredOcc, (40, 70))
-    downsampledArray = recoveredOcc
 
-    print type(downsampledArray)
+        dic = {}
+        dic["occluder_array"] = binOcc
+        dic["observations"] = vid
 
-    viewFrame(imageify(downsampledArray))
+        scipy.io.savemat("experiment_data.mat", dic)
 
-    pickle.dump(downsampledArray, open("binary_occ_exp_plant.p", "w"))
+    if PROCESS_EXP_OCCLUDER:
+        rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
+        viewFrame(imageify(rawOcc), adaptiveScaling=True)
 
-if PROCESS_EXP_OCCLUDER_BIN_ONLY:
-#    viewFrame(imageify(occZeroOne[8]))
+        medFiltOcc = medfilt(rawOcc)
+        viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
 
-    downsampledArray = pickle.load(open("binary_occ_exp_plant.p", "r"))
+        occZeroOne = convertOccToZeroOne(medFiltOcc)
 
-    viewFrame(imageify(downsampledArray))
+        print rawOcc.shape
 
-    forwardModelMatrix = getForwardModelMatrix2DToeplitzFullFlexibleShape(downsampledArray, \
-        downsampledArray.shape, (30, 50), padVal=1)
 
-    inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
+    #    viewFrame(imageify(occZeroOne[12]))    
 
-    pickle.dump(inversionMatrix, open("extracted_inverter_exp_plant.p", "w"))
+    #    recoveredOcc = cutArrayDownToShape(occZeroOne[8], (63, 36), reverse=True)
+        recoveredOcc = cutArrayDownToShape(occZeroOne[8], occZeroOne[8].shape, reverse=True)
 
-if CREATE_RECONSTRUCTION_MOVIE_EXP:
-    groundTruthVid = pickle.load(open("steven_batched.p", "r"))
+        downsampledArray = resizeArray(recoveredOcc, (63, 35))
 
-#    vid = pickle.load(open("blind_deconv_hourglass_rect_meansub.p", "r"))
-#    vid = pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))[0]
-#    vid = pickle.load(open("blind_deconv_cardboard_1_rect_sim.p", "r"))
-#    vid = pickle.load(open("blind_deconv_cardboard_1_rect_alt.p", "r"))[0]
-#    vid = pickle.load(open("cardboard_rect.p", "r"))[0]
-#    vid = pickle.load(open("hourglass_rect.p", "r"))
-    vid = pickle.load(open("fan_rect_meansub.p", "r"))
+        print type(downsampledArray)
 
-#    inversionMatrix = pickle.load(open("extracted_inverter_exp_hourglass.p", "r"))
-#    inversionMatrix = pickle.load(open("extracted_inverter_exp.p", "r"))
-    inversionMatrix = pickle.load(open("extracted_inverter_exp.p", "r"))
+        viewFrame(imageify(downsampledArray))
 
-#    binaryOcc = pickle.load(open("binary_occ_exp_hourglass.p", "r"))
-#    binaryOcc = pickle.load(open("binary_occ_exp.p", "r"))
-    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
+        pickle.dump(downsampledArray, open("binary_occ_exp_hourglass.p", "w"))
 
-    viewFrame(imageify(binaryOcc))
+        forwardModelMatrix = getForwardModelMatrix2DToeplitzFull(downsampledArray)
 
-    targetShape = (63, 35)
+        inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
 
-    gaussKernel = getGaussianKernel(5, 1)
-    gaussKernelLarge = getGaussianKernel(10, 3)
+        pickle.dump(inversionMatrix, open("extracted_inverter_exp_hourglass.p", "w"))
 
-    recoveredMovie = []
+    if PROCESS_EXP_OCCLUDER_2:
+        rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
+        viewFrame(imageify(rawOcc), adaptiveScaling=True)
 
-#    print vid.shape
+        medFiltOcc = medfilt(rawOcc)
+        viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
 
-    for i, obsFrame in enumerate(vid[5:]):
-        print i
+    #    medFiltOcc = rawOcc
 
-#        prunedObsFrame = doFuncToEachChannel(lambda x: cutArrayDownToShape(x, (105, 69)), \
- #           obsFrame) 
-#        prunedObsFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(gaussKernelLarge, x), \
-#            obsFrame)
-        prunedObsFrame = obsFrame
-#        prunedObsFrame = doFuncToEachChannel(lambda x: np.pad(x, [(0, 0), (15, 0)], "constant"), obsFrame)
+        occZeroOne = convertOccToZeroOne(medFiltOcc)
 
-#        resizedObsFrame = doFuncToEachChannel(lambda x: resizeArray(x, (125, 69)), \
-#            prunedObsFrame)
+    #    print rawOcc.shape
 
-        resizedObsFrame = np.flip(doFuncToEachChannel(lambda x: resizeArray(x, (125, 69)), \
-            prunedObsFrame), 2)
+        i = 22
 
-#        print resizedObsFrame.shape
- #       print binaryOcc.shape
+    #    viewFrame(imageify(occZeroOne[12]))    
 
-#        viewFrame(resizedObsFrame, adaptiveScaling=True)
-  #      viewFrame(imageify(binaryOcc))
+    #    recoveredOcc = cutArrayDownToShape(occZeroOne[i], (39, 70), reverse=False)
+        recoveredOcc = cutArrayDownToShape(occZeroOne[i], occZeroOne[i].shape, reverse=True)
 
-#        recoveredFrame = doFuncToEachChannel(lambda x: restoration.unsupervised_wiener(x, binaryOcc)[0], \
- #           resizedObsFrame)
+    #    downsampledArray = resizeArray(recoveredOcc, (40, 70))
+        downsampledArray = recoveredOcc
 
- #       viewFrame(resizedObsFrame, adaptiveScaling=True)
- #       viewFrame(imageify(binaryOcc))
+        print type(downsampledArray)
 
+        viewFrame(imageify(downsampledArray))
 
+    #    pickle.dump(downsampledArray, open("binary_occ_exp_fan_monitor.p", "w"))
 
-#        recoveredFrame = doFuncToEachChannel(lambda x: restoration.wiener(x, binaryOcc, 1e-5), \
-#            resizedObsFrame)
+    if PROCESS_EXP_OCCLUDER_BIN_ONLY:
+    #    viewFrame(imageify(occZeroOne[8]))
 
-#        recoveredFrame = doFuncToEachChannel(lambda x: restoration.richardson_lucy(x, binaryOcc), \
- #           resizedObsFrame)
+        downsampledArray = pickle.load(open("binary_occ_exp_fan_monitor.p", "r"))
 
-        recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, targetShape), \
-            resizedObsFrame)    
+        viewFrame(imageify(downsampledArray))
 
-  #      viewFrame(recoveredFrame, differenceImage=True, adaptiveScaling=True, magnification=10)
+        forwardModelMatrix = getForwardModelMatrix2DToeplitzFullFlexibleShape(downsampledArray, \
+            downsampledArray.shape, (40, 70), padVal=1)
 
-#        recoveredFrame = resizedObsFrame
+        inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
 
-#        recoveredMovie.append(recoveredFrame)
+        pickle.dump(inversionMatrix, open("extracted_inverter_fan_monitor.p", "w"))
 
+    if PROCESS_EXP_OCCLUDER_CARDBOARD:
+    #    viewFrame(imageify(occZeroOne[8]))
 
-#        blurryRecoveredFrame = doFuncToEachChannel(medfilt, dividedRecoveredFrame)
-#        blurryRecoveredFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(gaussKernel, x), \
-#            recoveredFrame)
-    
-        blurryRecoveredFrame = recoveredFrame
+        downsampledArray = pickle.load(open("binary_occ_exp.p", "r"))
 
-        swappedRecoveredFrame = swapChannels(blurryRecoveredFrame, 0, 2)
+        viewFrame(imageify(downsampledArray))
 
- #       viewFrame(np.flip(np.swapaxes(blurryRecoveredFrame, 0, 1), 0), adaptiveScaling=True,
- #           relax=True, magnification=3, differenceImage=True)
+        forwardModelMatrix = getForwardModelMatrix2DToeplitzFullFlexibleShape(downsampledArray, \
+            (125, 69), (20, 10), padVal=0)
 
-#        if i % 3 == 0:
-#            viewFrame(np.swapaxes(blurryRecoveredFrame, 0, 1), magnification=5e1)
+        inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-3)
 
-        groundTruthFrame = groundTruthVid[2*i+3]
+        pickle.dump(inversionMatrix, open("extracted_inverter_exp_cardboard.p", "w"))
 
-        p.clf()
+    if CREATE_RECONSTRUCTION_MOVIE_EXP:
+        groundTruthVid = pickle.load(open("steven_batched.p", "r"))
 
-        p.subplot(211)
-        viewFrame(groundTruthFrame, filename="pass", relax=True, differenceImage=True, magnification=0.5)
-        p.subplot(212)
-        viewFrame(np.flip(np.swapaxes(swappedRecoveredFrame, 0, 1), 0), filename="pass", adaptiveScaling=True,
-            relax=True, magnification=4, differenceImage=True)
+    #    vid = pickle.load(open("blind_deconv_hourglass_rect_meansub.p", "r"))
+    #    vid = pickle.load(open("blind_deconv_cardboard_1_rect.p", "r"))[0]
+    #    vid = pickle.load(open("blind_deconv_cardboard_1_rect_sim.p", "r"))
+    #    vid = pickle.load(open("blind_deconv_cardboard_1_rect_alt.p", "r"))[0]
+        vid = pickle.load(open("cardboard_rect.p", "r"))
+    #    vid = pickle.load(open("hourglass_rect.p", "r"))
+    #    vid = pickle.load(open("fan_rect_meansub.p", "r"))
 
-        p.savefig("blind_deconv_movie_exp/frame_" + padIntegerWithZeros(i, 3) + ".png")
+    #    inversionMatrix = pickle.load(open("extracted_inverter_exp_hourglass.p", "r"))
+        inversionMatrix = pickle.load(open("extracted_inverter_exp_cardboard.p", "r"))
+    #    inversionMatrix = pickle.load(open("extracted_inverter_exp.p", "r"))
 
-if CREATE_RECONSTRUCTION_MOVIE_EXP_2:
-#    groundTruthVid = pickle.load(open("steven_batched.p", "r"))
+    #    binaryOcc = pickle.load(open("binary_occ_exp_hourglass.p", "r"))
+        binaryOcc = pickle.load(open("binary_occ_exp.p", "r"))
+    #    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
 
-    vid = pickle.load(open("plant_rect_meansub.p", "r"))
-#    vid = pickle.load(open("fan_rect_meansub.p", "r"))
+    #    viewFrame(imageify(binaryOcc))
 
-    inversionMatrix = pickle.load(open("extracted_inverter_exp_plant.p", "r"))
-#    inversionMatrix = pickle.load(open("extracted_inverter_exp_fan.p", "r"))
+        paddedOcc = padArrayToShape(binaryOcc, (125, 69))
 
-    binaryOcc = pickle.load(open("binary_occ_exp_plant.p", "r"))
-#    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
+        viewFrame(np.swapaxes(imageify(paddedOcc), 0, 1))
 
-    viewFrame(imageify(binaryOcc))
+    #    targetShape = (63, 35)
+        targetShape = (82, 44)
 
-    targetShape = (30, 60)
+    #    gaussKernel = getGaussianKernel(5, 1)
+    #    gaussKernelLarge = getGaussianKernel(10, 3)
 
-    gaussKernel = getGaussianKernel(5, 1)
-    gaussKernelLarge = getGaussianKernel(10, 3)
+        recoveredMovie = []
 
-    recoveredMovie = []
+    #    print vid.shape
 
-    for i, obsFrame in enumerate(vid[5:]):
-        print i
+        for i, obsFrame in enumerate(vid[5:]):
+            print i
 
-        recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, targetShape), \
-            obsFrame)    
+    #        prunedObsFrame = doFuncToEachChannel(lambda x: cutArrayDownToShape(x, (105, 69)), \
+     #           obsFrame) 
+    #        prunedObsFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(gaussKernelLarge, x), \
+    #            obsFrame)
+            prunedObsFrame = obsFrame
+    #        prunedObsFrame = doFuncToEachChannel(lambda x: np.pad(x, [(0, 0), (15, 0)], "constant"), obsFrame)
 
-#        groundTruthFrame = groundTruthVid[2*i+3]
+    #        resizedObsFrame = doFuncToEachChannel(lambda x: resizeArray(x, (125, 69)), \
+    #            prunedObsFrame)
 
-        p.clf()
+            resizedObsFrame = np.flip(doFuncToEachChannel(lambda x: resizeArray(x, (125, 69)), \
+                prunedObsFrame), 2)
 
-        p.axis("off")
-#        p.subplot(211)
-#        viewFrame(groundTruthFrame, filename="pass", relax=True, differenceImage=True, magnification=0.5)
-#        p.subplot(212)
-        viewFrame(recoveredFrame, filename="pass", adaptiveScaling=True,
-            relax=True, magnification=1, differenceImage=True)
+    #        print resizedObsFrame.shape
+     #       print binaryOcc.shape
 
-        p.savefig("blind_deconv_movie_exp_fan/frame_" + padIntegerWithZeros(i, 4) + ".png")
+    #        viewFrame(resizedObsFrame, adaptiveScaling=True)
+      #      viewFrame(imageify(binaryOcc))
 
+    #        recoveredFrame = doFuncToEachChannel(lambda x: restoration.unsupervised_wiener(x, binaryOcc)[0], \
+     #           resizedObsFrame)
 
-if EXTRACT_MATRIX_FROM_IMAGE:
-    mat = extractMatrixFromBWImage("corr_occ_2.png", 24)
+     #       viewFrame(resizedObsFrame, adaptiveScaling=True)
+     #       viewFrame(imageify(binaryOcc))
 
-    print mat.shape
-    viewFrame(imageify(mat), adaptiveScaling=True)
 
-    pickle.dump(mat, open("corr_occ_2.p", "w"))
 
-if WIENER_FILTER_TEST:
-    occ = pickle.load(open("corr_occ_2.p", "r"))
+    #        recoveredFrame = doFuncToEachChannel(lambda x: restoration.wiener(x, binaryOcc, 1e-5), \
+    #            resizedObsFrame)
 
-    convOcc = convolve2DToeplitzFull(occ, occ)
+    #        recoveredFrame = doFuncToEachChannel(lambda x: restoration.richardson_lucy(x, binaryOcc), \
+     #           resizedObsFrame)
 
-    viewFrame(imageify(occ))
+            recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, targetShape), \
+                resizedObsFrame)    
 
-    viewFrame(imageify(convOcc), adaptiveScaling=True)
+      #      viewFrame(recoveredFrame, differenceImage=True, adaptiveScaling=True, magnification=10)
 
-    deconvolved, _ = restoration.unsupervised_wiener(convOcc, occ)
+    #        recoveredFrame = resizedObsFrame
 
-    viewFrame(imageify(deconvolved), adaptiveScaling=True)
+    #        recoveredMovie.append(recoveredFrame)
 
-if CROP:
-    arr = pickle.load(open("macarena_dark_fixed_diff_medfilt.p", "r"))
 
-    pickle.dump(arr[:,19:,:,:], open("macarena_dark_fixed_cropped_diff_medfilt.p", "w"))
+    #        blurryRecoveredFrame = doFuncToEachChannel(medfilt, dividedRecoveredFrame)
+    #        blurryRecoveredFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(gaussKernel, x), \
+    #            recoveredFrame)
+        
+    #        blurryRecoveredFrame = recoveredFrame
 
-if MEAN_SUBTRACTION:
+            blurryRecoveredFrame = recoveredFrame[25:72, 0:34]
 
-    vid = pickle.load(open("plant_rect.p", "r"))
+            swappedRecoveredFrame = swapChannels(blurryRecoveredFrame, 0, 2)
 
-    print vid.shape
+     #       viewFrame(np.flip(np.swapaxes(blurryRecoveredFrame, 0, 1), 0), adaptiveScaling=True,
+     #           relax=True, magnification=3, differenceImage=True)
 
-    averageFrame = sum(vid, 0)/np.shape(vid)[0]
+    #        if i % 3 == 0:
+    #            viewFrame(np.swapaxes(blurryRecoveredFrame, 0, 1), magnification=5e1)
 
-    print averageFrame.shape
+            groundTruthFrame = groundTruthVid[2*i+3]
 
-#    viewFrame(averageFrame, adaptiveScaling=True)
+            p.clf()
 
-#    for i, frame in enumerate(vid):
-#        if i % 10 == 0:
-#            viewFrame(frame, adaptiveScaling=True)
- #           viewFrame(frame - averageFrame, adaptiveScaling=True, differenceImage=True)
+            p.subplot(221)
+            p.axis("off")
+            viewFrame(groundTruthFrame, filename="pass", relax=True, differenceImage=True, magnification=0.5)
 
-    meanSubVid = []
+            p.subplot(223)
+            p.axis("off")
+            viewFrame(np.swapaxes(obsFrame, 0, 1), filename="pass", adaptiveScaling=True,
+                relax=True, magnification=1, differenceImage=False)
 
-    for frame in vid:
-        meanSubVid.append(frame - averageFrame)
+            p.subplot(222)
+            p.axis("off")
+            viewFrame(np.flip(np.swapaxes(swappedRecoveredFrame, 0, 1), 0), filename="pass", adaptiveScaling=True,
+                relax=True, magnification=0.6, differenceImage=True)
 
-    pickle.dump(meanSubVid, open("plant_rect_meansub.p", "w"))
+            p.savefig("blind_deconv_movie_exp_cardboard/frame_" + padIntegerWithZeros(i, 4) + ".png")
 
-if UNIFORM_MEAN_SUBTRACTION:
+    if CREATE_RECONSTRUCTION_MOVIE_EXP_2:
+    #    groundTruthVid = pickle.load(open("steven_batched.p", "r"))
 
-    vid = pickle.load(open("fan_rect.p", "r"))
+        
 
-    frameShape = vid[0].shape
+        vid = pickle.load(open("plant_rect_meansub.p", "r"))
+    #    vid = pickle.load(open("fan_rect_meansub.p", "r"))
+    #    vid = pickle.load(open("fan_monitor_fine_rect_meansub.p", "r"))
 
-    print vid.shape
+        inversionMatrix = pickle.load(open("extracted_inverter_exp_plant.p", "r"))
+    #    inversionMatrix = pickle.load(open("extracted_inverter_exp_fan.p", "r"))
+    #    inversionMatrix = pickle.load(open("extracted_inverter_fan_monitor.p", "r"))
 
-    averageFramePixel = np.sum(np.sum(np.sum(vid, 0), 0), 0)
+        binaryOcc = pickle.load(open("binary_occ_exp_plant.p", "r"))
+    #    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
+    #    binaryOcc = pickle.load(open("binary_occ_exp_fan_monitor.p", "r"))
 
-    print averageFramePixel.shape
+        viewFrame(imageify(binaryOcc))
 
-    summedFrame = np.array([[averageFramePixel]*frameShape[1]]*frameShape[0])/(len(vid)*frameShape[0]*frameShape[1])    
+        targetShape = (30, 50)
+    #    targetShape = (30, 60)
+    #    targetShape = (40, 70)
 
- #   print summedFrame
+        gaussKernel = getGaussianKernel(5, 1)
+        gaussKernelLarge = getGaussianKernel(10, 3)
 
-#    averageFrame = sum(vid, 0)/np.shape(vid)[0]
+        recoveredMovie = []
 
-#    print averageFrame.shape
+        for i, obsFrame in enumerate(vid[:]):
+            print i
 
-#    viewFrame(averageFrame, adaptiveScaling=True)
+            recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, targetShape), \
+                obsFrame)    
 
-#    for i, frame in enumerate(vid):
-#        if i % 10 == 0:
-#            viewFrame(frame, adaptiveScaling=True)
- #           viewFrame(frame - averageFrame, adaptiveScaling=True, differenceImage=True)
+    #        groundTruthFrame = groundTruthVid[2*i+3]
 
-    meanSubVid = []
+            p.clf()
 
-    for frame in vid:
-        meanSubVid.append(frame - summedFrame)
+            p.axis("off")
+    #        p.subplot(211)
+    #        viewFrame(groundTruthFrame, filename="pass", relax=True, differenceImage=True, magnification=0.5)
+    #        p.subplot(212)
+            viewFrame(recoveredFrame, filename="pass", adaptiveScaling=True,
+                relax=True, magnification=1, differenceImage=True)
 
-    pickle.dump(meanSubVid, open("fan_rect_meansubuniform.p", "w"))    
+            p.savefig("blind_deconv_movie_exp_plant/frame_" + padIntegerWithZeros(i, 4) + ".png")
 
-if MEAN_SUBTRACTION_POSITIVE:
-    vid = np.array(pickle.load(open("plant_rect_meansub.p", "r")))
 
-    mostNegValue = np.min(vid)
 
-    meanSubPosVid = vid - mostNegValue*np.ones(vid.shape)
+    if EXTRACT_MATRIX_FROM_IMAGE:
+        mat = extractMatrixFromBWImage("corr_occ_2.png", 24)
 
-    pickle.dump(meanSubPosVid, open("plant_rect_meansub_pos.p", "w"))    
+        print mat.shape
+        viewFrame(imageify(mat), adaptiveScaling=True)
 
-if SIM_COMPARISON:
-    groundTruthVid = pickle.load(open("steven_batched.p", "r"))
+        pickle.dump(mat, open("corr_occ_2.p", "w"))
 
-    occ = pickle.load(open("binary_occ_exp.p", "r"))
+    if WIENER_FILTER_TEST:
+        occ = pickle.load(open("corr_occ_2.p", "r"))
 
-#    viewFrame(np.swapaxes(imageify(occ), 0, 1))
-#    viewFrame(imageify(occ))
+        convOcc = convolve2DToeplitzFull(occ, occ)
 
-    simVid = []
+        viewFrame(imageify(occ))
 
-    for frame in groundTruthVid:
-        convolvedFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(np.swapaxes(x, 0, 1), occ), 
-            np.flip(frame, 0))
-#        convolvedFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), 
-#            frame)
+        viewFrame(imageify(convOcc), adaptiveScaling=True)
 
-        simVid.append(convolvedFrame)
-#        viewFrame(convolvedFrame, adaptiveScaling=True)
-#        viewFrame(np.swapaxes(convolvedFrame, 0, 1), adaptiveScaling=True)
+        deconvolved, _ = restoration.unsupervised_wiener(convOcc, occ)
 
+        viewFrame(imageify(deconvolved), adaptiveScaling=True)
 
-    pickle.dump(np.array(simVid), open("blind_deconv_cardboard_1_rect_sim.p", "w"))
+    if CROP:
+        arr = pickle.load(open("macarena_dark_fixed_diff_medfilt.p", "r"))
 
-if CAP_ARR_VALS:
-    arr = pickle.load(open("orange_rect_meansub.p", "r"))
+        pickle.dump(arr[:,19:,:,:], open("macarena_dark_fixed_cropped_diff_medfilt.p", "w"))
 
-    capVal = 10
+    if MEAN_SUBTRACTION:
 
-    for frame in arr:
-        i = random.randint(0, arr.shape[0]-1)
-        j = random.randint(0, arr.shape[1]-1)
+        name = "circle_carlsen_vid"
 
-        clampedFrame = np.max(np.min(frame, capVal*np.ones(frame.shape)), -1*capVal*np.ones(frame.shape))
+        vid = pickle.load(open(name + ".p", "r"))
 
-    pickle.dump(clampedFrame, open("orange_rect_meansub_clamped.p", "w"))
+        print vid.shape
 
-if TIME_DIFF:
-    arr = pickle.load(open("plant_rect.p", "r"))
+        averageFrame = sum(vid, 0)/np.shape(vid)[0]
 
-    diffArr = batchAndDifferentiate(arr, [(1, True), (1, False), (1, False), (1, False)])
+        print averageFrame.shape
 
-    pickle.dump(diffArr, open("plant_rect_diff.p", "w"))
+    #    viewFrame(averageFrame, adaptiveScaling=True)
 
-if MED_FILT:
-    arr = pickle.load(open("bld66_rect_diff.p", "r"))
+    #    for i, frame in enumerate(vid):
+    #        if i % 10 == 0:
+    #            viewFrame(frame, adaptiveScaling=True)
+     #           viewFrame(frame - averageFrame, adaptiveScaling=True, differenceImage=True)
 
-    medfiltedArr = medfilt(arr)
+        meanSubVid = []
 
-    pickle.dump(medfiltedArr, open("bld66_rect_diff_medfilt.p", "w"))
+        for frame in vid:
+            meanSubVid.append(frame - averageFrame)
 
-if MAKE_VIDEO:
-    arr = pickle.load(open("plant_rect_meansub.p", "r"))
+        pickle.dump(np.array(meanSubVid), open(name + "_meansub.p", "w"))
 
-    convertArrayToVideo(np.array(arr), 0.5, "plant_rect_meansub", 30, adaptiveScaling=True)
+    if UNIFORM_MEAN_SUBTRACTION:
 
-if DOWNSIZE_ARR:
-    arr = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
+        vid = pickle.load(open("fan_rect.p", "r"))
 
-    newArr = []
+        frameShape = vid[0].shape
 
-    for i, frame in enumerate(arr):
-        print i
-        newArr.append(resizeArray(arr, (80, 80)))
+        print vid.shape
 
-    pickle.dump(np.array(newArr), open("36225_bright_fixed_rect_diff_medfilt_downsized.p", "w"))
+        averageFramePixel = np.sum(np.sum(np.sum(vid, 0), 0), 0)
 
-if MACARENA_CORRECT_DECONV_DUMPER:
-    scene = pickle.load(open("macarena_scene_gt.p", "r"))
-    vid = pickle.load(open("macarena_dark_fixed_cropped_meansub_medfilt.p", "r"))
+        print averageFramePixel.shape
 
-    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
+        summedFrame = np.array([[averageFramePixel]*frameShape[1]]*frameShape[0])/(len(vid)*frameShape[0]*frameShape[1])    
 
+     #   print summedFrame
 
-#    print scene.shape
-#    viewFrame(resizedScene)
+    #    averageFrame = sum(vid, 0)/np.shape(vid)[0]
 
-    print vid[0].shape
+    #    print averageFrame.shape
 
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, vid[0].shape, (10, 10)), resizedScene)
+    #    viewFrame(averageFrame, adaptiveScaling=True)
 
-    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
+    #    for i, frame in enumerate(vid):
+    #        if i % 10 == 0:
+    #            viewFrame(frame, adaptiveScaling=True)
+     #           viewFrame(frame - averageFrame, adaptiveScaling=True, differenceImage=True)
 
-#    print inversionMatrices[0].shape
+        meanSubVid = []
 
-    pickle.dump(inversionMatrices, open("macarena_inverter_gt.p", "w")) 
+        for frame in vid:
+            meanSubVid.append(frame - summedFrame)
 
-if MACARENA_EXP_DECONV_DUMPER:
-    scene = pickle.load(open("inverter_exp_36225.p", "r"))
-    vid = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
+        pickle.dump(meanSubVid, open("fan_rect_meansubuniform.p", "w"))    
 
-    viewFrame(scene, adaptiveScaling=True, differenceImage=True)
+    if MEAN_SUBTRACTION_POSITIVE:
+        vid = np.array(pickle.load(open("plant_rect_meansub.p", "r")))
 
+        mostNegValue = np.min(vid)
 
-#    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
-    resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (40, 40))
+        meanSubPosVid = vid - mostNegValue*np.ones(vid.shape)
 
-    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
+        pickle.dump(meanSubPosVid, open("plant_rect_meansub_pos.p", "w"))    
 
-    viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
+    if SIM_COMPARISON:
+        groundTruthVid = pickle.load(open("steven_batched.p", "r"))
 
-#    print scene.shape
-#    viewFrame(resizedScene)
+        occ = pickle.load(open("binary_occ_exp.p", "r"))
 
-#    print vid[0].shape
+    #    viewFrame(np.swapaxes(imageify(occ), 0, 1))
+    #    viewFrame(imageify(occ))
 
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, vid[0].shape, (10, 10)), resizedScene)
+        simVid = []
 
-#    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
-    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e4) for forwardModelMatrix in forwardModelMatrices]
+        for frame in groundTruthVid:
+            convolvedFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(np.swapaxes(x, 0, 1), occ), 
+                np.flip(frame, 0))
+    #        convolvedFrame = doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), 
+    #            frame)
 
-#    print inversionMatrices[0].shape
+            simVid.append(convolvedFrame)
+    #        viewFrame(convolvedFrame, adaptiveScaling=True)
+    #        viewFrame(np.swapaxes(convolvedFrame, 0, 1), adaptiveScaling=True)
 
-    pickle.dump(inversionMatrices, open("macarena_inverter_exp.p", "w")) 
 
-if EXP_63225_DECONV_DUMPER:
-    scene = pickle.load(open("scene_exp_63225.p", "r"))
-    vid = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
+        pickle.dump(np.array(simVid), open("blind_deconv_cardboard_1_rect_sim.p", "w"))
 
-    viewFrame(scene, adaptiveScaling=True, differenceImage=True)
+    if CAP_ARR_VALS:
+        arr = pickle.load(open("orange_rect_meansub.p", "r"))
 
+        capVal = 10
 
-#    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
-    resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (25, 25))
+        for frame in arr:
+            i = random.randint(0, arr.shape[0]-1)
+            j = random.randint(0, arr.shape[1]-1)
 
-    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
+            clampedFrame = np.max(np.min(frame, capVal*np.ones(frame.shape)), -1*capVal*np.ones(frame.shape))
 
-    viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
+        pickle.dump(clampedFrame, open("orange_rect_meansub_clamped.p", "w"))
 
-#    print scene.shape
-#    viewFrame(resizedScene)
+    if TIME_DIFF:
+        arr = pickle.load(open("circle_square_vid.p", "r"))
 
-#    print vid[0].shape
+        diffArr = batchAndDifferentiate(arr, [(1, True), (1, False), (1, False), (1, False)])
 
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (75,75), (10, 10)), resizedScene)
+        pickle.dump(diffArr, open("circle_square_vid_diff.p", "w"))
 
-#    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
-    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e5) for forwardModelMatrix in forwardModelMatrices]
+    if MED_FILT:
+        arr = pickle.load(open("bld66_rect_diff.p", "r"))
 
-#    print inversionMatrices[0].shape
+        medfiltedArr = medfilt(arr)
 
-    pickle.dump(inversionMatrices, open("inverter_exp_36225.p", "w"))     
+        pickle.dump(medfiltedArr, open("bld66_rect_diff_medfilt.p", "w"))
 
-if ORANGE_DECONV_DUMPER:
-    scene = pickle.load(open("orange_scene_exp.p", "r"))
-    vid = pickle.load(open("orange_rect_meansub_medfilt.p", "r"))
+    if AVERAGE_DIVIDE:
+        arr = pickle.load(open("recovered_vid.p", "r"))
 
-    viewFrame(scene, adaptiveScaling=True, differenceImage=True)
+        frameSum = np.zeros(arr[0].shape)
 
+        for frame in arr:
+            frameSum += np.abs(frame)
 
-#    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
-    resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (60, 60))
+        returnArr = []
 
-#    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
+        for frame in arr:
+            returnArr.append(np.divide(frame, frameSum))
 
-    viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
+        pickle.dump(returnArr, open("recovered_vid_avgdiv.p", "w"))
 
-#    print scene.shape
-#    viewFrame(resizedScene)
+    if MAKE_VIDEO:
+        print "hi"
 
-#    print vid[0].shape
+        arrName = "recovered_vid"
 
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (75,75), (50, 50)), resizedScene)
+        arr = pickle.load(open(arrName + ".p", "r"))
 
-    for i, forwardModelMatrix in enumerate(forwardModelMatrices):
-        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e5) 
+#        print arr
 
-        pickle.dump(inversionMatrix, open("orange_inverter_exp_" + str(i) + ".p", "w"))
+        convertArrayToVideo(np.array(arr), 1, arrName, 15, adaptiveScaling=True, differenceImage=True)
 
-#    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
-#    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e5) for forwardModelMatrix in forwardModelMatrices]
+    if DOWNSIZE_ARR:
+        arr = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
 
-#    print inversionMatrices[0].shape
+        newArr = []
 
-#    pickle.dump(inversionMatrices, open("orange_inverter_exp.p", "w"))     
+        for i, frame in enumerate(arr):
+            print i
+            newArr.append(resizeArray(arr, (80, 80)))
 
-if BLD66_DECONV_DUMPER:
-    scene = pickle.load(open("bld66_scene_exp.p", "r"))
-    vid = pickle.load(open("bld66_rect_meansub.p", "r"))
+        pickle.dump(np.array(newArr), open("36225_bright_fixed_rect_diff_medfilt_downsized.p", "w"))
 
-    viewFrame(scene, adaptiveScaling=True, differenceImage=True)
+    if MACARENA_CORRECT_DECONV_DUMPER:
+        scene = pickle.load(open("macarena_scene_gt.p", "r"))
+        vid = pickle.load(open("macarena_dark_fixed_cropped_meansub_medfilt.p", "r"))
 
+        resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
 
-#    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
-#    resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (20, 40))
 
-    resizedScene = scene[12:33,10:50]
+    #    print scene.shape
+    #    viewFrame(resizedScene)
 
-#    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
+        print vid[0].shape
 
-    viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, vid[0].shape, (10, 10)), resizedScene)
 
-#    print scene.shape
-#    viewFrame(resizedScene)
+        inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
 
-#    print vid[0].shape
+    #    print inversionMatrices[0].shape
 
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (40,70), (20, 40)), resizedScene)
+        pickle.dump(inversionMatrices, open("macarena_inverter_gt.p", "w")) 
 
-#    for i, forwardModelMatrix in enumerate(forwardModelMatrices):
-#        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e5) 
+    if MACARENA_EXP_DECONV_DUMPER:
+        scene = pickle.load(open("inverter_exp_36225.p", "r"))
+        vid = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
 
-#        pickle.dump(inversionMatrix, open("orange_inverter_exp_" + str(i) + ".p", "w"))
+        viewFrame(scene, adaptiveScaling=True, differenceImage=True)
 
-#    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
-    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e5) for forwardModelMatrix in forwardModelMatrices]
 
-#    print inversionMatrices[0].shape
+    #    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
+        resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (40, 40))
 
-    pickle.dump(inversionMatrices, open("bld66_inverter_exp.p", "w"))     
+        resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
 
-if MACARENA_TEST:
-    scene = pickle.load(open("macarena_scene_gt.p", "r"))
-    vid = pickle.load(open("macarena_dark_fixed_meansub.p", "r"))
+        viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
 
-    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
+    #    print scene.shape
+    #    viewFrame(resizedScene)
 
-    obsShape = (86, 48)
+    #    print vid[0].shape
 
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, vid[0].shape, (10, 10)), resizedScene)
 
-#    print scene.shape
-#    viewFrame(resizedScene)
+    #    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
+        inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e4) for forwardModelMatrix in forwardModelMatrices]
 
-#    print vid[0].shape
+    #    print inversionMatrices[0].shape
 
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, obsShape), resizedScene)
+        pickle.dump(inversionMatrices, open("macarena_inverter_exp.p", "w")) 
 
-    impulseFrame = makeMultipleImpulseFrame((61, 23), 10)
+    if EXP_63225_DECONV_DUMPER:
+        scene = pickle.load(open("scene_exp_63225.p", "r"))
+        vid = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
 
-    viewFrame(imageify(impulseFrame))
+        viewFrame(scene, adaptiveScaling=True, differenceImage=True)
 
-    viewFrame(imageify(vectorizedDot(forwardModelMatrices[0], impulseFrame, obsShape)), adaptiveScaling=True)
 
+    #    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
+        resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (25, 25))
 
+        resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
 
-    convolvedFrame = doSeparateFuncToEachChannel([lambda x: vectorizedDot(forwardModelMatrices[0], x, obsShape), \
-        lambda x: vectorizedDot(forwardModelMatrices[1], x, obsShape), \
-        lambda x: vectorizedDot(forwardModelMatrices[2], x, obsShape)], impulseFrame)
+        viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
 
-    viewFrame(convolvedFrame, adaptiveScaling=True)
+    #    print scene.shape
+    #    viewFrame(resizedScene)
 
-if MACARENA_CORRECT_DECONV:
-    inversionMatrices = pickle.load(open("macarena_inverter_gt.p", "r"))
+    #    print vid[0].shape
 
-    vid = pickle.load(open("macarena_dark_fixed_cropped_meansub.p", "r"))
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (75,75), (10, 10)), resizedScene)
 
-#    print vid.shape
+    #    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
+        inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e5) for forwardModelMatrix in forwardModelMatrices]
 
-#    recoveryShape = (42, 23)
-    recoveryShape = (52, 33)
+    #    print inversionMatrices[0].shape
 
-    recoveredVid = []
+        pickle.dump(inversionMatrices, open("inverter_exp_36225.p", "w"))     
 
-    for i, frame in enumerate(vid):
-        print i
+    if ORANGE_DECONV_DUMPER:
+        scene = pickle.load(open("orange_scene_exp.p", "r"))
+        vid = pickle.load(open("orange_rect_meansub_medfilt.p", "r"))
 
-        deconvolvedFrame = doSeparateFuncToEachChannelSeparated([lambda x: vectorizedDot(inversionMatrices[0], x, recoveryShape), \
-            lambda x: vectorizedDot(inversionMatrices[1], x, recoveryShape), \
-            lambda x: vectorizedDot(inversionMatrices[2], x, recoveryShape)], frame)
+        viewFrame(scene, adaptiveScaling=True, differenceImage=True)
 
-        deconvolvedFrame = np.sum(deconvolvedFrame, axis=2)/3
 
-        recoveredVid.append(imageify(deconvolvedFrame))
-#    inversionMatrix1 = pickle.load(open("orange_inverter_exp_1.p", "r"))
- #   inversionMatrix2 = pickle.load(open("orange_invert
-    convertArrayToVideo(np.array(recoveredVid), 0.5, "macarena_dark_fixed_cropped_meansub_recovery_77", 15) 
+    #    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
+        resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (60, 60))
 
-if MACARENA_EXP_DECONV:
-#    inversionMatrices = pickle.load(open("macarena_inverter_exp.p", "r"))
-#    inversionMatrices = pickle.load(open("inverter_exp_36225.p", "r"))
-#    inversionMatrix0 = pickle.load(open("orange_inverter_exp_0.p", "r"))
-#    inversionMatrices = pickle.load(open("bld66_inverter_exp.p", "r"))
-    inversionMatrices = pickle.load(open("bld66_jank_inverter_exp.p", "r"))
+    #    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
 
- #   inversionMatrices = [inversionMatrix0, inversionMatrix1, inversionMatrix2]
+        viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
 
-#    vid = pickle.load(open("macarena_dark_fixed_cropped_meansub.p", "r"))
-    vid = pickle.load(open("bld66_rect_meansub.p", "r"))
-#    vid = pickle.load(open("orange_rect_meansub_medfilt.p", "r"))
+    #    print scene.shape
+    #    viewFrame(resizedScene)
 
-#    print vid.shape
+    #    print vid[0].shape
 
-#    recoveryShape = (42, 23)
-#    recoveryShape = (52, 33)
- #   recoveryShape = (30, 60)
-#    recoveryShape = (65, 65)
-#    recoveryShape = (39, 70)
-    recoveryShape = (25, 45)
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (75,75), (50, 50)), resizedScene)
 
-    recoveredVid = []
+        for i, forwardModelMatrix in enumerate(forwardModelMatrices):
+            inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e5) 
 
-    for i, frame in enumerate(vid):
-        print i
+            pickle.dump(inversionMatrix, open("orange_inverter_exp_" + str(i) + ".p", "w"))
 
-        deconvolvedFrame = doSeparateFuncToEachChannelSeparated([lambda x: vectorizedDot(inversionMatrices[0], x, recoveryShape), \
-            lambda x: vectorizedDot(inversionMatrices[1], x, recoveryShape), \
-            lambda x: vectorizedDot(inversionMatrices[2], x, recoveryShape)], frame)
+    #    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
+    #    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e5) for forwardModelMatrix in forwardModelMatrices]
 
-        deconvolvedFrame = np.sum(deconvolvedFrame, axis=2)/3
+    #    print inversionMatrices[0].shape
 
-        recoveredVid.append(imageify(deconvolvedFrame))
+    #    pickle.dump(inversionMatrices, open("orange_inverter_exp.p", "w"))     
 
-    convertArrayToVideo(np.array(recoveredVid), 1, "bld66_recovery_exp", 15) 
-#    convertArrayToVideo(np.array(recoveredVid), 5, "orange_recovery_exp", 15) 
+    if BLD66_DECONV_DUMPER:
+        scene = pickle.load(open("bld66_scene_exp.p", "r"))
+        vid = pickle.load(open("bld66_rect_meansub.p", "r"))
 
+        viewFrame(scene, adaptiveScaling=True, differenceImage=True)
 
-if RECOVER_SCENE:
-#    vid = pickle.load(open("macarena_dark_fixed_cropped_diff_medfilt.p", "r"))
-#    vid = pickle.load(open("orange_rect_diff_medfilt.p", "r"))
-    vid = pickle.load(open("bld66_rect_diff_medfilt.p", "r"))
 
-    estimateSceneFromDifferenceFramesCanvasPreserving(vid)
+    #    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
+    #    resizedScene = cutArrayDownToShapeWithAlternateArray(scene, np.sum(np.abs(scene), axis=2), (20, 40))
 
+        resizedScene = scene[12:33,10:50]
 
+    #    resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), resizedScene)
 
-if MESS_AROUND_WITH_OBS:
-    vid = pickle.load(open("bld66_rect_diff_medfilt.p", "r"))
+        viewFrame(resizedScene, adaptiveScaling=True, differenceImage=True)
 
-    listOfMatchArrays = []
+    #    print scene.shape
+    #    viewFrame(resizedScene)
 
-    for i, frame in enumerate(vid):
-        print i
+    #    print vid[0].shape
 
-        listOfMatchArrays.append(getMatchArrayImage(frame, frame))
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (40,70), (20, 40)), resizedScene)
 
-#        viewFrame(getMatchArrayImage(frame, frame), adaptiveScaling=True, differenceImage=True)
+    #    for i, forwardModelMatrix in enumerate(forwardModelMatrices):
+    #        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e5) 
 
-#    viewFrame(vid[390], adaptiveScaling=True, differenceImage=True)
+    #        pickle.dump(inversionMatrix, open("orange_inverter_exp_" + str(i) + ".p", "w"))
 
-    pickle.dump(np.array(listOfMatchArrays), open("bld66_match.p", "w"))
+    #    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
+        inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e5) for forwardModelMatrix in forwardModelMatrices]
 
-if MESS_AROUND_WITH_OBS_2:
-    matchArrays = pickle.load(open("bld66_match.p", "r"))
+    #    print inversionMatrices[0].shape
 
-    matchArraySum = np.zeros(matchArrays[0].shape)
+        pickle.dump(inversionMatrices, open("bld66_inverter_exp.p", "w"))     
 
-    for i, matchArray in enumerate(matchArrays[:300]):
-        print i
+    if MACARENA_TEST:
+        scene = pickle.load(open("macarena_scene_gt.p", "r"))
+        vid = pickle.load(open("macarena_dark_fixed_meansub.p", "r"))
 
-        if i % 200 == 0:
-            viewFrame(matchArraySum, adaptiveScaling=True, differenceImage=True)
+        resizedScene = doFuncToEachChannel(lambda x: resizeArray(x, (25, 25)), scene)
 
-#        viewFrame(matchArray, adaptiveScaling=True, differenceImage=True)
+        obsShape = (86, 48)
 
-        matchArraySum += matchArray
 
-#        viewFrame(matchArraySum, adaptiveScaling=True, differenceImage=True)
+    #    print scene.shape
+    #    viewFrame(resizedScene)
 
-    viewFrame(matchArraySum, adaptiveScaling=True, differenceImage=True)
+    #    print vid[0].shape
 
-#    convertArrayToVideo(np.array(listOfMatchArrays), 1, "match_arrays", 15) 
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, obsShape), resizedScene)
 
-if AUTOCORR_TEST:
-    vid = pickle.load(open("steven_batched.p", "r"))
+        impulseFrame = makeMultipleImpulseFrame((61, 23), 10)
 
-    frame = vid[300]
+        viewFrame(imageify(impulseFrame))
 
-    autoCorrFrame = getMatchArrayImage(frame, frame)
+        viewFrame(imageify(vectorizedDot(forwardModelMatrices[0], impulseFrame, obsShape)), adaptiveScaling=True)
 
-#    viewFrame(frame)
-#    viewFrame(autoCorrFrame, adaptiveScaling=True)
 
-    print frame.shape
 
-    averageFramePixel = np.sum(np.sum(frame, 0), 0)
+        convolvedFrame = doSeparateFuncToEachChannel([lambda x: vectorizedDot(forwardModelMatrices[0], x, obsShape), \
+            lambda x: vectorizedDot(forwardModelMatrices[1], x, obsShape), \
+            lambda x: vectorizedDot(forwardModelMatrices[2], x, obsShape)], impulseFrame)
 
-    print averageFramePixel.shape
+        viewFrame(convolvedFrame, adaptiveScaling=True)
 
-    summedFrame = np.array([[averageFramePixel]*frame.shape[1]]*frame.shape[0])/(frame.shape[0]*frame.shape[1])
-    print summedFrame.shape
+    if MACARENA_CORRECT_DECONV:
+        inversionMatrices = pickle.load(open("macarena_inverter_gt.p", "r"))
 
-    autoCorrSummedFrame = getMatchArrayImage(summedFrame, summedFrame)
+        vid = pickle.load(open("macarena_dark_fixed_cropped_meansub.p", "r"))
 
+    #    print vid.shape
 
-#    viewFrame(summedFrame, adaptiveScaling=True)
-#    viewFrame(autoCorrSummedFrame, adaptiveScaling=True)
+    #    recoveryShape = (42, 23)
+        recoveryShape = (52, 33)
 
-    meanSubFrame = frame - summedFrame
+        recoveredVid = []
 
-#    viewFrame(meanSubFrame, adaptiveScaling=True, differenceImage=True, magnification=0.5)
-    autoCorrMeanSubFrame = getMatchArrayImage(meanSubFrame, meanSubFrame)
+        for i, frame in enumerate(vid):
+            print i
 
-    viewFrame(autoCorrMeanSubFrame, adaptiveScaling=True, differenceImage=True, magnification=1)
+            deconvolvedFrame = doSeparateFuncToEachChannelSeparated([lambda x: vectorizedDot(inversionMatrices[0], x, recoveryShape), \
+                lambda x: vectorizedDot(inversionMatrices[1], x, recoveryShape), \
+                lambda x: vectorizedDot(inversionMatrices[2], x, recoveryShape)], frame)
 
-if AUTOCORR_TEST_2:
+            deconvolvedFrame = np.sum(deconvolvedFrame, axis=2)/3
 
-    miFrame = imageify(makeMultipleImpulseFrame((20, 20), 4))
+            recoveredVid.append(imageify(deconvolvedFrame))
+    #    inversionMatrix1 = pickle.load(open("orange_inverter_exp_1.p", "r"))
+     #   inversionMatrix2 = pickle.load(open("orange_invert
+        convertArrayToVideo(np.array(recoveredVid), 0.5, "macarena_dark_fixed_cropped_meansub_recovery_77", 15) 
 
-    autoCorrFrame = getMatchArrayImage(miFrame, miFrame)
+    if MACARENA_EXP_DECONV:
+    #    inversionMatrices = pickle.load(open("macarena_inverter_exp.p", "r"))
+    #    inversionMatrices = pickle.load(open("inverter_exp_36225.p", "r"))
+    #    inversionMatrix0 = pickle.load(open("orange_inverter_exp_0.p", "r"))
+    #    inversionMatrices = pickle.load(open("bld66_inverter_exp.p", "r"))
+        inversionMatrices = pickle.load(open("bld66_jank_inverter_exp.p", "r"))
 
-    viewFrame(miFrame)
-    viewFrame(autoCorrFrame, adaptiveScaling=True)
+     #   inversionMatrices = [inversionMatrix0, inversionMatrix1, inversionMatrix2]
 
-if JANK_RECOVERY:
-    kernelShape = (35, 25)
+    #    vid = pickle.load(open("macarena_dark_fixed_cropped_meansub.p", "r"))
+        vid = pickle.load(open("bld66_rect_meansub.p", "r"))
+    #    vid = pickle.load(open("orange_rect_meansub_medfilt.p", "r"))
 
-    offset1 = 15
+    #    print vid.shape
 
-#    gauss1 = getGaussianKernelVariableLocation(kernelShape, np.array([35, 10]), 2)
-#    gauss2 = getGaussianKernelVariableLocation(kernelShape, np.array([20, 10]), 2)
-#    gauss3 = getGaussianKernelVariableLocation(kernelShape, np.array([17.5, 20]), 2)
-#    gauss4 = getGaussianKernelVariableLocation(kernelShape, np.array([35, 30]), 2)
+    #    recoveryShape = (42, 23)
+    #    recoveryShape = (52, 33)
+     #   recoveryShape = (30, 60)
+    #    recoveryShape = (65, 65)
+    #    recoveryShape = (39, 70)
+        recoveryShape = (25, 45)
 
-    gauss1 = getGaussianKernelVariableLocation(kernelShape, np.array([35-offset1, 10]), 2)
-    gauss2 = getGaussianKernelVariableLocation(kernelShape, np.array([20-offset1, 10]), 2)
-    gauss3 = getGaussianKernelVariableLocation(kernelShape, np.array([17.5-offset1, 20]), 2)
-    gauss4 = getGaussianKernelVariableLocation(kernelShape, np.array([35-offset1, 30]), 2)
-    
-    jankKernel = gauss1 + gauss2 + gauss3 + gauss4
+        recoveredVid = []
 
-    viewFrame(imageify(jankKernel))
-    
-    forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
-        getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (40,70), (10, 10)), imageify(jankKernel))
+        for i, frame in enumerate(vid):
+            print i
 
-#    for i, forwardModelMatrix in enumerate(forwardModelMatrices):
-#        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e5) 
+            deconvolvedFrame = doSeparateFuncToEachChannelSeparated([lambda x: vectorizedDot(inversionMatrices[0], x, recoveryShape), \
+                lambda x: vectorizedDot(inversionMatrices[1], x, recoveryShape), \
+                lambda x: vectorizedDot(inversionMatrices[2], x, recoveryShape)], frame)
 
-#        pickle.dump(inversionMatrix, open("orange_inverter_exp_" + str(i) + ".p", "w"))
+            deconvolvedFrame = np.sum(deconvolvedFrame, axis=2)/3
 
-#    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
-    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e-6) for forwardModelMatrix in forwardModelMatrices]
+            recoveredVid.append(imageify(deconvolvedFrame))
 
-    pickle.dump(inversionMatrices, open("bld66_jank_inverter_exp.p", "w"))     
+        convertArrayToVideo(np.array(recoveredVid), 1, "bld66_recovery_exp", 15) 
+    #    convertArrayToVideo(np.array(recoveredVid), 5, "orange_recovery_exp", 15) 
 
-#    jankKernel = np.zeros()
 
-if CVPR_EXAMPLES:
+    if RECOVER_SCENE:
+    #    vid = pickle.load(open("macarena_dark_fixed_cropped_diff_medfilt.p", "r"))
+    #    vid = pickle.load(open("orange_rect_diff_medfilt.p", "r"))
+        vid = pickle.load(open("bld66_rect_diff_medfilt.p", "r"))
 
-    imRaw = Image.open("occluder_example.png")
-    im = np.array(imRaw).astype(float)
+        estimateSceneFromDifferenceFramesCanvasPreserving(vid)
 
-#    viewFrame(im, adaptiveScaling=True)
 
 
-    flatIm = np.sum(im, 2)/(3*255) - np.ones(im.shape[:-1])/3
+    if MESS_AROUND_WITH_OBS:
+        vid = pickle.load(open("bld66_rect_diff_medfilt.p", "r"))
 
-#    viewFrame(imageify(flatIm))
+        listOfMatchArrays = []
 
-    resizedIm = resizeArray(flatIm, (100, 95))
+        for i, frame in enumerate(vid):
+            print i
 
-    def roundToZeroOne(x):
-        if x > 0.5:
-            return 1
-        else:
-            return 0
+            listOfMatchArrays.append(getMatchArrayImage(frame, frame))
 
-    thresholdedIm = np.vectorize(roundToZeroOne)(resizedIm)
+    #        viewFrame(getMatchArrayImage(frame, frame), adaptiveScaling=True, differenceImage=True)
 
-#    print resizedIm+
+    #    viewFrame(vid[390], adaptiveScaling=True, differenceImage=True)
 
-    viewFrame(imageify(thresholdedIm), adaptiveScaling=True)
+        pickle.dump(np.array(listOfMatchArrays), open("bld66_match.p", "w"))
 
-#    path = "lindsey.mp4"
-#    vid = imageio.get_reader(path,  'ffmpeg')
+    if MESS_AROUND_WITH_OBS_2:
+        matchArrays = pickle.load(open("bld66_match.p", "r"))
 
-#    frame1a = np.sum(vid.get_data(200).astype(float), 2)
- #   frame1b = np.sum(vid.get_data(201).astype(float), 2)
-#    diffFrame1 = frame1b - frame1a 
+        matchArraySum = np.zeros(matchArrays[0].shape)
 
-#    diffFrame1 = resizeArray(diffFrame1, (100, 130))
+        for i, matchArray in enumerate(matchArrays[:300]):
+            print i
 
-    diffFrame1 = np.array(Image.open("frame1.png")).astype(float)
+            if i % 200 == 0:
+                viewFrame(matchArraySum, adaptiveScaling=True, differenceImage=True)
 
-    flatIm1 = np.sum(diffFrame1, 2)/(3*255) - np.ones(diffFrame1.shape[:-1])/3
+    #        viewFrame(matchArray, adaptiveScaling=True, differenceImage=True)
 
-    resizedIm1 = resizeArray(flatIm1, (100, 95))
-    convFrame1 = convolve2DToeplitzFull(thresholdedIm, resizedIm1)
+            matchArraySum += matchArray
 
-    viewFrame(imageify(resizedIm1))
+    #        viewFrame(matchArraySum, adaptiveScaling=True, differenceImage=True)
 
-    diffFrame2 = np.array(Image.open("frame2.png")).astype(float)
+        viewFrame(matchArraySum, adaptiveScaling=True, differenceImage=True)
 
-    flatIm2 = np.sum(diffFrame2, 2)/(3*255) - np.ones(diffFrame2.shape[:-1])/3
+    #    convertArrayToVideo(np.array(listOfMatchArrays), 1, "match_arrays", 15) 
 
-    resizedIm2 = resizeArray(flatIm2, (100, 95))
+    if AUTOCORR_TEST:
+        vid = pickle.load(open("steven_batched.p", "r"))
 
-    viewFrame(imageify(resizedIm2))
+        frame = vid[300]
 
-    convFrame2 = convolve2DToeplitzFull(thresholdedIm, resizedIm2)
-    viewFrame(imageify(convFrame1), adaptiveScaling=True)
-    viewFrame(imageify(convFrame2), adaptiveScaling=True)
+        autoCorrFrame = getMatchArrayImage(frame, frame)
 
-    matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
-        getMatchArray(convFrame1, convFrame2)
+    #    viewFrame(frame)
+    #    viewFrame(autoCorrFrame, adaptiveScaling=True)
 
-#        viewFrame(imageify(matchArray), adaptiveScaling=True)
+        print frame.shape
 
-    overlapArray1, overlapArray2 = getOverlapArray(convFrame1, \
-        convFrame2, bestMatchIndex)
+        averageFramePixel = np.sum(np.sum(frame, 0), 0)
 
-    viewFrame(imageify(matchArray), adaptiveScaling=True)
-    viewFrame(imageify(overlapArray1), adaptiveScaling=True)
-    viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+        print averageFramePixel.shape
 
-    overallOverlapArray = np.multiply(np.sqrt(overlapArray1), np.sqrt(overlapArray2))
+        summedFrame = np.array([[averageFramePixel]*frame.shape[1]]*frame.shape[0])/(frame.shape[0]*frame.shape[1])
+        print summedFrame.shape
 
-    viewFrame(imageify(overallOverlapArray), adaptiveScaling=True)
+        autoCorrSummedFrame = getMatchArrayImage(summedFrame, summedFrame)
 
-if CVPR_COMPUTE_HAMMING_DISTANCE:
-    groundTruthOcc = pickle.load(open("corr_occ_2.p", "r"))
-    groundTruthOccThresholded = np.vectorize(lambda x: 1*(x>0.5))(groundTruthOcc)
-    phaseRetrieveOcc = pickle.load(open("phase_retrieve_cvpr.p", "r"))
-    phaseRetrieveOccThresholded = np.vectorize(lambda x: 1*(x>0.5))(phaseRetrieveOcc)
-    binaryOcc = pickle.load(open("extracted_occ_bin.p", "r"))
-    binaryOccThresholded = np.vectorize(lambda x: 1*(x>0.5))(binaryOcc)
 
+    #    viewFrame(summedFrame, adaptiveScaling=True)
+    #    viewFrame(autoCorrSummedFrame, adaptiveScaling=True)
 
-    viewFrame(imageify(groundTruthOcc))
-    viewFrame(imageify(phaseRetrieveOccThresholded))
-    viewFrame(imageify(binaryOcc))
+        meanSubFrame = frame - summedFrame
 
-    print groundTruthOccThresholded
+    #    viewFrame(meanSubFrame, adaptiveScaling=True, differenceImage=True, magnification=0.5)
+        autoCorrMeanSubFrame = getMatchArrayImage(meanSubFrame, meanSubFrame)
 
+        viewFrame(autoCorrMeanSubFrame, adaptiveScaling=True, differenceImage=True, magnification=1)
 
-    print hammingDistance(groundTruthOccThresholded, phaseRetrieveOccThresholded)
-    print hammingDistance(groundTruthOccThresholded, binaryOccThresholded)
-    print np.shape(groundTruthOcc)[0]*np.shape(groundTruthOcc)[1]
+    if AUTOCORR_TEST_2:
 
+        miFrame = imageify(makeMultipleImpulseFrame((20, 20), 4))
 
+        autoCorrFrame = getMatchArrayImage(miFrame, miFrame)
+
+        viewFrame(miFrame)
+        viewFrame(autoCorrFrame, adaptiveScaling=True)
+
+    if JANK_RECOVERY:
+        kernelShape = (35, 25)
+
+        offset1 = 15
+
+    #    gauss1 = getGaussianKernelVariableLocation(kernelShape, np.array([35, 10]), 2)
+    #    gauss2 = getGaussianKernelVariableLocation(kernelShape, np.array([20, 10]), 2)
+    #    gauss3 = getGaussianKernelVariableLocation(kernelShape, np.array([17.5, 20]), 2)
+    #    gauss4 = getGaussianKernelVariableLocation(kernelShape, np.array([35, 30]), 2)
+
+        gauss1 = getGaussianKernelVariableLocation(kernelShape, np.array([35-offset1, 10]), 2)
+        gauss2 = getGaussianKernelVariableLocation(kernelShape, np.array([20-offset1, 10]), 2)
+        gauss3 = getGaussianKernelVariableLocation(kernelShape, np.array([17.5-offset1, 20]), 2)
+        gauss4 = getGaussianKernelVariableLocation(kernelShape, np.array([35-offset1, 30]), 2)
+        
+        jankKernel = gauss1 + gauss2 + gauss3 + gauss4
+
+        viewFrame(imageify(jankKernel))
+        
+        forwardModelMatrices = doFuncToEachChannelSeparated(lambda x: \
+            getForwardModelMatrix2DToeplitzFullFlexibleShape(x, (40,70), (10, 10)), imageify(jankKernel))
+
+    #    for i, forwardModelMatrix in enumerate(forwardModelMatrices):
+    #        inversionMatrix = getPseudoInverse(forwardModelMatrix, 1e5) 
+
+    #        pickle.dump(inversionMatrix, open("orange_inverter_exp_" + str(i) + ".p", "w"))
+
+    #    inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1.5e-8) for forwardModelMatrix in forwardModelMatrices]
+        inversionMatrices = [getPseudoInverse(forwardModelMatrix, 1e-6) for forwardModelMatrix in forwardModelMatrices]
+
+        pickle.dump(inversionMatrices, open("bld66_jank_inverter_exp.p", "w"))     
+
+    #    jankKernel = np.zeros()
+
+    if CVPR_EXAMPLES:
+
+        imRaw = Image.open("occluder_example.png")
+        im = np.array(imRaw).astype(float)
+
+    #    viewFrame(im, adaptiveScaling=True)
+
+
+        flatIm = np.sum(im, 2)/(3*255) - np.ones(im.shape[:-1])/3
+
+    #    viewFrame(imageify(flatIm))
+
+        resizedIm = resizeArray(flatIm, (100, 95))
+
+        def roundToZeroOne(x):
+            if x > 0.5:
+                return 1
+            else:
+                return 0
+
+        thresholdedIm = np.vectorize(roundToZeroOne)(resizedIm)
+
+    #    print resizedIm+
+
+        viewFrame(imageify(thresholdedIm), adaptiveScaling=True)
+
+    #    path = "lindsey.mp4"
+    #    vid = imageio.get_reader(path,  'ffmpeg')
+
+    #    frame1a = np.sum(vid.get_data(200).astype(float), 2)
+     #   frame1b = np.sum(vid.get_data(201).astype(float), 2)
+    #    diffFrame1 = frame1b - frame1a 
+
+    #    diffFrame1 = resizeArray(diffFrame1, (100, 130))
+
+        diffFrame1 = np.array(Image.open("frame1.png")).astype(float)
+
+        flatIm1 = np.sum(diffFrame1, 2)/(3*255) - np.ones(diffFrame1.shape[:-1])/3
+
+        resizedIm1 = resizeArray(flatIm1, (100, 95))
+        convFrame1 = convolve2DToeplitzFull(thresholdedIm, resizedIm1)
+
+        viewFrame(imageify(resizedIm1))
+
+        diffFrame2 = np.array(Image.open("frame2.png")).astype(float)
+
+        flatIm2 = np.sum(diffFrame2, 2)/(3*255) - np.ones(diffFrame2.shape[:-1])/3
+
+        resizedIm2 = resizeArray(flatIm2, (100, 95))
+
+        viewFrame(imageify(resizedIm2))
+
+        convFrame2 = convolve2DToeplitzFull(thresholdedIm, resizedIm2)
+        viewFrame(imageify(convFrame1), adaptiveScaling=True)
+        viewFrame(imageify(convFrame2), adaptiveScaling=True)
+
+        matchArray, bestMatchArray, bestMatchIndex, matchQuality = \
+            getMatchArray(convFrame1, convFrame2)
+
+    #        viewFrame(imageify(matchArray), adaptiveScaling=True)
+
+        overlapArray1, overlapArray2 = getOverlapArray(convFrame1, \
+            convFrame2, bestMatchIndex)
+
+        viewFrame(imageify(matchArray), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray1), adaptiveScaling=True)
+        viewFrame(imageify(overlapArray2), adaptiveScaling=True)
+
+        overallOverlapArray = np.multiply(np.sqrt(overlapArray1), np.sqrt(overlapArray2))
+
+        viewFrame(imageify(overallOverlapArray), adaptiveScaling=True)
+
+    if CVPR_COMPUTE_HAMMING_DISTANCE:
+        groundTruthOcc = pickle.load(open("corr_occ_2.p", "r"))
+        groundTruthOccThresholded = np.vectorize(lambda x: 1*(x>0.5))(groundTruthOcc)
+        phaseRetrieveOcc = pickle.load(open("phase_retrieve_cvpr.p", "r"))
+        phaseRetrieveOccThresholded = np.vectorize(lambda x: 1*(x>0.5))(phaseRetrieveOcc)
+        binaryOcc = pickle.load(open("extracted_occ_bin.p", "r"))
+        binaryOccThresholded = np.vectorize(lambda x: 1*(x>0.5))(binaryOcc)
+
+
+        viewFrame(imageify(groundTruthOcc))
+        viewFrame(imageify(phaseRetrieveOccThresholded))
+        viewFrame(imageify(binaryOcc))
+
+        print groundTruthOccThresholded
+
+
+        print hammingDistance(groundTruthOccThresholded, phaseRetrieveOccThresholded)
+        print hammingDistance(groundTruthOccThresholded, binaryOccThresholded)
+        print np.shape(groundTruthOcc)[0]*np.shape(groundTruthOcc)[1]
+
+    if CVPR_MAKE_EXAMPLE_MOVIE:
+
+        diffVid = pickle.load(open("steven_batched_diff.p", "r"))
+
+        vid = pickle.load(open("steven_batched.p", "r"))
+
+    #    occ = pickle.load(open())
+
+        for i in range(len(diffVid)):
+            print i
+
+            frame = vid[i]
+            diffFrame = diffVid[i]
+
+            p.clf()
+
+            p.subplot(121)
+            p.axis("off")
+            viewFrame(frame, filename="pass", adaptiveScaling=False,
+                relax=True, magnification=1, differenceImage=False)
+
+            p.subplot(122)
+            p.axis("off")
+            viewFrame(diffFrame, filename="pass", adaptiveScaling=True,
+                relax=True, magnification=1, differenceImage=True)
+
+            p.savefig("blind_deconv_movie_sim_2/frame_" + padIntegerWithZeros(i, 4) + ".png")
+
+    if CVPR_MAKE_EXAMPLE_MOVIE_2:
+
+        diffVid = pickle.load(open("steven_batched_diff.p", "r"))
+
+        vid = pickle.load(open("steven_batched.p", "r"))
+
+        occ = pickle.load(open("corr_occ_2.p", "r"))
+
+        for i in range(len(diffVid)):
+            print i
+
+            frame = vid[i]
+            diffFrame = diffVid[i]
+
+            obsFrame = addNoise(doFuncToEachChannel(lambda x: convolve2DToeplitzFull(x, occ), diffFrame))
+
+            p.clf()
+
+            viewFrame(obsFrame, filename="pass", adaptiveScaling=True,
+                relax=True, magnification=1, differenceImage=True)
+
+            p.savefig("blind_deconv_movie_sim_3/frame_" + padIntegerWithZeros(i, 4) + ".png")

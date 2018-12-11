@@ -35,6 +35,7 @@ rawWithBlur = False
 batchMovie = False
 batchSmallerMovie = False
 batchRickMortyMovie = False
+batchMulanMovie = False
 processBlindDeconvVideo = False
 downsampleWinnie = False
 weirdAngle = False
@@ -49,9 +50,12 @@ bld66 = False
 bld34 = False
 stata = False
 fan = False
+fan_fine = False
 fan_monitor = False
 plant = False
-plant_monitor = True
+plant_fine = False
+plant_monitor = False
+matthew_wall = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -200,7 +204,7 @@ def batchAndIntegrate(arr, listOfResponses):
 
 
 
-def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling=True):
+def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling=True, differenceImage=True):
     assert len(arr.shape) == 4
 
     print arr.shape
@@ -208,11 +212,14 @@ def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling
     logNumFrames = int(floor(log(numFrames, 10)))+1
     print "logNumFrames", logNumFrames
 
+    os.system("rm video_trash/" + filename + "_*.png")
+
     for i, frame in enumerate(arr):
 #        print frame.shape
  #       print type(frame[0][0][0])
         viewFrame(frame, magnification=magnification, filename="video_trash/" + filename + "_" + \
-            padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=True, adaptiveScaling=adaptiveScaling)
+            padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling)
 
     numDigits = ceil(log(len(arr), 10))
 
@@ -244,20 +251,28 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
         pickle.dump(arr, open(filename + ".p", "w"))
 
 def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1,
-    firstFrame=0, lastFrame=None, toVideo=False):
+    firstFrame=0, lastFrame=None, toVideo=False, minY=None, maxY=None):
 
     listOfBatchedFrames = []
+
+    print firstFrame, lastFrame
 
     for i in range(firstFrame, lastFrame):
         print i-firstFrame, "/", lastFrame - firstFrame
 
-        try:
-            im = vid.get_data(i)
-        except:
-            im = vid[i]
+#        try:
+        im = vid.get_data(i)
+#        except:
+#            im = vid[i]
 
         frame = np.array(im).astype(float)
-        batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+        if minY == None:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+        else:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])[minY:maxY,:]
+
+#        if i % 100 == 0:
+#            viewFrame(batchedFrame)
 
         listOfBatchedFrames.append(batchedFrame)
 
@@ -879,11 +894,32 @@ if __name__ == "__main__":
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
         processVideoCheap(vid, VIDEO_TIME, \
-            np.array([(1, False), (20, False), (20, False), (1, False)]), \
-            "steven_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            np.array([(1, False), (30, False), (30, False), (1, False)]), \
+            "steven_batched_coarse", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)        
 
 
+        print firstFrame, lastFrame
+
+    if batchMulanMovie:
+        pathToDir = "/Users/adamyedidia/walls/src/"
+        path = "circle.3gp"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "3:23"
+        START_TIME = "0:00"
+        END_TIME = "3:23"
+        numFrames = len(vid)
+
+        print numFrames
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            np.array([(1, False), (3, False), (3, False), (1, False)]), \
+            "circle_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False, minY=8, maxY=40)        
         print firstFrame, lastFrame
 
     if processBlindDeconvVideo:
@@ -1576,12 +1612,36 @@ if __name__ == "__main__":
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
+        print firstFrame, lastFrame
+
         processVideoCheap(vid, VIDEO_TIME, \
             [(2, False), (10, False), (10, False), (1, False)], \
             "fan", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)        
 
         print firstFrame, lastFrame           
+
+    if fan_fine:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9435.MOV"    
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        VIDEO_TIME = "2:33"
+        START_TIME = "1:20"
+        END_TIME = "1:53"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        print firstFrame, lastFrame
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(1, False), (10, False), (10, False), (1, False)], \
+            "fan_fine", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame          
 
     if fan_monitor:
         path = "/Users/adamyedidia/walls/src/movies/MVI_9432.MOV"
@@ -1597,8 +1657,8 @@ if __name__ == "__main__":
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
         processVideoCheap(vid, VIDEO_TIME, \
-            [(2, False), (10, False), (10, False), (1, False)], \
-            "fan_monitor", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            [(1, False), (10, False), (10, False), (1, False)], \
+            "fan_monitor_fine", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)        
 
     if plant:
@@ -1614,12 +1674,37 @@ if __name__ == "__main__":
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
+        print firstFrame, lastFrame
+
         processVideoCheap(vid, VIDEO_TIME, \
             [(2, False), (10, False), (10, False), (1, False)], \
             "plant", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)        
 
         print firstFrame, lastFrame
+
+    if plant_fine:
+        path = "/Users/adamyedidia/walls/src/movies/MVI_9437.MOV"    
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        VIDEO_TIME = "1:16"
+        START_TIME = "0:36"
+        END_TIME = "1:16"
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        print firstFrame, lastFrame
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(1, False), (10, False), (10, False), (1, False)], \
+            "plant_fine", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)        
+
+        print firstFrame, lastFrame
+
 
     if plant_monitor:
         path = "/Users/adamyedidia/walls/src/movies/MVI_9438.MOV"
@@ -1641,3 +1726,23 @@ if __name__ == "__main__":
             "plant_monitor", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)      
 
+    if matthew_wall:
+        path = "/Users/adamyedidia/walls/src/IMG_0571.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        frame1 = vid.get_data(656)
+
+        viewFrame(frame1)
+
+        frame2 = vid.get_data(924)
+
+        viewFrame(frame2)
+
+        viewFrame(frame2 - frame1, differenceImage=True, adaptiveScaling=True)
+
+        diffFrame = frame2 - frame1
+
+        diffFrameBatched = batchAndDifferentiate(diffFrame, [(50, False), (50, False), (1, False)])
+
+        viewFrame(diffFrameBatched, differenceImage=True, adaptiveScaling=True, magnification=0.1)

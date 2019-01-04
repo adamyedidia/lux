@@ -368,6 +368,9 @@ if MAKE_OBS:
 	pickle.dump(np.array(obsVid), open("steven_batched_coarse_obs_noiseless.p", "w"))
 
 if TSNE_JUMBLED:
+
+	originalVid = pickle.load(open("circle_square_vid.p", "r"))
+#	originalVid = pickle.load(open("circle_carlsen_vid.p", "r"))
 #	jumbledVid = pickle.load(open("steven_batched_coarse_jumbled.p", "r"))
 #	jumbledVid = pickle.load(open("steven_batched_coarse.p", "r"))
 #	jumbledVid = pickle.load(open("circle_batched.p", "r"))
@@ -375,7 +378,9 @@ if TSNE_JUMBLED:
 #	jumbledVid = np.array(pickle.load(open("circle_square_vid_meansub.p", "r")))
 #	jumbledVid = pickle.load(open("circle_square_vid_diff.p", "r"))
 #	jumbledVid = pickle.load(open("circle_carlsen_vid.p", "r"))
-	jumbledVid = np.array(pickle.load(open("circle_carlsen_vid_meansub.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("circle_carlsen_vid_meansub.p", "r")))
+	jumbledVid = np.array(pickle.load(open("circle_square_vid_meansub_abs_coloravg.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("circle_carlsen_vid_meansub_abs_coloravg.p", "r")))
 
 #	print jumbledVid.shape
 
@@ -441,7 +446,7 @@ if TSNE_JUMBLED:
 #			p.plot(point[0], point[1], "bo")
 #		p.show()
 
-	recoveredVid = recoverVideoFromEmbedding(jumbledVid[3:], X_downsized, 2, recoveryShape)
+	recoveredVid = recoverVideoFromEmbedding(originalVid[3:], X_downsized, 2, recoveryShape)
 
 	pickle.dump(recoveredVid, open("recovered_vid.p", "w"))
 

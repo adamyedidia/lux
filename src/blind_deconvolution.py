@@ -86,6 +86,8 @@ SIM_COMPARISON = False
 TIME_DIFF = False
 MED_FILT = False
 AVERAGE_DIVIDE = False
+GET_ABS = False
+COLOR_AVG = False
 MAKE_VIDEO = True
 CAP_ARR_VALS = False
 DOWNSIZE_ARR = False
@@ -5115,9 +5117,34 @@ if __name__ == "__main__":
 
         pickle.dump(returnArr, open("recovered_vid_avgdiv.p", "w"))
 
-    if MAKE_VIDEO:
-        print "hi"
+    if GET_ABS:
+        arrName = "circle_carlsen_vid_meansub"
 
+        arr = pickle.load(open(arrName + ".p", "r"))
+
+        returnArr = []
+
+        for frame in arr:
+            returnArr.append(np.abs(frame))
+
+        pickle.dump(returnArr, open(arrName + "_abs.p", "w"))
+
+    if COLOR_AVG:
+        arrName = "circle_carlsen_vid_meansub_abs"
+
+        arr = pickle.load(open(arrName + ".p", "r"))
+
+        returnArr = []
+
+        for frame in arr:
+            newFrame = imageify(np.sum(frame, 2)/(3*255))
+
+            returnArr.append(newFrame)
+
+        pickle.dump(returnArr, open(arrName + "_coloravg.p", "w"))
+
+    if MAKE_VIDEO:
+#        arrName = "circle_carlsen_vid_meansub_abs_coloravg"
         arrName = "recovered_vid"
 
         arr = pickle.load(open(arrName + ".p", "r"))

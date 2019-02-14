@@ -19,7 +19,8 @@ from scipy.linalg import dft
 from best_matrix import findAssignment, isPrime, xorProduct, padIntegerWithZeros, \
     getToeplitzLikeTransferMatrixWithVariedDepth
 from scipy.linalg import circulant, toeplitz
-
+from scipy.io import loadmat
+#from video_processor import batchArrayAlongAxis, batchAndDifferentiate, convertArrayToVideo
 
 MATRIX_SIZE_TEST = False
 FOURIER_UNDERSTANDER = False
@@ -33,6 +34,11 @@ ACTIVE_SIM = False
 ANGLE_CORNER = False
 LIGHT_OF_THE_SUN_SIM = False
 SPHERE_DISK_COMPARISON = False
+DISPERSION_PLOT = False
+LOAD_BU_SIM_DATA = False
+LOAD_BU_REAL_DATA = False
+JOIN_INFO = False
+JOIN_INFO_BY_LIST = True
 
 def hasOptimalCirculant(x):
     if int(log(x+1, 2)) == log(x+1, 2):
@@ -76,6 +82,57 @@ def imageifyComplex(arr):
         np.reshape(np.kron(np.imag(arr), np.array([255,0,0])), arr.shape + tuple([3]))
 
     return result
+
+def batchArrayAlongZeroAxis(arr, batchSize):
+
+    listOfBigFrames = []
+    frameSum = np.zeros(arr[0].shape)
+    numFrames = len(arr)
+
+    for i in range(numFrames):
+        frameSum += arr[i]
+
+        if i % batchSize == batchSize - 1:
+            listOfBigFrames.append(frameSum / batchSize)
+            frameSum = np.zeros(arr[0].shape)
+
+    if numFrames % batchSize != 0:
+        listOfBigFrames.append(frameSum / (numFrames % batchSize))
+
+#    print len(listOfBigFrames)
+    return np.array(listOfBigFrames)
+
+def batchArrayAlongAxis(arr, axis, batchSize):
+    rearrangedArr = np.swapaxes(arr, 0, axis)
+    batchedArray = batchArrayAlongZeroAxis(rearrangedArr, batchSize)
+    return(np.swapaxes(batchedArray, 0, axis))
+
+def batchAndDifferentiate(arr, listOfResponses):
+    dim  = len(arr.shape)
+
+    assert dim == len(listOfResponses)
+
+    # batch things
+#    print "Batching..."
+    for i in range(dim):
+        arr = batchArrayAlongAxis(arr, i, listOfResponses[i][0])
+
+#    viewFrame(arr, 1e0, False)
+
+    # take gradients
+#    print "Differentiating..."
+    for i in range(dim - 1, -1, -1):
+        if listOfResponses[i][1]:
+            arr = np.gradient(arr, axis=i)
+
+#            viewFrame(arr, 3e2, True)
+
+#    arr = blur2DImage(arr, 5)
+
+#    viewFrame(arr, 3e2, True)
+
+    return arr
+
 
 def makeCornerTransferMatrix(vector1, vector2, imShape, vertRadius, horizRadius):
 
@@ -149,6 +206,23 @@ def oneDedge(length):
 
 def oneDNothing(length):
     return [1/length for _ in range(length)]
+
+def horizontalColumn(imShape, height):
+    print "column"
+
+    midPointX = int(imShape[0]/2)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if abs(i - midPointX) < height*imShape[0]:
+                returnArray[i][j] = highVal
+
+#    p.matshow(returnArray)
+#    p.show()
+    return returnArray
 
 def verticalColumn(imShape, width):
     print "column"
@@ -229,7 +303,8 @@ def squareSpeck(imShape, squareRadius):
 #    p.show()
     return returnArray
 
-
+def vectorizedDot(mat, arr, targetShape):
+    return np.reshape(np.dot(mat, arr.flatten()), targetShape)
 
 def pinCircle(imShape, radius, highVal=None):
     print "circle"
@@ -1078,6 +1153,7 @@ def buildActiveTransferMatrixWithCorner(sceneXRes, sceneYRes, \
                         k = 1
 
                         attenuationFactor = 1/(measurementDistance**2)
+#                        attenuationFactor = 1
 
                         matColumn.append(attenuationFactor)
                     else:
@@ -1086,6 +1162,66 @@ def buildActiveTransferMatrixWithCorner(sceneXRes, sceneYRes, \
             returnMat.append(matColumn)
 
     return np.transpose(np.array(returnMat))
+#    return np.array(returnMat)
+
+def buildActiveTransferMatrixWithCornerNew(sceneXRes, sceneYRes, \
+    obsThetaRes, obsTRes, x, y, r):
+
+    diameterOfScene = sqrt(x*x + y*y)
+
+    startTime = r
+    endTime = 2*diameterOfScene + r
+
+    totalTime = endTime - startTime
+    timeBinSize = totalTime / obsTRes
+
+    returnMat = []
+
+    for i, sceneX in enumerate(np.linspace(0, x, sceneXRes)):
+        for j, sceneY in enumerate(np.linspace(0, y, sceneYRes)):
+
+            sceneCoord = np.array([sceneX, sceneY])
+            illuminationCoord = np.array([0, 0])
+
+            illuminationDistance = np.linalg.norm(sceneCoord - illuminationCoord)
+
+            matColumn = []
+            
+            for t, obsT in enumerate(np.linspace(startTime+timeBinSize/2, \
+                endTime-timeBinSize/2, obsTRes)):
+
+                for k, obsTheta in enumerate(np.linspace(0, pi/2, obsThetaRes)):
+
+                    measurementCoord = np.array([-r*cos(obsTheta), -r*sin(obsTheta)])
+
+                    measurementDistance = np.linalg.norm(sceneCoord - measurementCoord)
+                    totalTime = measurementDistance + illuminationDistance
+
+                    x0 = sceneX
+                    y0 = sceneY
+                    x1 = -r*cos(obsTheta)
+                    y1 = -r*sin(obsTheta)
+
+                    cornerYIntercept = (y0 - y1 * x0/x1)/(1 - x0/x1)
+
+#                    print obsT, illuminationDistance, measurementDistance, timeBinSize / 2
+
+                    if (abs(obsT-totalTime) < timeBinSize / 2) and \
+                        (cornerYIntercept >= 0):
+
+                        k = 1
+
+                        attenuationFactor = 1/(measurementDistance**2)
+#                        attenuationFactor = 1
+
+                        matColumn.append(attenuationFactor)
+                    else:
+                        matColumn.append(0)
+
+            returnMat.append(matColumn)
+
+    return np.transpose(np.array(returnMat))
+#    return np.array(returnMat)
 
 def randomOccluderFuncMaker(numTransitions):
     transitions = sorted([random.random() for _ in range(numTransitions)])
@@ -1138,6 +1274,23 @@ def make2DTransferMatrix(sceneDimensions, occluder):
             returnMat.append(matRow)
 
     return np.array(returnMat)
+
+def getPseudoInverse(transferMat, imSpatialDimensions, snr, beta):
+    d = transferMat.shape[0]
+
+    attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+    doubleDft = np.kron(dft(imSpatialDimensions[1])/sqrt(imSpatialDimensions[1]), \
+        dft(imSpatialDimensions[0])/sqrt(imSpatialDimensions[0]))
+    diagArray = attenuationMat.flatten()
+    priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+#    print transferMat.shape
+#    print priorMat.shape
+#    print np.dot(np.dot(transferMat, priorMat), np.transpose(transferMat)).shape
+
+    miMat = snr * np.dot(np.dot(transferMat, priorMat), np.transpose(transferMat)) + np.identity(d)
+
+    return np.dot(np.transpose(transferMat), np.linalg.inv(miMat))
 
 def makeEllipseSnapshot(sceneDimensions, focus1, focus2, semiMajor, verbose=False):
     sceneMaxX = sceneDimensions[0]
@@ -1287,234 +1440,101 @@ def estimateBinaryOccluderFromSunsShadow(obs, highVal):
 
     return fullOccluder
 
-if FOURIER_UNDERSTANDER:
-    n = 10
+if __name__ == "__main__":
 
-    x = np.random.random(n)
+    if FOURIER_UNDERSTANDER:
+        n = 10
 
-    d = dft(n)
+        x = np.random.random(n)
 
-    print np.dot(d, x)
-    print np.fft.fft(x)
+        d = dft(n)
 
-if FOURIER_UNDERSTANDER_2D:
-    n = 5
+        print np.dot(d, x)
+        print np.fft.fft(x)
 
-    x = np.random.random((n, n))
+    if FOURIER_UNDERSTANDER_2D:
+        n = 5
 
-#    d = dft(n)
+        x = np.random.random((n, n))
 
-#    print np.dot(d, x)
-    print np.fft.fft2(x)
+    #    d = dft(n)
 
-if MATRIX_SIZE_TEST:
-    n = 7000
-    A = np.random.random((n, n))
+    #    print np.dot(d, x)
+        print np.fft.fft2(x)
 
-    p.matshow(A)
-    p.show()
+    if MATRIX_SIZE_TEST:
+        n = 7000
+        A = np.random.random((n, n))
 
-    Ainv = np.linalg.inv(A)
-    p.matshow(Ainv)
-    p.show()
+        p.matshow(A)
+        p.show()
 
-if ALRIGHT_LETS_DO_THIS:
-#    imRaw = Image.open("winnie.png")
-#    im = np.array(imRaw).astype(float)
+        Ainv = np.linalg.inv(A)
+        p.matshow(Ainv)
+        p.show()
 
-    IM_BRIGHTNESS = 1e10
-    THERMAL_NOISE = 1e9
-#    THERMAL_NOISE = 1
+    if ALRIGHT_LETS_DO_THIS:
+    #    imRaw = Image.open("winnie.png")
+    #    im = np.array(imRaw).astype(float)
 
+        IM_BRIGHTNESS = 1e10
+        THERMAL_NOISE = 1e12
+    #    THERMAL_NOISE = 1
 
-    beta = 0.1
-#    beta = 1
 
-#    snr = IM_BRIGHTNESS / THERMAL_NOISE
+        beta = 0.1
+    #    beta = 1
 
-    snr = 3e6
-#    snr = 1e12
+    #    snr = IM_BRIGHTNESS / THERMAL_NOISE
 
-#    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
-    im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+        snr = 3e6
+    #    snr = 1e12
 
-    imSpatialDimensions = im.shape[:2]
+    #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
+        im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
 
-    numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
+        imSpatialDimensions = im.shape[:2]
 
-    power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
+        numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
 
-    print "power", power
+        power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
 
-    #print im.shape
+        print "power", power
 
+        #print im.shape
 
 
-    print imSpatialDimensions
 
-#    im = makeImpulseImage(imSpatialDimensions, "center")*IM_BRIGHTNESS
-#    im = makeSquareImage(imSpatialDimensions, 1/4)*IM_BRIGHTNESS
+        print imSpatialDimensions
 
-    viewFrame(im, 1e-10)
-#    viewFrame(im, 1e-10, differenceImage=False, meanSubtraction=True,
-#        absoluteMeanSubtraction=True)
-#    viewFrame(np.flip(np.flip(im, 0), 1), 1e-10)
-#    viewFrame(averageVertically(im), 1e-10)
+    #    im = makeImpulseImage(imSpatialDimensions, "center")*IM_BRIGHTNESS
+    #    im = makeSquareImage(imSpatialDimensions, 1/4)*IM_BRIGHTNESS
 
+        viewFrame(im, 1e-10)
+    #    viewFrame(im, 1e-10, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(np.flip(np.flip(im, 0), 1), 1e-10)
+    #    viewFrame(averageVertically(im), 1e-10)
 
-#    occluderWindow = pinCircle(imSpatialDimensions, 1/8)
-#    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
-#    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
-#    occluderWindow = fineCheckerBoard(imSpatialDimensions)
-#    occluderWindow = pinSquare(imSpatialDimensions, 1/4)
-#    occluderWindow = squareSpeck(imSpatialDimensions, 1/4)
-#    occluderWindow = pinHole(imSpatialDimensions)
-#    occluderWindow = pinSpeck(imSpatialDimensions)
-#    occluderWindow = randomOccluder(imSpatialDimensions)
-#    occluderWindow = lens2(imSpatialDimensions)
-#    occluderWindow = verticalColumn(imSpatialDimensions, 1/4)
-    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
 
-#    viewRepeatedOccluder(occluderWindow)
-    viewSingleOccluder(occluderWindow)
+        occluderWindow = pinCircle(imSpatialDimensions, 1/8)
+    #    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
+    #    occluderWindow = fineCheckerBoard(imSpatialDimensions)
+    #    occluderWindow = pinSquare(imSpatialDimensions, 1/4)
+    #    occluderWindow = squareSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = pinHole(imSpatialDimensions)
+    #    occluderWindow = pinSpeck(imSpatialDimensions)
+    #    occluderWindow = randomOccluder(imSpatialDimensions)
+    #    occluderWindow = lens2(imSpatialDimensions)
+    #    occluderWindow = verticalColumn(imSpatialDimensions, 1/4)
+    #    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
 
-    bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
-    pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
-    sideLength = sqrt(pixels)
-
-    R = bits / (imSpatialDimensions[0]*imSpatialDimensions[1])
-
-    D = power*exp(-2*R)
-
-    print "D:", D
-
-    print bits, pixels, sideLength
-
-    obsPlaneIm = doFuncToEachChannel(convolve2dMaker(occluderWindow), im)
-
-#    viewFrame(obsPlaneIm, 3e-10)
-
-    noisyObsPlaneIm = addNoise(obsPlaneIm, THERMAL_NOISE)
-
-    viewFrame(noisyObsPlaneIm, 1e-10)
-
-#    recoveryWindowSimple = getRecoveryWindowSimple(occluderWindow)
-#    recoveredImSimple = doFuncToEachChannel(convolve2dMaker(recoveryWindowSimple), \
-#        noisyObsPlaneIm)
-
-#    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
-    recoveryWindowSophisticated = getRecoveryWindowOneOverF(occluderWindow, snr)
-
-    recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
-        noisyObsPlaneIm)
-
-
-#    print THERMAL_NOISE * np.ones(im.shape)
-
-#    print recoveredIm
-
-#    recoveredIm -= THERMAL_NOISE * np.ones(im.shape)
-
-#    print recoveredIm
-
-#    viewFrame(obsPlaneIm, 2e-10)
-#    viewFrame(recoveredImSimple, 5e-11)
-    print "recovered image: lower right"
-#    viewFrame(recoveredImSophisticated, 9e-11)
-
-#    averageObsPlaneIntensity = sum(sum(noisyObsPlaneIm, 0), 0)/numPixels
-#    averageObsPlane = np.kron(np.ones(imSpatialDimensions), averageObsPlaneIntensity)
-
-#    print averageObsPlane.shape
-
-
-#    print recoveredImSophisticated, 3*noisyObsPlaneIm
-
-#    print recoveredImSophisticated - 3*noisyObsPlaneIm
-
-    viewFrame(recoveredImSophisticated, 4e-11)
-#    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=True, meanSubtraction=True)
-#    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=True, meanSubtraction=True)
-
-#    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=False, meanSubtraction=True,
-#        absoluteMeanSubtraction=True)
-#    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=False, meanSubtraction=True,
-#        absoluteMeanSubtraction=True)
-#    viewFrame(recoveredImSophisticated, 1e-8, differenceImage=False, meanSubtraction=True,
-#        absoluteMeanSubtraction=True)
-
-
-#    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-10, differenceImage=True)
-#    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-8, differenceImage=True)
-
-#    viewFrame(recoveredImSophisticated, 6e-11)
-#    viewFrame(recoveredImSophisticated, 2e-11)
-
-#    viewFrame(recoveredImSophisticated, 3e-9)
-
-
-    diff = im - recoveredImSophisticated
-#    diff = averageVertically(im) - recoveredImSophisticated
-#    print diff
-
-    print im
-    print recoveredImSophisticated
-
-    empD = np.real(np.sum(np.sum(np.sum(np.multiply(diff, diff), 0), 0), 0)/(numPixels*3))
-
-    print "empirical D:", empD*1e-20
-
-    print "reconstruction SNR:", 10*log(power/empD, 10)
-
-#    viewFrame(recoveredImSophisticated, 3e-9)
-
-if TOEPLITZ_2D:
-
-    IM_BRIGHTNESS = 1e10
-#    THERMAL_NOISE = 1e8
-    THERMAL_NOISE = 1
-
-    beta = 0.3
-#    beta = 1
-
-    snr = 3e6
-#    snr = 1e12
-
-#    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
-    im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-
-    imSpatialDimensions = im.shape[:2]
-
-    numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
-
-    power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
-
-    print "power", power
-
-    #print im.shape
-
-
-
-    for i in range(1,101):
-
-        print i, "/", 100
-
-
-        occluderWindow = pinCircle((2*imSpatialDimensions[0]-1,
-            2*imSpatialDimensions[1]-1), i/256)
-
-        inversionOccluderWindow = cornerCircle(imSpatialDimensions, i/128)
-
-        viewRepeatedOccluder(inversionOccluderWindow,
-            filename="inversionocc" + padIntegerWithZeros(i, 2) + ".png")
-        viewSingleOccluder(occluderWindow,
-            filename="trueocc" + padIntegerWithZeros(i, 2) + ".png")
+    #    viewRepeatedOccluder(occluderWindow)
+        viewSingleOccluder(occluderWindow)
 
         bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
         pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
@@ -1524,19 +1544,74 @@ if TOEPLITZ_2D:
 
         D = power*exp(-2*R)
 
-        obsPlaneIm = doFuncToEachChannel(convolve2dMakerToeplitz(occluderWindow), im)
+        print "D:", D
+
+        print bits, pixels, sideLength
+
+        obsPlaneIm = doFuncToEachChannel(convolve2dMaker(occluderWindow), im)
+
+    #    viewFrame(obsPlaneIm, 3e-10)
 
         noisyObsPlaneIm = addNoise(obsPlaneIm, THERMAL_NOISE)
 
-        recoveryWindowSophisticated = getRecoveryWindowSophisticated(inversionOccluderWindow, beta, snr)
+        viewFrame(noisyObsPlaneIm, 1e-10)
+
+    #    recoveryWindowSimple = getRecoveryWindowSimple(occluderWindow)
+    #    recoveredImSimple = doFuncToEachChannel(convolve2dMaker(recoveryWindowSimple), \
+    #        noisyObsPlaneIm)
+
+    #    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+        recoveryWindowSophisticated = getRecoveryWindowOneOverF(occluderWindow, snr)
+
         recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
             noisyObsPlaneIm)
 
 
+    #    print THERMAL_NOISE * np.ones(im.shape)
+
+    #    print recoveredIm
+
+    #    recoveredIm -= THERMAL_NOISE * np.ones(im.shape)
+
+    #    print recoveredIm
+
+    #    viewFrame(obsPlaneIm, 2e-10)
+    #    viewFrame(recoveredImSimple, 5e-11)
         print "recovered image: lower right"
+    #    viewFrame(recoveredImSophisticated, 9e-11)
+
+    #    averageObsPlaneIntensity = sum(sum(noisyObsPlaneIm, 0), 0)/numPixels
+    #    averageObsPlane = np.kron(np.ones(imSpatialDimensions), averageObsPlaneIntensity)
+
+    #    print averageObsPlane.shape
 
 
-        viewFrame(recoveredImSophisticated, 2e-10, filename="recovery" + padIntegerWithZeros(i, 2) + ".png")
+    #    print recoveredImSophisticated, 3*noisyObsPlaneIm
+
+    #    print recoveredImSophisticated - 3*noisyObsPlaneIm
+
+        pickle.dump(recoveredImSophisticated, open("recovered_im_2.p", "w"))
+
+        viewFrame(recoveredImSophisticated, adaptiveScaling=True)
+    #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=True, meanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=True, meanSubtraction=True)
+
+    #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-8, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+
+
+    #    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-10, differenceImage=True)
+    #    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-8, differenceImage=True)
+
+    #    viewFrame(recoveredImSophisticated, 6e-11)
+    #    viewFrame(recoveredImSophisticated, 2e-11)
+
+    #    viewFrame(recoveredImSophisticated, 3e-9)
+
 
         diff = im - recoveredImSophisticated
     #    diff = averageVertically(im) - recoveredImSophisticated
@@ -1551,474 +1626,1111 @@ if TOEPLITZ_2D:
 
         print "reconstruction SNR:", 10*log(power/empD, 10)
 
-#    viewFrame(recoveredImSophisticated, 3e-9)
+    #    viewFrame(recoveredImSophisticated, 3e-9)
 
-if ANTONIO_METHOD:
+    if TOEPLITZ_2D:
 
-    IM_BRIGHTNESS = 1e10
-#    THERMAL_NOISE = 1e8
-    THERMAL_NOISE = 1
+        IM_BRIGHTNESS = 1e10
+    #    THERMAL_NOISE = 1e8
+        THERMAL_NOISE = 1
 
-    beta = 0.3
-#    beta = 1
+        beta = 0.3
+    #    beta = 1
 
-    snr = 3e6
-#    snr = 1e12
+        snr = 3e6
+    #    snr = 1e12
 
-#    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
-    im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
+        im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
 
-    imSpatialDimensions = im.shape[:2]
+        imSpatialDimensions = im.shape[:2]
 
-    numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
+        numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
 
-    power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
+        power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
 
-    print "power", power
+        print "power", power
 
-    #print im.shape
+        #print im.shape
 
 
 
+        for i in range(1,101):
 
-    occluderWindow = coarseCheckerBoard((2*imSpatialDimensions[0],
-        2*imSpatialDimensions[1]))
+            print i, "/", 100
 
-    obsPlaneIm = doFuncToEachChannel(convolve2dMakerToeplitz(occluderWindow), im)
 
-    noisyObsPlaneIm = addNoise(obsPlaneIm, THERMAL_NOISE)
+            occluderWindow = pinCircle((2*imSpatialDimensions[0]-1,
+                2*imSpatialDimensions[1]-1), i/256)
 
-    doubleObsPlane = np.concatenate((noisyObsPlaneIm, noisyObsPlaneIm), 0)
-    quadrupleObsPlane = np.concatenate((doubleObsPlane, doubleObsPlane), 1)
+            inversionOccluderWindow = cornerCircle(imSpatialDimensions, i/128)
 
-    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
-    recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
-        quadrupleObsPlane)
+            viewRepeatedOccluder(inversionOccluderWindow,
+                filename="inversionocc" + padIntegerWithZeros(i, 2) + ".png")
+            viewSingleOccluder(occluderWindow,
+                filename="trueocc" + padIntegerWithZeros(i, 2) + ".png")
 
+            bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
+            pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
+            sideLength = sqrt(pixels)
 
-    print "recovered image: lower right"
+            R = bits / (imSpatialDimensions[0]*imSpatialDimensions[1])
 
+            D = power*exp(-2*R)
 
-    viewFrame(recoveredImSophisticated, 5e-11)
+            obsPlaneIm = doFuncToEachChannel(convolve2dMakerToeplitz(occluderWindow), im)
 
-    diff = im - recoveredImSophisticated
-#    diff = averageVertically(im) - recoveredImSophisticated
-#    print diff
+            noisyObsPlaneIm = addNoise(obsPlaneIm, THERMAL_NOISE)
 
-    print im
-    print recoveredImSophisticated
+            recoveryWindowSophisticated = getRecoveryWindowSophisticated(inversionOccluderWindow, beta, snr)
+            recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
+                noisyObsPlaneIm)
 
-    empD = np.real(np.sum(np.sum(np.sum(np.multiply(diff, diff), 0), 0), 0)/(numPixels*3))
 
-    print "empirical D:", empD*1e-20
+            print "recovered image: lower right"
 
-    print "reconstruction SNR:", 10*log(power/empD, 10)
 
-#    viewFrame(recoveredImSophisticated, 3e-9)
+            viewFrame(recoveredImSophisticated, 2e-10, filename="recovery" + padIntegerWithZeros(i, 2) + ".png")
 
+            diff = im - recoveredImSophisticated
+        #    diff = averageVertically(im) - recoveredImSophisticated
+        #    print diff
 
-if TOEPLITZ:
-    n = 104
+            print im
+            print recoveredImSophisticated
 
-    dftMat = dft(n)
+            empD = np.real(np.sum(np.sum(np.sum(np.multiply(diff, diff), 0), 0), 0)/(numPixels*3))
 
-    A = upperTriangular(n)
-#    A = circulant(np.random.randint(0, 2, n))
-#    A = circulant([1]*int(n/2)+[0]*int(n/2))
+            print "empirical D:", empD*1e-20
 
-#    A = toeplitz([1] + [1*(random.random()<0.5) for _ in range(n-1)], \
-#        [1] + [1*(random.random()<0.5) for _ in range(n-1)])
+            print "reconstruction SNR:", 10*log(power/empD, 10)
 
-#    A = toeplitz([1]*int(n/8) + [0]*int(7*n/8), [1]*int(n/8) + [0]*int(7*n/8))
+    #    viewFrame(recoveredImSophisticated, 3e-9)
 
-#    A = circulant([1]*int(n/8) + [0]*int(6*n/8) + [1]*int(n/8))
+    if ANTONIO_METHOD:
 
-    p.matshow(A, cmap="Greys_r")
-    p.show()
+        IM_BRIGHTNESS = 1e10
+    #    THERMAL_NOISE = 1e8
+        THERMAL_NOISE = 1
 
-    res = np.dot(np.dot(dftMat, A), np.conj(np.transpose(dftMat)))
-    res[0][0] = 0
-#    res[1][1] = 0
-#    res[n-1][n-1] = 0
-#    res[2][2] = 0
-#    res[n-2][n-2] = 0
-#    res[3][3] = 0
-#    res[n-3][n-3] = 0
+        beta = 0.3
+    #    beta = 1
 
-    p.matshow(np.real(res))
-    p.colorbar()
-    p.show()
+        snr = 3e6
+    #    snr = 1e12
 
-if DIFFERENT_DEPTHS_SIM:
+    #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
+        im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
 
-    IM_BRIGHTNESS = 1e10
-    THERMAL_NOISE = 1e10
-#    THERMAL_NOISE = 1
+        imSpatialDimensions = im.shape[:2]
 
-    beta = 0.1
-#    beta = 1
+        numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
 
-    snr = 1e2
-#    snr = 1e12
+        power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
 
-#    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
-    im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
+        print "power", power
 
+        #print im.shape
 
-    imShape = im.shape
-    imSpatialDimensions = imShape[:2]
 
-    viewFrame(im, 1e-10)
-#    vec = imageToVector(im)
-#    viewFlatFrame(vec, 200, magnification=1e-10)
-#    im = vectorToImage(vec, imSpatialDimensions)
-#    viewFrame(im, 1e-10)
 
-    imVector = imageToVector(im)
 
-    imHeight = imSpatialDimensions[0]
-    imWidth = imSpatialDimensions[1]
+        occluderWindow = coarseCheckerBoard((2*imSpatialDimensions[0],
+            2*imSpatialDimensions[1]))
 
-#    occluderWindow = oneDPinHole(2*imSpatialDimensions[1]-1, 1/4)
-#    occluderWindow = oneDRandom(2*imSpatialDimensions[1]-1)
-#    occluderWindow = oneDNothing(2*imSpatialDimensions[1]-1)
-    occluderWindow = oneDedge(2*imSpatialDimensions[1]-1)
+        obsPlaneIm = doFuncToEachChannel(convolve2dMakerToeplitz(occluderWindow), im)
 
-    d1 = 1
-    d2 = 1
-    d3 = 1
+        noisyObsPlaneIm = addNoise(obsPlaneIm, THERMAL_NOISE)
 
-    subMatrices = [getToeplitzLikeTransferMatrixWithVariedDepth(occluderWindow, \
-        (d2+(i/imHeight)*d1)/(d3+d2+(i/imHeight)*d1), d3/((d3+d2+(i/imHeight)*d1))) for i in range(imHeight)]
+        doubleObsPlane = np.concatenate((noisyObsPlaneIm, noisyObsPlaneIm), 0)
+        quadrupleObsPlane = np.concatenate((doubleObsPlane, doubleObsPlane), 1)
 
-    transferMatrix = np.concatenate(subMatrices, axis=1)
+        recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+        recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
+            quadrupleObsPlane)
 
-    p.matshow(transferMatrix, cmap="Greys_r")
-    p.show()
 
-    obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
+        print "recovered image: lower right"
 
-    viewFlatFrame(obsPlane, 10, magnification=1e-11)
 
-    n = imVector.shape[0]
+        viewFrame(recoveredImSophisticated, 5e-11)
 
-    attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+        diff = im - recoveredImSophisticated
+    #    diff = averageVertically(im) - recoveredImSophisticated
+    #    print diff
 
-    p.matshow(attenuationMat)
-    p.colorbar()
-    p.show()
+        print im
+        print recoveredImSophisticated
 
-    print "computing prior mat"
+        empD = np.real(np.sum(np.sum(np.sum(np.multiply(diff, diff), 0), 0), 0)/(numPixels*3))
 
-#    doubleDft = np.kron(dft(imShape[0])/sqrt(imShape[0]), dft(imShape[1])/sqrt(imShape[1]))
-    doubleDft = np.kron(dft(imShape[1])/sqrt(imShape[1]), dft(imShape[0])/sqrt(imShape[0]))
-    diagArray = attenuationMat.flatten()
-    priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+        print "empirical D:", empD*1e-20
 
+        print "reconstruction SNR:", 10*log(power/empD, 10)
 
-    print priorMat.shape
+    #    viewFrame(recoveredImSophisticated, 3e-9)
 
-    p.matshow(np.real(priorMat))
-    p.colorbar()
-    p.show()
 
+    if TOEPLITZ:
+        n = 104
 
-    print "computing pseudo inverse"
+        dftMat = dft(n)
 
-    miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(imWidth)
-    mi = np.linalg.slogdet(miMat)[1]
+        A = upperTriangular(n)
+    #    A = circulant(np.random.randint(0, 2, n))
+    #    A = circulant([1]*int(n/2)+[0]*int(n/2))
 
-    print "mi", mi, mi/imWidth
+    #    A = toeplitz([1] + [1*(random.random()<0.5) for _ in range(n-1)], \
+    #        [1] + [1*(random.random()<0.5) for _ in range(n-1)])
 
-    pseudoInverse = snr*np.linalg.inv(miMat)
-    recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+    #    A = toeplitz([1]*int(n/8) + [0]*int(7*n/8), [1]*int(n/8) + [0]*int(7*n/8))
 
-    recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
+    #    A = circulant([1]*int(n/8) + [0]*int(6*n/8) + [1]*int(n/8))
 
-    viewFlatFrame(recoveredScene, 200, magnification=1e-10)
+        p.matshow(A, cmap="Greys_r")
+        p.show()
 
-    im = vectorToImage(recoveredScene, imSpatialDimensions)
+        res = np.dot(np.dot(dftMat, A), np.conj(np.transpose(dftMat)))
+        res[0][0] = 0
+    #    res[1][1] = 0
+    #    res[n-1][n-1] = 0
+    #    res[2][2] = 0
+    #    res[n-2][n-2] = 0
+    #    res[3][3] = 0
+    #    res[n-3][n-3] = 0
 
-    viewFrame(im, magnification=6e-11)
+        p.matshow(np.real(res))
+        p.colorbar()
+        p.show()
 
-if ACTIVE_SIM:
+    if DIFFERENT_DEPTHS_SIM:
 
-    im = pickle.load(open("shapes_very_downsamples.p", "r"))
+        IM_BRIGHTNESS = 1e10
+        THERMAL_NOISE = 1e10
+    #    THERMAL_NOISE = 1
 
-    y1 = 1
-    y2 = 1
-    x1 = 1
+        beta = 0.1
+    #    beta = 1
 
-    x = 1
-    y = 1
-    r = 1
+        snr = 1e2
+    #    snr = 1e12
 
-#    viewFrame(im)
+    #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("dora_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+        im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
 
-    imSpatialDimensions = im.shape[:-1]
 
-    sceneXRes = im.shape[0]
-    sceneYRes = im.shape[1]
-    obsXRes = im.shape[0]
-    obsThetaRes = obsXRes
-    obsTRes = 40
+        imShape = im.shape
+        imSpatialDimensions = imShape[:2]
 
-    beta = 0.1
-    snr = 1e0
+        viewFrame(im, 1e-10)
+    #    vec = imageToVector(im)
+    #    viewFlatFrame(vec, 200, magnification=1e-10)
+    #    im = vectorToImage(vec, imSpatialDimensions)
+    #    viewFrame(im, 1e-10)
 
-#    imVector = imageToVector(np.flip(np.flip(np.swapaxes(im, 0, 1), 0), 1))
-    imVector = imageToVector(np.swapaxes(im, 0, 1))
-#    imVector = imageToVector(im)
+        imVector = imageToVector(im)
 
-    illuminationX = x1/2
+        imHeight = imSpatialDimensions[0]
+        imWidth = imSpatialDimensions[1]
 
-    attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+    #    occluderWindow = oneDPinHole(2*imSpatialDimensions[1]-1, 1/4)
+    #    occluderWindow = oneDRandom(2*imSpatialDimensions[1]-1)
+    #    occluderWindow = oneDNothing(2*imSpatialDimensions[1]-1)
+        occluderWindow = oneDedge(2*imSpatialDimensions[1]-1)
 
-#    transferMatrix = buildActiveTransferMatrixWithEdge(illuminationX, sceneXRes, sceneYRes, \
-#        obsXRes, obsTRes, y1, y2, x1)
+        d1 = 1
+        d2 = 1
+        d3 = 1
 
-#    transferMatrix = buildActiveTransferMatrixNoCorner(illuminationX, sceneXRes, sceneYRes, \
-#        obsXRes, obsTRes, y1, y2, x1)
+        subMatrices = [getToeplitzLikeTransferMatrixWithVariedDepth(occluderWindow, \
+            (d2+(i/imHeight)*d1)/(d3+d2+(i/imHeight)*d1), d3/((d3+d2+(i/imHeight)*d1))) for i in range(imHeight)]
 
-#    transferMatrix = buildActiveTransferMatrixWithCorner(sceneXRes, sceneYRes, \
-#        obsThetaRes, obsTRes, x, y, r)
+        transferMatrix = np.concatenate(subMatrices, axis=1)
 
-    numTransitions = 25
+        p.matshow(transferMatrix, cmap="Greys_r")
+        p.show()
 
-    randomOccluderFunc = randomOccluderFuncMaker(numTransitions)
+        obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
 
-    transferMatrix = buildActiveTransferMatrixWithOccluder(illuminationX, sceneXRes, sceneYRes, \
-        obsXRes, obsTRes, y1, y2, x1, randomOccluderFunc)
+        viewFlatFrame(obsPlane, 10, magnification=1e-11)
 
-
-
-#    p.matshow(transferMatrix)
-#    p.show()
-
-#    p.matshow(transferMatrix)
-#    p.colorbar()
-#    p.show()
-
-    displayOccluderFunc(randomOccluderFunc)
-
-
-    obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
-
-#    obsPlane = addExpNoise(obsPlane, 1e-10)
-
-    doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
-    diagArray = attenuationMat.flatten()
-    priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
-
-    miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsXRes * obsTRes)
-
-    pseudoInverse = snr*np.linalg.inv(miMat)
-    recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
-
-    recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
-
-#    viewFlatFrame(recoveredScene, 200, magnification=1)
-
-    im = vectorToImage(recoveredScene, imSpatialDimensions)
-
-#    viewFrame(np.flip(np.flip(np.swapaxes(im, 0, 1), 0), 1), magnification=1)
-    viewFrame(np.swapaxes(im, 0, 1), magnification=1)
-#    viewFrame(im, magnification=1)
-
-
-#    print np.sum(np.sum(im))
-
-    mi = np.linalg.slogdet(miMat)[1]
-
-    print "mi", mi/(sceneXRes*sceneYRes)
-
-#    print obsPlane
-
-
-
-#    transferMatrix =
-
-#    getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
-
-if ANGLE_CORNER:
-
-#    im = pickle.load(open("dora_very_downsampled.p", "r"))
-    im = pickle.load(open("impulse_5_6_11_11.p", "r"))
-
-    viewFrame(im)
-
-    beta = 0.1
-    snr = 1e4
-
-    imShape = im.shape[:-1]
-    imSpatialDimensions = imShape
-    imVector = imageToVector(np.swapaxes(im, 0, 1))
-
-    attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
-
-    vector1 = np.array([sqrt(2)/2,0,sqrt(2)/2])
-    vector2 = np.array([0,1,0])
-    vertRadius = 1
-    horizRadius = 1
-
-    transferMatrix = makeCornerTransferMatrix(vector1, vector2, imShape, vertRadius, horizRadius)
-
-    obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
-
-    viewFrame(vectorToImage(obsPlane, imShape), 1e2)
-
-    doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
-    diagArray = attenuationMat.flatten()
-    priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
-
-    miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsXRes * obsTRes)
-
-    pseudoInverse = snr*np.linalg.inv(miMat)
-    recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
-
-    recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
-
-if LIGHT_OF_THE_SUN_SIM:
-
-    SUN_BRIGHTNESS = 5e11
-#    SUN_BRIGHTNESS = 1e10
-    IM_BRIGHTNESS = 1e10
-    THERMAL_NOISE = 1e-3
-
-    SUN_RADIUS = 1
-#    THERMAL_NOISE = 1
-
-    usePrior = False
-
-    beta = 0.3
-
-    snr = 1e15
-
-    im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
-#    im = pickle.load(open("dora_extremely_downsampled.p", "r"))*IM_BRIGHTNESS
-
-    imSpatialDimensions = im.shape[:2]
-    highVal = 1/(imSpatialDimensions[0]*imSpatialDimensions[1])
-
-    numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
-
-    power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
-
-    print "power", power
-
-    print imSpatialDimensions
-
-#    occluderWindow = cornerSpeck(imSpatialDimensions, 1/8)
-    occluderWindow = circleSpeck((imSpatialDimensions[0]*2-1, imSpatialDimensions[1]*2-1), 1/8)
-
-    transferMatrix = make2DTransferMatrix(imSpatialDimensions, occluderWindow)
-
-    sun = SUN_BRIGHTNESS*imageify(pinCircle(imSpatialDimensions, 1/15, highVal=1))
-
-#    viewFrame(sun, 1e-10)
-
-    print np.mean(im)
-    print np.mean(SUN_BRIGHTNESS*imageify(pinCircle(imSpatialDimensions, 1, highVal=1)))
-
-    im += sun
-
-    viewFrame(im, 1e-10)
-    viewSingleOccluder(occluderWindow)
-
-    print "s1", occluderWindow.shape
-
-    bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
-    pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
-    sideLength = sqrt(pixels)
-
-#    print bits, pixels, sideLength
-
-#    obsPlaneIm = doFuncToEachChannel(convolve2dMaker(occluderWindow), im)
-    obsPlaneVec = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imageToVector(im))
-
-#    viewFrame(vectorToImage(obsPlaneIm), 3e-12)
-
-    noisyObsPlaneVec = addNoise(obsPlaneVec, THERMAL_NOISE)
-
-    noisyObsPlaneIm = vectorToImage(noisyObsPlaneVec, imSpatialDimensions)
-
-    viewFrame(noisyObsPlaneIm, 3e-10)
-
-
-    estimatedOccluder = estimateBinaryOccluderFromSunsShadow(noisyObsPlaneIm, highVal)
-
-    viewSingleOccluder(estimatedOccluder)
-
-    print "s2", estimatedOccluder.shape
-
-#    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
-
-    estimatedTransferMatrix = make2DTransferMatrix(imSpatialDimensions, estimatedOccluder)
-
-    if usePrior:
+        n = imVector.shape[0]
 
         attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
 
+        p.matshow(attenuationMat)
+        p.colorbar()
+        p.show()
+
+        print "computing prior mat"
+
+    #    doubleDft = np.kron(dft(imShape[0])/sqrt(imShape[0]), dft(imShape[1])/sqrt(imShape[1]))
+        attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+        doubleDft = np.kron(dft(imShape[1])/sqrt(imShape[1]), dft(imShape[0])/sqrt(imShape[0]))
+        diagArray = attenuationMat.flatten()
+        priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+
+        print priorMat.shape
+
+        p.matshow(np.real(priorMat))
+        p.colorbar()
+        p.show()
+
+
+        print "computing pseudo inverse"
+
+        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(imWidth)
+        mi = np.linalg.slogdet(miMat)[1]
+
+        print "mi", mi, mi/imWidth
+
+        pseudoInverse = snr*np.linalg.inv(miMat)
+        recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
+
+        viewFlatFrame(recoveredScene, 200, magnification=1e-10)
+
+        im = vectorToImage(recoveredScene, imSpatialDimensions)
+
+        viewFrame(im, magnification=6e-11)
+
+    if ACTIVE_SIM:
+
+        im = pickle.load(open("shapes_very_downsamples.p", "r"))
+
+        y1 = 1
+        y2 = 1
+        x1 = 1
+
+        x = 1
+        y = 1
+        r = 1
+
+    #    viewFrame(im)
+
+        imSpatialDimensions = im.shape[:-1]
+
         sceneXRes = im.shape[0]
         sceneYRes = im.shape[1]
+        obsXRes = im.shape[0]
+#        obsThetaRes = obsXRes
+#        obsTRes = 40
+        obsThetaRes = 16
+        obsTRes = 63
+
+        beta = 0.1
+        snr = 1e0
+
+    #    imVector = imageToVector(np.flip(np.flip(np.swapaxes(im, 0, 1), 0), 1))
+        imVector = imageToVector(np.swapaxes(im, 0, 1))
+    #    imVector = imageToVector(im)
+
+        illuminationX = x1/2
+
+        attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+    #    transferMatrix = buildActiveTransferMatrixWithEdge(illuminationX, sceneXRes, sceneYRes, \
+    #        obsXRes, obsTRes, y1, y2, x1)
+
+    #    transferMatrix = buildActiveTransferMatrixNoCorner(illuminationX, sceneXRes, sceneYRes, \
+    #        obsXRes, obsTRes, y1, y2, x1)
+
+        transferMatrix = buildActiveTransferMatrixWithCorner(sceneXRes, sceneYRes, \
+            obsThetaRes, obsTRes, x, y, r)
+
+#        numTransitions = 25
+
+#        randomOccluderFunc = randomOccluderFuncMaker(numTransitions)
+
+#        transferMatrix = buildActiveTransferMatrixWithOccluder(illuminationX, sceneXRes, sceneYRes, \
+#            obsXRes, obsTRes, y1, y2, x1, randomOccluderFunc)
+
+
+
+    #    p.matshow(transferMatrix)
+    #    p.show()
+
+    #    p.matshow(transferMatrix)
+    #    p.colorbar()
+    #    p.show()
+
+#        displayOccluderFunc(randomOccluderFunc)
+
+
+        obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
+        print obsPlane.shape
+        p.plot(np.transpose(obsPlane)[0])
+        p.show()
+
+
+    #    obsPlane = addExpNoise(obsPlane, 1e-10)
 
         doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
         diagArray = attenuationMat.flatten()
         priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
 
-        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(sceneXRes * sceneYRes)
+        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsXRes * obsTRes)
 
         pseudoInverse = snr*np.linalg.inv(miMat)
         recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
 
-        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), noisyObsPlaneVec)
+        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
 
-    else:
-        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(np.linalg.inv(estimatedTransferMatrix), x), noisyObsPlaneVec)
-#    recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
-#        noisyObsPlaneIm)
+    #    viewFlatFrame(recoveredScene, 200, magnification=1)
 
-    viewFrame(vectorToImage(recoveredScene, imSpatialDimensions), 8e-14)
+        im = vectorToImage(recoveredScene, imSpatialDimensions)
 
-if SPHERE_DISK_COMPARISON:
+    #    viewFrame(np.flip(np.flip(np.swapaxes(im, 0, 1), 0), 1), magnification=1)
+        viewFrame(np.swapaxes(im, 0, 1), magnification=1)
+    #    viewFrame(im, magnification=1)
 
-    im = pickle.load(open("dora_very_downsampled.p", "r"))
-    imSpatialDimensions = np.array(im).shape[:2]
+
+    #    print np.sum(np.sum(im))
+
+        mi = np.linalg.slogdet(miMat)[1]
+
+        print "mi", mi/(sceneXRes*sceneYRes)
+
+    #    print obsPlane
+
+
+
+    #    transferMatrix =
+
+    #    getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2)
+
+    if ANGLE_CORNER:
+
+    #    im = pickle.load(open("dora_very_downsampled.p", "r"))
+        im = pickle.load(open("impulse_5_6_11_11.p", "r"))
+
+        viewFrame(im)
+
+        beta = 0.1
+        snr = 1e4
+
+        imShape = im.shape[:-1]
+        imSpatialDimensions = imShape
+        imVector = imageToVector(np.swapaxes(im, 0, 1))
+
+        attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+        vector1 = np.array([sqrt(2)/2,0,sqrt(2)/2])
+        vector2 = np.array([0,1,0])
+        vertRadius = 1
+        horizRadius = 1
+
+        transferMatrix = makeCornerTransferMatrix(vector1, vector2, imShape, vertRadius, horizRadius)
+
+        obsPlane = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imVector)
+
+        viewFrame(vectorToImage(obsPlane, imShape), 1e2)
+
+        doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
+        diagArray = attenuationMat.flatten()
+        priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsXRes * obsTRes)
+
+        pseudoInverse = snr*np.linalg.inv(miMat)
+        recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
+
+    if LIGHT_OF_THE_SUN_SIM:
+
+        SUN_BRIGHTNESS = 5e11
+    #    SUN_BRIGHTNESS = 1e10
+        IM_BRIGHTNESS = 1e10
+        THERMAL_NOISE = 1e-3
+
+        SUN_RADIUS = 1
+    #    THERMAL_NOISE = 1
+
+        usePrior = False
+
+        beta = 0.3
+
+        snr = 1e15
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("dora_extremely_downsampled.p", "r"))*IM_BRIGHTNESS
+
+        imSpatialDimensions = im.shape[:2]
+        highVal = 1/(imSpatialDimensions[0]*imSpatialDimensions[1])
+
+        numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
+
+        power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
+
+        print "power", power
+
+        print imSpatialDimensions
+
+    #    occluderWindow = cornerSpeck(imSpatialDimensions, 1/8)
+        occluderWindow = circleSpeck((imSpatialDimensions[0]*2-1, imSpatialDimensions[1]*2-1), 1/8)
+
+        transferMatrix = make2DTransferMatrix(imSpatialDimensions, occluderWindow)
+
+        sun = SUN_BRIGHTNESS*imageify(pinCircle(imSpatialDimensions, 1/15, highVal=1))
+
+    #    viewFrame(sun, 1e-10)
+
+        print np.mean(im)
+        print np.mean(SUN_BRIGHTNESS*imageify(pinCircle(imSpatialDimensions, 1, highVal=1)))
+
+        im += sun
+
+        viewFrame(im, 1e-10)
+        viewSingleOccluder(occluderWindow)
+
+        print "s1", occluderWindow.shape
+
+        bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
+        pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
+        sideLength = sqrt(pixels)
+
+    #    print bits, pixels, sideLength
+
+    #    obsPlaneIm = doFuncToEachChannel(convolve2dMaker(occluderWindow), im)
+        obsPlaneVec = doFuncToEachChannelVec(lambda x: np.dot(transferMatrix, x), imageToVector(im))
+
+    #    viewFrame(vectorToImage(obsPlaneIm), 3e-12)
+
+        noisyObsPlaneVec = addNoise(obsPlaneVec, THERMAL_NOISE)
+
+        noisyObsPlaneIm = vectorToImage(noisyObsPlaneVec, imSpatialDimensions)
+
+        viewFrame(noisyObsPlaneIm, 3e-10)
+
+
+        estimatedOccluder = estimateBinaryOccluderFromSunsShadow(noisyObsPlaneIm, highVal)
+
+        viewSingleOccluder(estimatedOccluder)
+
+        print "s2", estimatedOccluder.shape
+
+    #    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+
+        estimatedTransferMatrix = make2DTransferMatrix(imSpatialDimensions, estimatedOccluder)
+
+        if usePrior:
+
+            attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+            sceneXRes = im.shape[0]
+            sceneYRes = im.shape[1]
+
+            doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
+            diagArray = attenuationMat.flatten()
+            priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+            miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(sceneXRes * sceneYRes)
+
+            pseudoInverse = snr*np.linalg.inv(miMat)
+            recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+            recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), noisyObsPlaneVec)
+
+        else:
+            recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(np.linalg.inv(estimatedTransferMatrix), x), noisyObsPlaneVec)
+    #    recoveredImSophisticated = doFuncToEachChannel(convolve2dMaker(recoveryWindowSophisticated), \
+    #        noisyObsPlaneIm)
+
+        viewFrame(vectorToImage(recoveredScene, imSpatialDimensions), 8e-14)
+
+    if SPHERE_DISK_COMPARISON:
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+        imSpatialDimensions = np.array(im).shape[:2]
+        
+    #    viewFrame(im)
+
+        sphereMat, diskMat, nearMat = makeSphereTransferMatrix(imSpatialDimensions)
+
+        obsSphere = doFuncToEachChannelVec(lambda x: np.dot(sphereMat, x), imageToVector(im))
+        obsNear = doFuncToEachChannelVec(lambda x: np.dot(nearMat, x), imageToVector(im))
+        obsDisk = doFuncToEachChannelVec(lambda x: np.dot(diskMat, x), imageToVector(im))
+
+        viewFrame(vectorToImage(obsSphere, imSpatialDimensions), adaptiveScaling=True)
+        viewFrame(vectorToImage(obsNear, imSpatialDimensions), adaptiveScaling=True)
+        viewFrame(vectorToImage(obsDisk, imSpatialDimensions), adaptiveScaling=True)
+
+
+        inverseMatrixSphere = np.dot(np.linalg.inv(np.dot(np.transpose(diskMat), diskMat) + \
+            2e3*np.identity(diskMat.shape[0])), np.transpose(diskMat))
+
+        inverseMatrixNear = np.dot(np.linalg.inv(np.dot(np.transpose(diskMat), diskMat) + \
+            2e1*np.identity(diskMat.shape[0])), np.transpose(diskMat))
+
+    #    viewFrame(vectorToImage(obs, imSpatialDimensions), adaptiveScaling=True)
+
+        recoverySphere = doFuncToEachChannelVec(lambda x: np.dot(inverseMatrixSphere, x), obsSphere)
+        recoveryNear = doFuncToEachChannelVec(lambda x: np.dot(inverseMatrixSphere, x), obsNear)
+
+
+        viewFrame(vectorToImage(recoverySphere, imSpatialDimensions), adaptiveScaling=True, \
+            magnification=1)
+
+        viewFrame(vectorToImage(recoveryNear, imSpatialDimensions), adaptiveScaling=True, \
+            magnification=1)
+
+    if DISPERSION_PLOT:
+        d = 10
+        hs = np.linspace(0, 40, 100)
+        intensities = [h/(h**2 + d**2)**(3/2) for h in hs]
+
+        p.plot(hs, intensities)
+        ax = p.gca()
+        ax.set_ylabel("Intensity")
+        ax.set_xlabel("h")
+        p.axvline(x=d, color="black")
+        p.show()
+
+    if LOAD_BU_SIM_DATA:
+        matFileName = "data.mat"
+
+        mat = loadmat(matFileName)
+
+        simData = 0
+
+        photonCounts = batchAndDifferentiate(mat["measurement"][0][simData], [(100, False), (1, False)])
+        photonCountsDiff = batchAndDifferentiate(mat["measurement"][0][simData], [(100, False), (1, True)])
+
+
+        print photonCounts.shape
+
+
+        imSpatialDimensions = (20, 20)
+
+        sceneXRes = imSpatialDimensions[0]
+        sceneYRes = imSpatialDimensions[1]
+        obsThetaRes = 20
+        obsTRes = 42
+
+        x = 5
+        y = 5
+        r = 0.1
+
+        beta = 0.1
+        snr = 1e2
+        obsPlane = np.transpose(photonCounts).flatten()
+
+        print photonCounts.shape
+        print obsPlane.shape
+
+        attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+        transferMatrix = buildActiveTransferMatrixWithCorner(sceneXRes, sceneYRes, \
+            obsThetaRes, obsTRes, x, y, r)
+
+        doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
+        diagArray = attenuationMat.flatten()
+        priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsThetaRes * obsTRes)
+
+        pseudoInverse = snr*np.linalg.inv(miMat)
+        recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+#        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
+        recoveredScene = np.dot(recoveryMat, obsPlane)
+
+
+    #    viewFlatFrame(recoveredScene, 200, magnification=1)
+
+        im = vectorToImage(imageify(recoveredScene), imSpatialDimensions)
+
+        viewFrame(im, adaptiveScaling=True, differenceImage=False, magnification=2)
+
+        for i in range(obsThetaRes):
+            p.plot(np.transpose(photonCountsDiff)[i])
+            p.ylim(-1,1)
+            p.show()
+
+
+    if LOAD_BU_REAL_DATA:
+        matFileName = "act_corner_2019_01_28_acq3.mat"
+
+        mat = loadmat(matFileName)
+
+        print mat.keys()
+        print mat["binRes"]
+
+        imSpatialDimensions = (20, 20)
+
+        sceneXRes = imSpatialDimensions[0]
+        sceneYRes = imSpatialDimensions[1]
+        obsThetaRes = 16
+        obsTRes = 63
+
+#        obsThetaRes = 8
+#        obsTRes = 31
+
+#        obsXRes = sceneXRes
+#        obsYRes = sceneYRes
+
+        x = 5
+        y = 5
+        r = 5
+
+        beta = 0.1
+        snr = 1e2
+
+        photonCounts = batchAndDifferentiate(mat["histData"], [(100, False), (1, False)])
+        photonCountsDiff = batchAndDifferentiate(mat["histData"], [(100, False), (1, True)])
+
+        obsPlane = np.transpose(photonCounts).flatten()
+#        obsPlane = photonCounts.flatten()
+
+        p.plot(obsPlane)
+        p.show()
+
+        print photonCounts.shape
+        print obsPlane.shape
+
+        attenuationMat = getAttenuationMatrix(imSpatialDimensions, beta)
+
+#        transferMatrix = buildActiveTransferMatrixWithCornerNew(sceneXRes, sceneYRes, \
+#            obsThetaRes, obsTRes, x, y, r)
+        transferMatrix = buildActiveTransferMatrixWithCorner(sceneXRes, sceneYRes, \
+            obsThetaRes, obsTRes, x, y, r)
+
+        p.matshow(transferMatrix)
+        p.show()
+
+        doubleDft = np.kron(dft(sceneYRes)/sqrt(sceneYRes), dft(sceneXRes)/sqrt(sceneXRes))
+        diagArray = attenuationMat.flatten()
+        priorMat = np.dot(np.dot(doubleDft, np.diag(diagArray)), np.conj(np.transpose(doubleDft)))
+
+        miMat = snr*np.dot(np.dot(transferMatrix, priorMat), np.transpose(transferMatrix)) + np.identity(obsThetaRes * obsTRes)
+
+        pseudoInverse = snr*np.linalg.inv(miMat)
+        recoveryMat = np.dot(np.transpose(transferMatrix), pseudoInverse)
+
+        p.matshow(np.real(recoveryMat))
+        p.show()
+
+#        recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
+        recoveredScene = np.dot(recoveryMat, obsPlane)
+
+        p.plot(recoveredScene)
+        p.show()
+
+    #    viewFlatFrame(recoveredScene, 200, magnification=1)
+
+        im = vectorToImage(imageify(recoveredScene), imSpatialDimensions)
+
+        viewFrame(im, adaptiveScaling=True, differenceImage=False, magnification=2)
+
+        for i in range(obsThetaRes):
+            p.plot(np.transpose(photonCountsDiff)[i])
+            p.ylim(-20,20)
+            p.show()
+
+    if JOIN_INFO:
+    #    imRaw = Image.open("winnie.png")
+    #    im = np.array(imRaw).astype(float)
+
+        IM_BRIGHTNESS = 1e10
+        THERMAL_NOISE = 1e10
+    #    THERMAL_NOISE = 1
+
+
+        beta = 0.1
+    #    beta = 1
+
+    #    snr = IM_BRIGHTNESS / THERMAL_NOISE
+
+        snr = 1e4
+    #    snr = 3e6
+    #    snr = 1e12
+
+    #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
+        im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
+
+        imSpatialDimensions = im.shape[:2]
+
+        numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
+
+        power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
+
+        print "power", power
+
+        #print im.shape
+
+        print imSpatialDimensions
+
+    #    im = makeImpulseImage(imSpatialDimensions, "center")*IM_BRIGHTNESS
+    #    im = makeSquareImage(imSpatialDimensions, 1/4)*IM_BRIGHTNESS
+
+        viewFrame(im, 1e-10)
+    #    viewFrame(im, 1e-10, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(np.flip(np.flip(im, 0), 1), 1e-10)
+    #    viewFrame(averageVertically(im), 1e-10)
+
+
+        occluderWindow1 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
+    #    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
+    #    occluderWindow = fineCheckerBoard(imSpatialDimensions)
+    #    occluderWindow = pinSquare(imSpatialDimensions, 1/4)
+    #    occluderWindow = squareSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = pinHole(imSpatialDimensions)
+    #    occluderWindow = pinSpeck(imSpatialDimensions)
+    #    occluderWindow = randomOccluder(imSpatialDimensions)
+    #    occluderWindow = lens2(imSpatialDimensions)
+    #    occluderWindow1 = horizontalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+        occluderWindow2 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
+#        occluderWindow2 = verticalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+    #    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
+
+    #    viewRepeatedOccluder(occluderWindow)
+        viewSingleOccluder(occluderWindow1)
+        viewSingleOccluder(occluderWindow2)
+
+#        bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
+#        pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
+#        sideLength = sqrt(pixels)
+
+#        R = bits / (imSpatialDimensions[0]*imSpatialDimensions[1])
+
+#        D = power*exp(-2*R)
+
+#        print "D:", D
+
+#        print bits, pixels, sideLength
+
+#        obsPlaneIm1 = doFuncToEachChannel(convolve2dMaker(occluderWindow1), im)
+        obsPlaneIm1 = doFuncToEachChannel(lambda x: \
+            vectorizedDot(make2DTransferMatrix(imSpatialDimensions, occluderWindow1), x, \
+            imSpatialDimensions), im) 
+
+        obsPlaneIm2 = doFuncToEachChannel(lambda x: \
+            vectorizedDot(make2DTransferMatrix(imSpatialDimensions, occluderWindow2), x, \
+            imSpatialDimensions), im) 
+
+        transferMatrix1 = make2DTransferMatrix(imSpatialDimensions, occluderWindow1)
+        transferMatrix2 = make2DTransferMatrix(imSpatialDimensions, occluderWindow2)
+
+#        p.matshow(transferMatrix1)
+#        p.show()
+#        p.matshow(transferMatrix2)
+#        p.show()
+
+        combinedMatrix = np.concatenate((transferMatrix1, transferMatrix2), 0)
+
+#        p.matshow(combinedMatrix)
+#        p.show()
+
+        viewFrame(obsPlaneIm1, adaptiveScaling=True)
+        viewFrame(obsPlaneIm2, adaptiveScaling=True)
+
+        obsPlaneIm2 = doFuncToEachChannel(convolve2dMaker(occluderWindow2), im)
+
+        combinedObsPlaneIm = doFuncToEachChannel(lambda x: \
+            vectorizedDot(combinedMatrix, x, \
+            (imSpatialDimensions[0]*2, imSpatialDimensions[1])), im) 
+
+        viewFrame(combinedObsPlaneIm, adaptiveScaling=True)
+
+    #    viewFrame(obsPlaneIm, 3e-10)
+
+        noisyObsPlane = addNoise(combinedObsPlaneIm, THERMAL_NOISE)
+
+        inverseMatrix = getPseudoInverse(combinedMatrix, imSpatialDimensions, \
+            snr, beta)
+
+#        p.matshow(np.real(inverseMatrix))
+#        p.show()
+
+    #    recoveryWindowSimple = getRecoveryWindowSimple(occluderWindow)
+    #    recoveredImSimple = doFuncToEachChannel(convolve2dMaker(recoveryWindowSimple), \
+    #        noisyObsPlaneIm)
+
+    #    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+        recoveredIm = doFuncToEachChannel(lambda x: \
+            vectorizedDot(inverseMatrix, x, imSpatialDimensions), noisyObsPlane)
+
+        viewFrame(recoveredIm, adaptiveScaling=True)
+
+
+    #    print THERMAL_NOISE * np.ones(im.shape)
+
+    #    print recoveredIm
+
+    #    recoveredIm -= THERMAL_NOISE * np.ones(im.shape)
+
+    #    print recoveredIm
+
+    #    viewFrame(obsPlaneIm, 2e-10)
+    #    viewFrame(recoveredImSimple, 5e-11)
+        print "recovered image: lower right"
+    #    viewFrame(recoveredImSophisticated, 9e-11)
+
+    #    averageObsPlaneIntensity = sum(sum(noisyObsPlaneIm, 0), 0)/numPixels
+    #    averageObsPlane = np.kron(np.ones(imSpatialDimensions), averageObsPlaneIntensity)
+
+    #    print averageObsPlane.shape
+
+
+    #    print recoveredImSophisticated, 3*noisyObsPlaneIm
+
+    #    print recoveredImSophisticated - 3*noisyObsPlaneIm
+
+        pickle.dump(recoveredImSophisticated, open("recovered_im_2.p", "w"))
+
+        viewFrame(recoveredImSophisticated, adaptiveScaling=True)
+    #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=True, meanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=True, meanSubtraction=True)
+
+    #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-8, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+
+
+    #    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-10, differenceImage=True)
+    #    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-8, differenceImage=True)
+
+    #    viewFrame(recoveredImSophisticated, 6e-11)
+    #    viewFrame(recoveredImSophisticated, 2e-11)
+
+    #    viewFrame(recoveredImSophisticated, 3e-9)
+
+
+        diff = im - recoveredImSophisticated
+    #    diff = averageVertically(im) - recoveredImSophisticated
+    #    print diff
+
+        print im
+        print recoveredImSophisticated
+
+        empD = np.real(np.sum(np.sum(np.sum(np.multiply(diff, diff), 0), 0), 0)/(numPixels*3))
+
+        print "empirical D:", empD*1e-20
+
+        print "reconstruction SNR:", 10*log(power/empD, 10)
+
+    #    viewFrame(recoveredImSophisticated, 3e-9)
+
+    if JOIN_INFO_BY_LIST:
+    #    imRaw = Image.open("winnie.png")
+    #    im = np.array(imRaw).astype(float)
+
+        IM_BRIGHTNESS = 1e10
+        THERMAL_NOISE = 1e10
+    #    THERMAL_NOISE = 1
+
+
+        beta = 0.1
+    #    beta = 1
+
+    #    snr = IM_BRIGHTNESS / THERMAL_NOISE
+
+        snr = 1e4
+    #    snr = 3e6
+    #    snr = 1e12
+
+    #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("calvin_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_slightly_downsampled.p", "r"))*IM_BRIGHTNESS
+    #    im = pickle.load(open("winnie_clipped.p", "r"))*IM_BRIGHTNESS
+        im = pickle.load(open("dora_very_downsampled.p", "r"))*IM_BRIGHTNESS
+
+        imSpatialDimensions = im.shape[:2]
+
+        numPixels = imSpatialDimensions[0]*imSpatialDimensions[1]
+
+        power = np.sum(np.sum(np.sum(np.multiply(im, im), 0), 0), 0)/(numPixels*3)
+
+        print "power", power
+
+        #print im.shape
+
+        print imSpatialDimensions
+
+    #    im = makeImpulseImage(imSpatialDimensions, "center")*IM_BRIGHTNESS
+    #    im = makeSquareImage(imSpatialDimensions, 1/4)*IM_BRIGHTNESS
+
+        viewFrame(im, 1e-10)
+    #    viewFrame(im, 1e-10, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(np.flip(np.flip(im, 0), 1), 1e-10)
+    #    viewFrame(averageVertically(im), 1e-10)
+
+
+        occluderWindow1 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
+    #    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
+    #    occluderWindow = fineCheckerBoard(imSpatialDimensions)
+    #    occluderWindow = pinSquare(imSpatialDimensions, 1/4)
+    #    occluderWindow = squareSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = pinHole(imSpatialDimensions)
+    #    occluderWindow = pinSpeck(imSpatialDimensions)
+    #    occluderWindow = randomOccluder(imSpatialDimensions)
+    #    occluderWindow = lens2(imSpatialDimensions)
+#        occluderWindow2 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
+        occluderWindow2 = verticalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+        occluderWindow3 = horizontalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+    #    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
+
+    #    viewRepeatedOccluder(occluderWindow)
+        viewSingleOccluder(occluderWindow1)
+        viewSingleOccluder(occluderWindow2)
+        viewSingleOccluder(occluderWindow3)
+
+#        listOfOccluders = [occluderWindow1]
+#        listOfOccluders = [occluderWindow1, occluderWindow2]
+        listOfOccluders = [occluderWindow1, occluderWindow2, occluderWindow3]
+#        bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
+#        pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
+#        sideLength = sqrt(pixels)
+
+#        R = bits / (imSpatialDimensions[0]*imSpatialDimensions[1])
+
+#        D = power*exp(-2*R)
+
+#        print "D:", D
+
+#        print bits, pixels, sideLength
+
+#        obsPlaneIm1 = doFuncToEachChannel(convolve2dMaker(occluderWindow1), im)
+#        obsPlaneIm1 = doFuncToEachChannel(lambda x: \
+#            vectorizedDot(make2DTransferMatrix(imSpatialDimensions, occluderWindow1), x, \
+#            imSpatialDimensions), im) 
+
+#        obsPlaneIm2 = doFuncToEachChannel(lambda x: \
+#            vectorizedDot(make2DTransferMatrix(imSpatialDimensions, occluderWindow2), x, \
+#            imSpatialDimensions), im) 
+
+#        transferMatrix1 = make2DTransferMatrix(imSpatialDimensions, occluderWindow1)
+#        transferMatrix2 = make2DTransferMatrix(imSpatialDimensions, occluderWindow2)
+
+        listOfTransferMatrices = [make2DTransferMatrix(imSpatialDimensions, occ) for occ in \
+            listOfOccluders]
+
+#        p.matshow(transferMatrix1)
+#        p.show()
+#        p.matshow(transferMatrix2)
+#        p.show()
+
+        combinedMatrix = np.concatenate(listOfTransferMatrices, 0)
+
+#        p.matshow(combinedMatrix)
+#        p.show()
+
+#        viewFrame(obsPlaneIm1, adaptiveScaling=True)
+#        viewFrame(obsPlaneIm2, adaptiveScaling=True)
+
+#        obsPlaneIm2 = doFuncToEachChannel(convolve2dMaker(occluderWindow2), im)
     
-#    viewFrame(im)
+        numOccluders = len(listOfOccluders)
+    
+        combinedObsPlaneIm = doFuncToEachChannel(lambda x: \
+            vectorizedDot(combinedMatrix, x, \
+            (imSpatialDimensions[0]*numOccluders, imSpatialDimensions[1])), im) 
 
-    sphereMat, diskMat, nearMat = makeSphereTransferMatrix(imSpatialDimensions)
+        viewFrame(combinedObsPlaneIm, adaptiveScaling=True)
 
-    obsSphere = doFuncToEachChannelVec(lambda x: np.dot(sphereMat, x), imageToVector(im))
-    obsNear = doFuncToEachChannelVec(lambda x: np.dot(nearMat, x), imageToVector(im))
-    obsDisk = doFuncToEachChannelVec(lambda x: np.dot(diskMat, x), imageToVector(im))
+    #    viewFrame(obsPlaneIm, 3e-10)
 
-    viewFrame(vectorToImage(obsSphere, imSpatialDimensions), adaptiveScaling=True)
-    viewFrame(vectorToImage(obsNear, imSpatialDimensions), adaptiveScaling=True)
-    viewFrame(vectorToImage(obsDisk, imSpatialDimensions), adaptiveScaling=True)
+        noisyObsPlane = addNoise(combinedObsPlaneIm, THERMAL_NOISE)
+
+        inverseMatrix = getPseudoInverse(combinedMatrix, imSpatialDimensions, \
+            snr, beta)
+
+#        p.matshow(np.real(inverseMatrix))
+#        p.show()
+
+    #    recoveryWindowSimple = getRecoveryWindowSimple(occluderWindow)
+    #    recoveredImSimple = doFuncToEachChannel(convolve2dMaker(recoveryWindowSimple), \
+    #        noisyObsPlaneIm)
+
+    #    recoveryWindowSophisticated = getRecoveryWindowSophisticated(occluderWindow, beta, snr)
+        recoveredIm = doFuncToEachChannel(lambda x: \
+            vectorizedDot(inverseMatrix, x, imSpatialDimensions), noisyObsPlane)
+
+        viewFrame(recoveredIm, adaptiveScaling=True)
 
 
-    inverseMatrixSphere = np.dot(np.linalg.inv(np.dot(np.transpose(diskMat), diskMat) + \
-        2e3*np.identity(diskMat.shape[0])), np.transpose(diskMat))
+    #    print THERMAL_NOISE * np.ones(im.shape)
 
-    inverseMatrixNear = np.dot(np.linalg.inv(np.dot(np.transpose(diskMat), diskMat) + \
-        2e1*np.identity(diskMat.shape[0])), np.transpose(diskMat))
+    #    print recoveredIm
 
-#    viewFrame(vectorToImage(obs, imSpatialDimensions), adaptiveScaling=True)
+    #    recoveredIm -= THERMAL_NOISE * np.ones(im.shape)
 
-    recoverySphere = doFuncToEachChannelVec(lambda x: np.dot(inverseMatrixSphere, x), obsSphere)
-    recoveryNear = doFuncToEachChannelVec(lambda x: np.dot(inverseMatrixSphere, x), obsNear)
+    #    print recoveredIm
+
+    #    viewFrame(obsPlaneIm, 2e-10)
+    #    viewFrame(recoveredImSimple, 5e-11)
+        print "recovered image: lower right"
+    #    viewFrame(recoveredImSophisticated, 9e-11)
+
+    #    averageObsPlaneIntensity = sum(sum(noisyObsPlaneIm, 0), 0)/numPixels
+    #    averageObsPlane = np.kron(np.ones(imSpatialDimensions), averageObsPlaneIntensity)
+
+    #    print averageObsPlane.shape
 
 
-    viewFrame(vectorToImage(recoverySphere, imSpatialDimensions), adaptiveScaling=True, \
-        magnification=1)
+    #    print recoveredImSophisticated, 3*noisyObsPlaneIm
 
-    viewFrame(vectorToImage(recoveryNear, imSpatialDimensions), adaptiveScaling=True, \
-        magnification=1)
+    #    print recoveredImSophisticated - 3*noisyObsPlaneIm
+
+        pickle.dump(recoveredImSophisticated, open("recovered_im_2.p", "w"))
+
+        viewFrame(recoveredImSophisticated, adaptiveScaling=True)
+    #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=True, meanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=True, meanSubtraction=True)
+
+    #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+    #    viewFrame(recoveredImSophisticated, 1e-8, differenceImage=False, meanSubtraction=True,
+    #        absoluteMeanSubtraction=True)
+
+
+    #    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-10, differenceImage=True)
+    #    viewFrame(recoveredImSophisticated - 3*noisyObsPlaneIm, 1e-8, differenceImage=True)
+
+    #    viewFrame(recoveredImSophisticated, 6e-11)
+    #    viewFrame(recoveredImSophisticated, 2e-11)
+
+    #    viewFrame(recoveredImSophisticated, 3e-9)
+
+
+        diff = im - recoveredImSophisticated
+    #    diff = averageVertically(im) - recoveredImSophisticated
+    #    print diff
+
+        print im
+        print recoveredImSophisticated
+
+        empD = np.real(np.sum(np.sum(np.sum(np.multiply(diff, diff), 0), 0), 0)/(numPixels*3))
+
+        print "empirical D:", empD*1e-20
+
+        print "reconstruction SNR:", 10*log(power/empD, 10)
+
+    #    viewFrame(recoveredImSophisticated, 3e-9)
+
+

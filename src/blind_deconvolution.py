@@ -65,7 +65,7 @@ CREATE_RECONSTRUCTION_MOVIE = False
 VIEW_FRAMES = False
 DIFF_EXP_VIDEO = False
 CONV_SIM_VIDEO = False
-PROCESS_SIM_VIDEO = False
+PROCESS_SIM_VIDEO = True
 PROCESS_EXP_VIDEO = False
 VIEW_OCC = False
 OVERLAP_PAD_TEST = False
@@ -79,6 +79,7 @@ CREATE_RECONSTRUCTION_MOVIE_EXP_2 = False
 EXTRACT_MATRIX_FROM_IMAGE = False
 WIENER_FILTER_TEST = False
 CROP = False
+DOWNSAMPLE_VID = False
 MEAN_SUBTRACTION = False
 MEAN_SUBTRACTION_POSITIVE = False
 UNIFORM_MEAN_SUBTRACTION = False
@@ -86,9 +87,11 @@ SIM_COMPARISON = False
 TIME_DIFF = False
 MED_FILT = False
 AVERAGE_DIVIDE = False
+AVERAGE_DIVIDE_1D = False
 GET_ABS = False
 COLOR_AVG = False
-MAKE_VIDEO = True
+COLOR_FLATTEN = False
+MAKE_VIDEO = False
 CAP_ARR_VALS = False
 DOWNSIZE_ARR = False
 MACARENA_CORRECT_DECONV_DUMPER = False
@@ -4983,11 +4986,26 @@ if __name__ == "__main__":
 
         pickle.dump(arr[:,19:,:,:], open("macarena_dark_fixed_cropped_diff_medfilt.p", "w"))
 
+    if DOWNSAMPLE_VID:
+        arrName = "prafull_ball"
+
+        arr = pickle.load(open(arrName + ".p", "r"))
+
+        newArr = []
+        downsampleRate = 5
+
+        for i, frame in enumerate(arr):
+            if i % downsampleRate == 0:
+                newArr.append(frame)
+
+        pickle.dump(np.array(newArr), open(arrName + "_ds.p", "w"))
+
     if MEAN_SUBTRACTION:
 
-        name = "circle_carlsen_vid"
+        name = "prafull_ball_ds"
 
         vid = pickle.load(open(name + ".p", "r"))
+#        vid = np.swapaxes(pickle.load(open(name + ".p", "r")), 1, 2) # you probably don't want this
 
         print vid.shape
 
@@ -5089,11 +5107,11 @@ if __name__ == "__main__":
         pickle.dump(clampedFrame, open("orange_rect_meansub_clamped.p", "w"))
 
     if TIME_DIFF:
-        arr = pickle.load(open("circle_square_vid.p", "r"))
+        arr = pickle.load(open("circle_square_nowrap_vid.p", "r"))
 
         diffArr = batchAndDifferentiate(arr, [(1, True), (1, False), (1, False), (1, False)])
 
-        pickle.dump(diffArr, open("circle_square_vid_diff.p", "w"))
+        pickle.dump(diffArr, open("circle_square_nowrap_vid_diff.p", "w"))
 
     if MED_FILT:
         arr = pickle.load(open("bld66_rect_diff.p", "r"))
@@ -5103,22 +5121,85 @@ if __name__ == "__main__":
         pickle.dump(medfiltedArr, open("bld66_rect_diff_medfilt.p", "w"))
 
     if AVERAGE_DIVIDE:
-        arr = pickle.load(open("recovered_vid.p", "r"))
+        arrName = "prafull_ball_ds_meansub"
 
-        frameSum = np.zeros(arr[0].shape)
+        arr = pickle.load(open(arrName + ".p", "r"))
+
+        frameDims = arr[0].shape[:-1]
+        frameSum = np.zeros(frameDims)
+
+        minFactor = 0.1
+
+        numPixels = frameDims[0]*frameDims[1]
 
         for frame in arr:
-            frameSum += np.abs(frame)
+            frameSum += np.abs(np.sum(frame, 2)/3)
 
         returnArr = []
 
-        for frame in arr:
-            returnArr.append(np.divide(frame, frameSum))
+        frameSumAverage = np.sum(frameSum)/numPixels
 
-        pickle.dump(returnArr, open("recovered_vid_avgdiv.p", "w"))
+#        print frameSum.shape
+
+        minIntensityArray = minFactor*frameSumAverage*np.ones(frameDims)
+
+#        print minIntensityArray.shape
+
+        frameSumMinned = np.maximum(frameSum, minFactor*frameSumAverage*np.ones(frameDims))
+
+        intensityBaselineFrame = imageify(frameSumMinned)/255
+
+        for i, frame in enumerate(arr):
+
+            if i == 250:
+#                viewFrame(frame, differenceImage=True, adaptiveScaling=True)
+                viewFrame(np.divide(frame, intensityBaselineFrame), \
+                    magnification=30000, differenceImage=True, adaptiveScaling=False)
+
+            returnArr.append(np.divide(frame, intensityBaselineFrame))
+
+        pickle.dump(returnArr, open(arrName + "_avgdiv.p", "w"))
+
+    if AVERAGE_DIVIDE_1D:
+        arr = pickle.load(open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg.p", "r"))
+
+        frameDims = arr[0].shape[:-1]
+        frameSum = np.zeros(frameDims)
+
+        minFactor = 0.01
+
+        numPixels = frameDims[0]
+
+        for frame in arr:
+            frameSum += np.abs(np.sum(frame, 1)/3)
+
+        returnArr = []
+
+        frameSumAverage = np.sum(frameSum)/numPixels
+
+#        print frameSum.shape
+
+        minIntensityArray = minFactor*frameSumAverage*np.ones(frameDims)
+
+#        print minIntensityArray.shape
+
+        frameSumMinned = np.maximum(frameSum, minFactor*frameSumAverage*np.ones(frameDims))
+
+        intensityBaselineFrame = imageify(frameSumMinned)/255
+
+        for i, frame in enumerate(arr):
+
+            if i == 250:
+#                viewFrame(frame, differenceImage=True, adaptiveScaling=True)
+                viewFrame(np.divide(frame, intensityBaselineFrame), \
+                    magnification=30000, differenceImage=True, adaptiveScaling=False)
+
+            returnArr.append(np.divide(frame, intensityBaselineFrame))
+
+        pickle.dump(returnArr, open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv.p", "w"))
 
     if GET_ABS:
-        arrName = "circle_carlsen_vid_meansub"
+        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub"
 
         arr = pickle.load(open(arrName + ".p", "r"))
 
@@ -5130,28 +5211,54 @@ if __name__ == "__main__":
         pickle.dump(returnArr, open(arrName + "_abs.p", "w"))
 
     if COLOR_AVG:
-        arrName = "circle_carlsen_vid_meansub_abs"
+        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs"
 
         arr = pickle.load(open(arrName + ".p", "r"))
 
         returnArr = []
 
         for frame in arr:
+#            print frame.shape
             newFrame = imageify(np.sum(frame, 2)/(3*255))
+#            newFrame = imageify(np.sum(frame, 1)/(3*255))
 
             returnArr.append(newFrame)
 
         pickle.dump(returnArr, open(arrName + "_coloravg.p", "w"))
 
-    if MAKE_VIDEO:
-#        arrName = "circle_carlsen_vid_meansub_abs_coloravg"
-        arrName = "recovered_vid"
+    if COLOR_FLATTEN:
+        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv"
 
         arr = pickle.load(open(arrName + ".p", "r"))
 
+        returnArr = []
+
+        for frame in arr:
+#            print frame.shape
+            newFrame = np.sum(frame, 2)/3
+#            newFrame = np.sum(frame, 1)/3
+
+            returnArr.append(newFrame)
+
+        pickle.dump(returnArr, open(arrName + "_colorflat.p", "w"))
+
+    if MAKE_VIDEO:
+#        arrName = "circle_carlsen_nowrap_vid_meansub_abs_coloravg"
+#        arrName = "circle_carlsen_nowrap_vid"
+#        arrName = "circle_square_nowrap_vid_meansub_abs"
+#        arrName = "circle_carlsen_nowrap_vid_meansub_abs_coloravg_avgdiv"
+        arrName = "recovered_vid"
+#        arrName = "prafull_ball_meansub_avgdiv"
+#        arrName = "circle_square_nowrap_vid_obs"
+
+        arr = np.array(pickle.load(open(arrName + ".p", "r")))
+
+        print arr.shape
+
 #        print arr
 
-        convertArrayToVideo(np.array(arr), 1, arrName, 15, adaptiveScaling=True, differenceImage=True)
+#        convertArrayToVideo(np.array(arr), 30000, arrName, 15, adaptiveScaling=False, differenceImage=True)
+        convertArrayToVideo(np.array(arr), 0.5, arrName, 15, adaptiveScaling=True, differenceImage=True)
 
     if DOWNSIZE_ARR:
         arr = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))

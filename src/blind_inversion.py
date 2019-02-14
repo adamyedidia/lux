@@ -24,11 +24,13 @@ MAKE_GAUSS_VID = False
 MAKE_IMPULSE_VID = False
 SIM = False
 JUMBLE_VIDEO = False
+TSNE_REMOVE_OUTLIERS = False
 TSNE_JUMBLED = True
 MAKE_OBS = False
 BUILD_AHAT_FROM_DIFF = False
 JUMBLED_RECOVERY = False
 TSNE_JUMBLED_APPROX = False
+RECOVERY_WITH_RIGHT_CENTERS = False
 
 def makeSparseTransferMatrix(shape, fractionOfZeros):
 	return np.random.binomial(1, fractionOfZeros, shape)
@@ -174,7 +176,8 @@ def recoverFrameFromEmbedding(jumbledFrame, gaussianKernels, compensationFactor,
 
 	return resultFrame
 
-def recoverVideoFromEmbedding(jumbledVid, pixelMapping, gaussSD, recoveredFrameShape):
+def recoverVideoFromEmbedding(jumbledVid, pixelMapping, gaussSD, recoveredFrameShape,
+	xBounds=None, yBounds=None):
 	print "computing Gaussian kernels..."
 
 	gaussianKernels, compensationFactor = getGaussianKernels(pixelMapping, gaussSD, recoveredFrameShape)
@@ -189,7 +192,16 @@ def recoverVideoFromEmbedding(jumbledVid, pixelMapping, gaussSD, recoveredFrameS
 		recoveredFrame = recoverFrameFromEmbedding(jumbledFrame, gaussianKernels, \
 			compensationFactor, recoveredFrameShape)
 
-		returnVid.append(recoveredFrame)
+		if xBounds == None:
+			truncatedFrame = recoveredFrame
+
+		else:
+			truncatedFrame = recoveredFrame[xBounds[0]:xBounds[1],yBounds[0]:yBounds[1]]
+
+#		if i > 5:	
+#			viewFrame(truncatedFrame, adaptiveScaling=True)
+
+		returnVid.append(truncatedFrame)
 
 #		viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1)
 
@@ -210,11 +222,25 @@ def recoverVideoFromEmbeddingFlat(jumbledVid, pixelMapping, gaussSD, recoveredFr
 		recoveredFrame = recoverFrameFromEmbeddingFlat(jumbledFrame, gaussianKernels, \
 			compensationFactor, recoveredFrameShape)
 
+
 		returnVid.append(recoveredFrame)
 
 #		viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1)
 
 	return returnVid
+
+def removeOutliers(embedding, median, outlierDistance):
+	newEmbedding = []
+
+	for i, point in enumerate(embedding):
+		print np.linalg.norm(median - point)
+		print outlierDistance
+		print np.linalg.norm(median - point) < outlierDistance
+
+		if np.linalg.norm(median - point) < outlierDistance:
+			newEmbedding.append(point)
+
+	return newEmbedding
 
 def plotEmbedding(embedding, frameDims):
 	for i, point in enumerate(embedding):
@@ -345,7 +371,8 @@ if JUMBLE_VIDEO:
 	pickle.dump(jumbledVid, open("steven_batched_coarse_jumbled.p", "w"))
 
 if MAKE_OBS:
-	vid = pickle.load(open("steven_batched_coarse.p", "r"))
+	vid = pickle.load(open("circle_square_nowrap_vid.p", "r"))
+	diffVid = pickle.load(open("circle_square_nowrap_vid_diff.p", "r"))
 
 	frameDims = vid[0].shape[:-1]
 	inputVectorSize = frameDims[0]*frameDims[1]
@@ -357,34 +384,102 @@ if MAKE_OBS:
 	viewFrame(imageify(transferMat), adaptiveScaling=True)
 
 	obsVid = []
+	diffObsVid = []
 
-	for frame in vid:
+	for frame, diffFrame in zip(vid, diffVid):
 
 		obs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat, x, frameDims), \
 			frame)
+		diffObs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat, x, frameDims), \
+			diffFrame)
 
 		obsVid.append(obs)
+		diffObsVid.append(diffObs)
 
-	pickle.dump(np.array(obsVid), open("steven_batched_coarse_obs_noiseless.p", "w"))
+	pickle.dump(np.array(obsVid), open("circle_square_nowrap_vid_obs.p", "w"))
+	pickle.dump(np.array(obsVid), open("circle_square_nowrap_vid_diff_obs.p", "w"))
+
+if TSNE_REMOVE_OUTLIERS:
+	jumbledVid = np.array(pickle.load(open("glass_rose_avgdiv.p", "r")))
+
+
+	vidShape = jumbledVid.shape
+
+	recoveryShape = (100, 100)
+
+	numFrames = vidShape[0]
+	frameDims = vidShape[1:3]
+
+	flatVid = np.reshape(jumbledVid, (numFrames, frameDims[0]*frameDims[1], 3))
+
+	colorStackedVid = np.reshape(np.swapaxes(jumbledVid, 1, 3), (numFrames*3, frameDims[0]*frameDims[1]))	
+
+	X = np.transpose(colorStackedVid)
+
+	embedding = Isomap(n_components=2, n_neighbors=10)
+
+	correctEmbedding = []
+
+	for j in range(frameDims[1]):
+		for i in range(frameDims[0]):
+			correctEmbedding.append((i, j))
+
+	X_transformed = embedding.fit_transform(X)
+#	print X_transformed.shape	
+#	print X_transformed
+	X_downsized = downsizePixelMapping(X_transformed, recoveryShape)
+
+	xDownsizedXs = [i[0] for i in X_downsized]
+	xDownsizedYs = [i[1] for i in X_downsized]
+
+	medianX = np.median(xDownsizedXs)
+	medianY = np.median(xDownsizedYs)
+
+	OUTLIER_DISTANCE = 40
+
+	xOutliersRemoved = removeOutliers(X_downsized, np.array([medianX, medianY]), OUTLIER_DISTANCE)
+
+	if True:
+
+		plotEmbedding(X_downsized, frameDims)
+		plotEmbedding(xOutliersRemoved, frameDims)
+
+
+
 
 if TSNE_JUMBLED:
 
-	originalVid = pickle.load(open("circle_square_vid.p", "r"))
+	originalVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
+#	originalVid = pickle.load(open("circle_batched_ds.p", "r"))
+#	originalVid = np.array(pickle.load(open("glass_rose.p", "r")))
+#	originalVid = pickle.load(open("circle_square_nowrap_vid.p", "r"))
+#	originalVid = pickle.load(open("circle_carlsen_nowrap_vid.p", "r"))	
+#	originalVid = pickle.load(open("circle_square_vid.p", "r"))
 #	originalVid = pickle.load(open("circle_carlsen_vid.p", "r"))
 #	jumbledVid = pickle.load(open("steven_batched_coarse_jumbled.p", "r"))
 #	jumbledVid = pickle.load(open("steven_batched_coarse.p", "r"))
-#	jumbledVid = pickle.load(open("circle_batched.p", "r"))
+	jumbledVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
+#	jumbledVid = pickle.load(open("circle_batched_ds.p", "r"))
 #	jumbledVid = pickle.load(open("circle_square_vid.p", "r"))
 #	jumbledVid = np.array(pickle.load(open("circle_square_vid_meansub.p", "r")))
 #	jumbledVid = pickle.load(open("circle_square_vid_diff.p", "r"))
 #	jumbledVid = pickle.load(open("circle_carlsen_vid.p", "r"))
 #	jumbledVid = np.array(pickle.load(open("circle_carlsen_vid_meansub.p", "r")))
-	jumbledVid = np.array(pickle.load(open("circle_square_vid_meansub_abs_coloravg.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("circle_square_nowrap_vid_meansub_abs_coloravg.p", "r")))
 #	jumbledVid = np.array(pickle.load(open("circle_carlsen_vid_meansub_abs_coloravg.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("circle_carlsen_nowrap_vid_meansub_abs_coloravg_avgdiv.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("glass_rose.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("glass_rose_avgdiv.p", "r")))
+#	jumbledVid = np.array(pickle.load(open("glass_rose_meansub_avgdiv.p", "r")))
 
 #	print jumbledVid.shape
 
+	originalVid = np.array(originalVid)
+	jumbledVid = np.array(jumbledVid)
+
 	vidShape = jumbledVid.shape
+
+	print vidShape
 
 	recoveryShape = (100, 100)
 
@@ -414,12 +509,12 @@ if TSNE_JUMBLED:
 #	X = np.array([[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 1]])
 	print X.shape
 
-	embedding = Isomap(n_components=2, n_neighbors=10)
-#	embedding = MDS(n_components=2, metric=False, verbose=True)
+	embedding = Isomap(n_components=2, n_neighbors=5)
+#	embedding = MDS(n_components=2, metric=False, verbose=True) # careful this one takes forever
 #	embedding = PCA(n_components=2)
-#	embedding = LocallyLinearEmbedding(n_components=2, reg=1e2, n_neighbors=20)
-#	embedding = TSNE(n_components=2, verbose=2, init="pca", learning_rate=1000, early_exaggeration=1, \
-#		perplexity=50)
+#	embedding = LocallyLinearEmbedding(n_components=2, reg=1e-3, n_neighbors=5)
+#	embedding = TSNE(n_components=2, verbose=2, learning_rate=1000, early_exaggeration=1, \
+#		perplexity=300, method='exact')
 
 	correctEmbedding = []
 
@@ -446,7 +541,11 @@ if TSNE_JUMBLED:
 #			p.plot(point[0], point[1], "bo")
 #		p.show()
 
-	recoveredVid = recoverVideoFromEmbedding(originalVid[3:], X_downsized, 2, recoveryShape)
+#	recoveredVid = recoverVideoFromEmbedding(originalVid[3:], X_downsized, 2, recoveryShape)
+	recoveredVid = recoverVideoFromEmbedding(jumbledVid[3:], X_downsized, 2, recoveryShape)
+#		xBounds=[110,170], yBounds=[0,160])
+#		xBounds=[0,80], yBounds=[55,85])
+
 
 	pickle.dump(recoveredVid, open("recovered_vid.p", "w"))
 
@@ -461,27 +560,33 @@ if TSNE_JUMBLED:
 #		viewFrame(recovery, adaptiveScaling=True)
 
 if BUILD_AHAT_FROM_DIFF:
-#	vid = pickle.load(open("steven_batched_coarse.p", "r"))
-	diffObs = pickle.load(open("steven_batched_coarse_obs_noiseless_diff.p", "r"))
+	vid = pickle.load(open("circle_square_vid.p", "r"))
+	diffObs = pickle.load(open("circle_square_nowrap_vid_diff_obs.p", "r"))
 #	diffVid = pickle.load(open("moving_gauss_5.p", "r"))
 #	diffVid = pickle.load(open("moving_impulse.p", "r"))
 
-	diffVid = pickle.load(open("steven_batched_coarse_diff.p", "r"))
+#	diffVid = pickle.load(open("steven_batched_coarse_diff.p", "r"))
+
+	diffVid = pickle.load(open("circle_square_nowrap_vid_diff.p", "r"))
 
 #	print diffVid.shape
 
-	frameDims = diffObs[0].shape[:-1]
+	frameDims = diffVid[0].shape[:-1]
 	inputVectorSize = frameDims[0]*frameDims[1]
 
 	transferMatShape = (inputVectorSize, inputVectorSize)
 
 	transferMat = makeSparseTransferMatrix(transferMatShape, 0.01)
 
+
 #	viewFrame(imageify(transferMat), adaptiveScaling=True)
 
 #	print frameDims
 
 #	correctInversionMat = getPseudoInverse(transferMat, 1e10)
+
+#	diffObs = [doFuncToEachChannel(lambda x: vectorizedDot(transferMat, x, frameDims),
+#			sceneFrame) for sceneFrame in diffVid]
 
 	proxyMats = [[], [], []]
 
@@ -499,7 +604,9 @@ if BUILD_AHAT_FROM_DIFF:
 
 #		viewFrame(imageify(obsSeparated[0]), adaptiveScaling=True)
 
-		if log(obsNorm+1e-5) < 18 and log(obsNorm+1e-5) > 10:
+#		print log(obsNorm+1e-5)
+
+		if log(obsNorm+1e-5) < 30 and log(obsNorm+1e-5) > 10:
 
 			print True
 #		if obsNorm > 0:
@@ -521,18 +628,20 @@ if BUILD_AHAT_FROM_DIFF:
 
 	proxyMats = [np.transpose(np.array(proxyMat)) for proxyMat in proxyMats]
 
+	print np.array(proxyMats).shape
+
 	viewFrame(imageify(proxyMats[0]), adaptiveScaling=True)
 
 	print proxyMats[0].shape
 
 	recoveredInversionMats = [getPseudoInverse(proxyMat, 1e-7) for proxyMat in proxyMats]
 
-	pickle.dump(recoveredInversionMats, open("steven_approx_inv.p", "w")) 
+	pickle.dump(recoveredInversionMats, open("circle_square_approx_inv.p", "w")) 
 
 if JUMBLED_RECOVERY:
-	obsVid = pickle.load(open("steven_batched_coarse_obs_noiseless.p", "r"))
+	obsVid = pickle.load(open("circle_square_nowrap_vid_obs.p", "r"))
 
-	recoveredInversionMats = pickle.load(open("steven_approx_inv.p", "r"))
+	recoveredInversionMats = pickle.load(open("circle_square_approx_inv.p", "r"))
 
 	recoveredVecsSeparated = []
 	recoveredVecsGrouped = []
@@ -549,17 +658,23 @@ if JUMBLED_RECOVERY:
 		recoveredVecsGrouped.append(recoveredVecSeparated)
 
 	pickle.dump(np.array(recoveredVecsSeparated), \
-		open("steven_batched_coarse_obs_noiseless_jumbled_recovery_separated.p", "w"))
+		open("circle_square_nowrap_vid_obs_jumbled_recovery_separated.p", "w"))
 
 	pickle.dump(np.array(recoveredVecsGrouped), \
-		open("steven_batched_coarse_obs_noiseless_jumbled_recovery_grouped.p", "w"))
+		open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped.p", "w"))
 
 if TSNE_JUMBLED_APPROX:
+#	jumbledRecoverySeparated = \
+#		pickle.load(open("circle_square_nowrap_vid_obs_jumbled_recovery_separated.p", "r"))
+
 	jumbledRecoverySeparated = \
-		pickle.load(open("steven_batched_coarse_obs_noiseless_jumbled_recovery_separated.p", "r"))
+		pickle.load(open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv_colorflat.p", "r"))
 
 	jumbledRecoveryGrouped = \
-		pickle.load(open("steven_batched_coarse_obs_noiseless_jumbled_recovery_grouped.p", "r"))
+		pickle.load(open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped.p", "r"))
+
+	print np.array(jumbledRecoverySeparated).shape
+	print np.array(jumbledRecoveryGrouped).shape
 
 	recoveryShape = (100, 100)
 
@@ -567,9 +682,9 @@ if TSNE_JUMBLED_APPROX:
 
 	print X.shape
 
-#	embedding = Isomap(n_components=2, n_neighbors=3)
+	embedding = Isomap(n_components=2, n_neighbors=5)
 #	embedding = MDS(n_components=2, metric=False)
-	embedding = PCA(n_components=2)
+#	embedding = PCA(n_components=2)
 #	embedding = LocallyLinearEmbedding(n_components=2, reg=0.001, n_neighbors=4)
 #	embedding = TSNE(n_components=2, verbose=2, init="pca", learning_rate=1000, early_exaggeration=1, \
 #		perplexity=50)
@@ -592,6 +707,43 @@ if TSNE_JUMBLED_APPROX:
 #		p.show()
 
 	recoveredVid = recoverVideoFromEmbeddingFlat(jumbledRecoveryGrouped, X_downsized, 2, recoveryShape)
+
+	pickle.dump(recoveredVid, open("recovered_vid.p", "w"))
+
+if RECOVERY_WITH_RIGHT_CENTERS:
+#	jumbledRecoverySeparated = \
+#		pickle.load(open("circle_square_nowrap_vid_obs_jumbled_recovery_separated.p", "r"))
+
+	jumbledRecoveryGrouped = \
+		pickle.load(open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped.p", "r"))
+
+	listOfCenterLocs = pickle.load(open("circle_square_center_locs.p", "r"))
+
+	recoveryShape = (100, 100)
+
+	embedding = Isomap(n_components=2, n_neighbors=5)
+#	embedding = MDS(n_components=2, metric=False)
+#	embedding = PCA(n_components=2)
+#	embedding = LocallyLinearEmbedding(n_components=2, reg=0.001, n_neighbors=4)
+#	embedding = TSNE(n_components=2, verbose=2, init="pca", learning_rate=1000, early_exaggeration=1, \
+#		perplexity=50)
+
+	centerLocsDownsized = downsizePixelMapping(listOfCenterLocs, recoveryShape)
+
+	if True:
+		plotEmbeddingApprox(centerLocsDownsized)
+
+#		for point in X_transformed:
+#			print "point", point
+#			p.plot(point[0], point[1], "ro")
+#		p.show()
+
+#		for point in X_downsized:
+#			print "point", point
+#			p.plot(point[0], point[1], "bo")
+#		p.show()
+
+	recoveredVid = recoverVideoFromEmbeddingFlat(jumbledRecoveryGrouped, centerLocsDownsized, 2, recoveryShape)
 
 	pickle.dump(recoveredVid, open("recovered_vid.p", "w"))
 

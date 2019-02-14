@@ -7,7 +7,8 @@ from PIL import Image
 from video_processor import batchArrayAlongAxis, batchAndDifferentiate, convertArrayToVideo
 
 SQUARE_CIRCLE = False
-CARLSEN_CIRCLE = True
+CARLSEN_CIRCLE = False
+SQUARE_CIRCLE_CENTER_LOCS = True
 
 def numberToColor(x):
 	r = int(x % 8) >> 2
@@ -52,13 +53,38 @@ def movingCircle(radius, startingPoint, movementVector, time, arrShape):
 
 	returnArray = np.array(returnArray)
 
+	return returnArray
 
-#	viewFrame(imageify(returnArray))
+def getMovingCircleCenter(startingPoint, movementVector, time, arrShape):
+	currentPoint = startingPoint + time*movementVector
 
-	return imageify(returnArray)
+	return np.array([currentPoint[0]%arrShape[0], currentPoint[1]%arrShape[1]])
+
+def movingCircleNoWrap(radius, startingPoint, movementVector, time, arrShape):
+	returnArray = []
+
+	currentPoint = startingPoint + time*movementVector
+
+	for i in range(arrShape[0]):
+		returnArray.append([])
+		for j in range(arrShape[1]):
+#			print sqrt((i - currentPoint[0])**2 + \
+#				(j - currentPoint[1])**2), radius
+
+			if sqrt((i - (currentPoint[0]%arrShape[0]))**2 + \
+				(j - (currentPoint[1]%arrShape[1]))**2) < radius:
+
+				returnArray[-1].append(1)
+
+			else:
+				returnArray[-1].append(0)
+
+	returnArray = np.array(returnArray)
+
+	return returnArray
 
 def mux(a, b, m):
-	if m:
+	if m > 0:
 		return a
 	else:
 		return b
@@ -70,9 +96,12 @@ def makeSquareCircleFrame(numSquaresX, numSquaresY, squareX, squareY, radius, \
 	startingPoint, movementVector, time, frameShape):
 	
 	sqBck = squareBackground(numSquaresX, numSquaresY, squareX, squareY)
-	mvCirc = movingCircle(radius, startingPoint, movementVector, time, frameShape)
+	mvCirc = movingCircleNoWrap(radius, startingPoint, movementVector, time, frameShape)
 
-	returnArr = arrMux(np.ones(frameShape)*128, sqBck, mvCirc)	
+	if time == 50:
+		viewFrame(imageify(mvCirc))
+
+	returnArr = arrMux(np.ones(frameShape)*128, sqBck, imageify(mvCirc))
 
 	return returnArr
 
@@ -87,14 +116,17 @@ def makeSquareCircleVideo(numSquaresX, numSquaresY, squareX, squareY, radius, \
 
 		returnVid.append(frame)
 
+		if time == 100:
+			viewFrame(frame)
+
 	return np.array(returnVid)
 
 def makeCircleBackgroundFrame(backgroundImage, radius, \
 	startingPoint, movementVector, time, frameShape):
 
-	mvCirc = movingCircle(radius, startingPoint, movementVector, time, frameShape)
+	mvCirc = movingCircleNoWrap(radius, startingPoint, movementVector, time, frameShape)
 
-	returnArr = arrMux(np.ones(frameShape)*128, backgroundImage, mvCirc)	
+	returnArr = arrMux(np.ones(frameShape)*128, backgroundImage, imageify(mvCirc))	
 
 	return returnArr
 
@@ -127,7 +159,26 @@ if SQUARE_CIRCLE:
 	vid = makeSquareCircleVideo(numSquaresX, numSquaresY, squareX, squareY, radius, \
 		startingPoint, movementVector, numFrames, frameShape)
 
-	pickle.dump(vid, open("circle_square_vid.p", "w"))
+	pickle.dump(vid, open("circle_square_nowrap_vid.p", "w"))
+
+if SQUARE_CIRCLE_CENTER_LOCS:
+	numSquaresX = 3
+	numSquaresY = 3
+	squareX = 11
+	squareY = 11
+	radius = 5
+	startingPoint = np.array([0,0])
+	movementVector = np.array([1.1,0.8])
+	numFrames = 200
+	frameShape = np.array([33, 33, 3])
+
+	listOfCenterLocs = []	
+
+	for time in range(numFrames):
+		listOfCenterLocs.append(getMovingCircleCenter(startingPoint, movementVector, \
+			time, frameShape))
+
+	pickle.dump(listOfCenterLocs, open("circle_square_center_locs.p", "w"))
 
 if CARLSEN_CIRCLE:
 	backgroundImage = batchAndDifferentiate(np.array(Image.open("carlsen_caruana.jpg")).astype(float), \
@@ -143,7 +194,7 @@ if CARLSEN_CIRCLE:
 	vid = makeCircleBackgroundVideo(backgroundImage, radius, \
 		startingPoint, movementVector, numFrames, frameShape)
 
-	pickle.dump(vid, open("circle_carlsen_vid.p", "w"))
+	pickle.dump(vid, open("circle_carlsen_nowrap_vid.p", "w"))
 
 
 

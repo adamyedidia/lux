@@ -55,7 +55,8 @@ fan_monitor = False
 plant = False
 plant_fine = False
 plant_monitor = False
-matthew_wall = True
+glass_rose = True
+matthew_wall = False
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -251,7 +252,8 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
         pickle.dump(arr, open(filename + ".p", "w"))
 
 def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1,
-    firstFrame=0, lastFrame=None, toVideo=False, minY=None, maxY=None):
+    firstFrame=0, lastFrame=None, toVideo=False, minY=None, maxY=None, minX=None, 
+    maxX=None):
 
     listOfBatchedFrames = []
 
@@ -264,12 +266,26 @@ def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1
         im = vid.get_data(i)
 #        except:
 #            im = vid[i]
-
         frame = np.array(im).astype(float)
-        if minY == None:
+
+#        print frame.shape
+
+        if minY == None and minX == None:
             batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+        elif minX == None:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+            batchedFrame = batchedFrame[minY:maxY,:]
+        elif minY == None:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+            batchedFrame = batchedFrame[:,minX:maxX]
         else:
-            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])[minY:maxY,:]
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+
+#            if i % 100 == 0:
+#                print batchedFrame.shape
+#                viewFrame(batchedFrame)
+
+            batchedFrame = batchedFrame[minY:maxY,minX:maxX]            
 
 #        if i % 100 == 0:
 #            viewFrame(batchedFrame)
@@ -1725,6 +1741,32 @@ if __name__ == "__main__":
             [(2, False), (10, False), (10, False), (1, False)], \
             "plant_monitor", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)      
+
+    if glass_rose:
+        path = "/Users/adamyedidia/walls/src/glass_rose.mov"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:28"
+        START_TIME = "0:00"        
+        END_TIME = "0:26"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (8, False), (8, False), (1, False)], \
+            "glass_rose", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False, minY=50, maxY=90, minX=47, maxX=138)      
+
+#        processVideoCheap(vid, VIDEO_TIME, \
+#            [(2, False), (2, False), (2, False), (1, False)], \
+#            "glass_rose", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+#            toVideo=False, minY=200, maxY=360, minX=190, maxX=550)      
+
 
     if matthew_wall:
         path = "/Users/adamyedidia/walls/src/IMG_0571.m4v"

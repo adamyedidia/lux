@@ -1,4 +1,5 @@
 from __future__ import division
+from PIL import Image
 import numpy as np
 import pickle 
 from blind_deconvolution import vectorizedDot, getPseudoInverse, getGaussianKernelVariableLocation, \
@@ -18,6 +19,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from math import floor, log
 import sys
 from custom_plot import createCMapDictHelix
+from best_matrix import padIntegerWithZeros
+from scipy.optimize import minimize
 
 
 MAKE_GAUSS_VID = False
@@ -25,12 +28,32 @@ MAKE_IMPULSE_VID = False
 SIM = False
 JUMBLE_VIDEO = False
 TSNE_REMOVE_OUTLIERS = False
-TSNE_JUMBLED = True
+TSNE_JUMBLED = False
 MAKE_OBS = False
 BUILD_AHAT_FROM_DIFF = False
 JUMBLED_RECOVERY = False
 TSNE_JUMBLED_APPROX = False
 RECOVERY_WITH_RIGHT_CENTERS = False
+SVDS = False
+SVDS_BW = False
+TSNE_JUMBLED_SVD = False
+MAKE_MOVING_IMPULSE_VID = False
+MAKE_GLASS_ROSE_GT_XFER_MAT = False
+GT_RECON = False
+GET_LINEAR_COMBS = False
+GET_BASIS_VEC_FROM_SPARSITY = True
+
+def turnVidToMatrix(vid):
+	returnArray = []
+
+	for frame in vid:
+		returnArray.append(frame.flatten())
+
+	returnArray = np.array(returnArray)
+
+	print returnArray.shape
+
+	return returnArray
 
 def makeSparseTransferMatrix(shape, fractionOfZeros):
 	return np.random.binomial(1, fractionOfZeros, shape)
@@ -271,6 +294,21 @@ def plotEmbeddingApprox(embedding):
 #		p.show()
 
 	p.show()
+
+def rewardFunctionMaker(svs, svReward1, svReward2, sparsityPenalty):
+	def rewardFunction(svVec):
+		dotResult = np.dot(svs, svVec)
+
+
+		penaltyVal = -svReward1*np.sqrt(np.abs(svVec[0])) - \
+			svReward2*np.sqrt(np.sum(np.abs(svVec))) + \
+			sparsityPenalty*np.sum(np.abs(dotResult))
+
+		print penaltyVal
+
+		return penaltyVal
+
+	return rewardFunction
 
 
 if MAKE_GAUSS_VID:
@@ -756,4 +794,198 @@ if RECOVERY_WITH_RIGHT_CENTERS:
 #			obs)
 
 #		viewFrame(recovery, adaptiveScaling=True)
+
+if SVDS:
+	vid = pickle.load(open("steven_batched_coarse.p", "r"))
+	frameShape = vid[0].shape
+	print frameShape
+
+	mat = turnVidToMatrix(vid)
+
+	u, s, vh = np.linalg.svd(mat)
+
+	print u.shape
+	print vh.shape
+
+	for sv in u[:20]:
+		p.plot(sv)
+		p.show()
+
+	for sv in vh[:20]:
+		viewFrame(np.reshape(sv, frameShape), differenceImage=True, adaptiveScaling=True)
+
+if SVDS_BW:
+#	vid = pickle.load(open("glass_rose_2_framesplit.p", "r"))
+	vid = pickle.load(open("impulse_movie_framesplit.p", "r"))
+	frameShape = vid[0].shape
+	print frameShape
+
+	mat = turnVidToMatrix(vid)
+
+	u, s, vh = np.linalg.svd(mat)
+
+	print u.shape
+	print vh.shape
+
+	for sv in vh:
+		viewFrame(imageify(np.reshape(sv, frameShape)), differenceImage=True, \
+			adaptiveScaling=True)
+
+	estimatedTransferMatrix = vh[:100]
+
+#	p.matshow(estimatedTransferMatrix)
+#	p.show()
+
+	pickle.dump(estimatedTransferMatrix, open("glass_rose_xfer_sv.p", "w"))
+
+if TSNE_JUMBLED_SVD:
+
+	originalVid = pickle.load(open("glass_rose.p", "r"))
+#	jumbledVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
+
+	transferMat = np.transpose(pickle.load(open("glass_rose_xfer_sv.p", "r")))
+
+	snr = 1e1
+
+	inverseMat = getPseudoInverse(transferMat, snr)
+
+	for i,frame in enumerate(originalVid):
+		print i
+
+		obs = doFuncToEachChannel(lambda x: \
+			vectorizedDot(inverseMat, x.flatten(), (5, 6)), \
+			frame)
+
+		viewFrame(obs, adaptiveScaling=True, \
+			magnification=10, filename="pixel_vid/frame_" + padIntegerWithZeros(i, 3) + ".png")
+
+
+if MAKE_MOVING_IMPULSE_VID:
+	squareSideLength = 160
+	xLength = int(2560/squareSideLength)
+	yLength = int(1600/squareSideLength)
+
+	xRange = range(xLength)
+	yRange = range(yLength)
+	background = Image.new('RGB', (squareSideLength*xLength, \
+		squareSideLength*yLength), color = (0, 0, 0))
+	whiteSquare = Image.new('RGB', (squareSideLength, \
+		squareSideLength), color = (255, 255, 255))
+
+	for y in range(yLength):
+		for x in range(xLength):
+			backgroundCopy = background.copy()
+			position = (x*squareSideLength, y*squareSideLength)
+			backgroundCopy.paste(whiteSquare, position)
+			frameNumber = y*xLength + x
+
+
+			backgroundCopy.save('impulse_movie/frame_' + \
+				padIntegerWithZeros(frameNumber, 3) + ".png")
+
+if MAKE_GLASS_ROSE_GT_XFER_MAT:
+	vid = pickle.load(open("glass_rose_calibration.p"))
+
+	print len(vid)
+
+	startFrame = 6
+	endFrame = len(vid) - 7
+
+#	viewFrame(vid[startFrame])
+#	viewFrame(vid[startFrame + 1])
+#	viewFrame(vid[endFrame])
+#	viewFrame(vid[endFrame - 1])
+
+	transferMatrix = []
+
+	for i in np.linspace(startFrame, endFrame, 160):
+		i = int(round(i))
+		frame = vid[i]
+		frameR = np.swapaxes(np.swapaxes(frame, 0, 2), 1, 2)[0]
+
+#		viewFrame(imageify(frameR)/255)
+
+		viewFrame(imageify(frameR)/255)
+
+		transferMatrix.append(frameR.flatten())
+
+	pickle.dump(transferMatrix, open("glass_rose_2_xfer_gt.p", "w"))
+
+if GT_RECON:
+	vid = pickle.load(open("glass_rose_2.p"))
+
+#	transferMat = np.transpose(np.array(pickle.load(open("glass_rose_2_xfer_gt.p", "r"))))
+	transferMat = np.transpose(np.array(pickle.load(open("glass_rose_2_recovered_basis_100.p", "r"))))
+
+	snr = 1e6
+
+	pseudoInverse = getPseudoInverse(transferMat, snr)
+
+	recoveredVid = []
+
+	for i, frame in enumerate(vid):
+		print i
+
+		recoveredFrame = doFuncToEachChannel(lambda x: vectorizedDot(pseudoInverse, x, \
+			(10, 16)), frame)
+
+		recoveredVid.append(recoveredFrame)
+
+#		if i % 10 == 0:
+#			viewFrame(recoveredFrame, adaptiveScaling=True)
+
+	pickle.dump(np.array(recoveredVid), open("glass_rose_2_recovery_with_gt.p", "w"))
+
+if GET_LINEAR_COMBS:
+	vid = pickle.load(open("glass_rose_2_framesplit.p", "r"))
+	frameShape = vid[0].shape
+
+	transferMatrixGT = np.array(pickle.load(open("glass_rose_2_xfer_gt.p", "r")))
+	SVs = np.array(pickle.load(open("glass_rose_xfer_sv.p", "r")))
+
+	snr = 1e-6
+
+	SVinv = getPseudoInverse(SVs, snr)
+
+	result = np.dot(transferMatrixGT, SVinv)
+
+	p.matshow(result)
+	p.colorbar()
+	p.show()
+
+	recoveredBasis = np.dot(result, SVs)
+
+	print recoveredBasis.shape
+
+#	for i, recoveredBasisFrame in enumerate(recoveredBasis):
+#		print "first"
+#		viewFrame(imageify(np.reshape(recoveredBasisFrame, frameShape))/255, adaptiveScaling=True)
+#		print "second"
+#		viewFrame(imageify(np.reshape(transferMatrixGT[i], frameShape)), adaptiveScaling=True)
+
+	pickle.dump(recoveredBasis, open("glass_rose_2_recovered_basis_100.p", "w"))
+
+if GET_BASIS_VEC_FROM_SPARSITY:
+	vid = pickle.load(open("glass_rose_2_framesplit.p", "r"))
+	frameShape = vid[0].shape
+
+	SVs = np.transpose(np.array(pickle.load(open("glass_rose_xfer_sv.p", "r"))))
+
+#	print SVs.shape
+
+	rewardFunc = rewardFunctionMaker(SVs, 10, 1, 0.1)
+
+	x0 = np.random.normal(0, 1, SVs.shape[1])
+
+	resultVec = minimize(rewardFunc, x0, method='COBYLA', options={'maxiter':1000})['x']
+
+
+	basisVec = np.dot(SVs, resultVec)
+	viewFrame(imageify(np.reshape(basisVec, frameShape)), \
+		adaptiveScaling=True, differenceImage=True)
+
+
+#	print rewardFunc
+
+
 

@@ -36,6 +36,7 @@ batchMovie = False
 batchSmallerMovie = False
 batchRickMortyMovie = False
 batchMulanMovie = False
+batchOfficeMovie = False
 processBlindDeconvVideo = False
 downsampleWinnie = False
 weirdAngle = False
@@ -55,8 +56,11 @@ fan_monitor = False
 plant = False
 plant_fine = False
 plant_monitor = False
-glass_rose = True
+glass_rose = False
+glass_rose_2 = False
 matthew_wall = False
+impulse_movie = True
+
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -287,8 +291,8 @@ def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1
 
             batchedFrame = batchedFrame[minY:maxY,minX:maxX]            
 
-#        if i % 100 == 0:
-#            viewFrame(batchedFrame)
+        if i == 100:
+            viewFrame(batchedFrame)
 
         listOfBatchedFrames.append(batchedFrame)
 
@@ -937,6 +941,28 @@ if __name__ == "__main__":
             "circle_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False, minY=8, maxY=40)        
         print firstFrame, lastFrame
+
+    if batchOfficeMovie:
+        pathToDir = "/Users/adamyedidia/walls/src/"
+        path = "the_office.mp4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:31"
+        START_TIME = "0:00"
+        END_TIME = "0:30"
+        numFrames = len(vid)
+
+        print numFrames
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            np.array([(3, False), (7, False), (7, False), (1, False)]), \
+            "office_batched", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False, minY=8, maxY=40)        
+        print firstFrame, lastFrame
+
 
     if processBlindDeconvVideo:
 #        path = "/Users/adamyedidia/blind_deconv_videos/C0015.MP4"
@@ -1667,8 +1693,6 @@ if __name__ == "__main__":
         START_TIME = "0:03"        
         END_TIME = "0:29"
 
-        numFrames = len(vid)
-
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
@@ -1767,6 +1791,45 @@ if __name__ == "__main__":
 #            "glass_rose", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
 #            toVideo=False, minY=200, maxY=360, minX=190, maxX=550)      
 
+    if glass_rose_2:
+        path = "/Users/adamyedidia/walls/src/glass_rose_calibration.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:24"
+        START_TIME = "0:03"        
+        END_TIME = "0:14"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(1, False), (8, False), (8, False), (1, False)], \
+            "glass_rose_calibration", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False, minY=45, maxY=100, minX=0, maxX=85)              
+
+    if impulse_movie:
+        path = "/Users/adamyedidia/walls/src/impulse_movie.mp4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        VIDEO_TIME = "0:11"
+        START_TIME = "0:00"        
+        END_TIME = "0:11"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(2, False), (80, False), (80, False), (1, False)], \
+            "impulse_movie", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)   
 
     if matthew_wall:
         path = "/Users/adamyedidia/walls/src/IMG_0571.m4v"
@@ -1788,3 +1851,4 @@ if __name__ == "__main__":
         diffFrameBatched = batchAndDifferentiate(diffFrame, [(50, False), (50, False), (1, False)])
 
         viewFrame(diffFrameBatched, differenceImage=True, adaptiveScaling=True, magnification=0.1)
+

@@ -10,6 +10,7 @@ import pickle
 from process_image import ungarbleImageX, ungarbleImageY, \
     createGarbleMatrixX, createGarbleMatrixY, createGarbleMatrixFull, \
     ungarbleImageXOld, ungarbleImageYOld, getQ
+from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup, stretchArray, fuzzyLookup2D
 import imageio
 from video_magnifier import viewFrame, viewFrameR, viewFlatFrame
 from scipy.signal import convolve2d
@@ -28,6 +29,7 @@ FOURIER_UNDERSTANDER_2D = False
 ALRIGHT_LETS_DO_THIS = False
 TOEPLITZ = False
 TOEPLITZ_2D = False
+MAKE_ELEPHANT = False
 ANTONIO_METHOD = False
 DIFFERENT_DEPTHS_SIM = False
 ACTIVE_SIM = False
@@ -38,7 +40,8 @@ DISPERSION_PLOT = False
 LOAD_BU_SIM_DATA = False
 LOAD_BU_REAL_DATA = False
 JOIN_INFO = False
-JOIN_INFO_BY_LIST = True
+JOIN_INFO_BY_LIST = False
+PROJECTION_INFO = True
 
 def hasOptimalCirculant(x):
     if int(log(x+1, 2)) == log(x+1, 2):
@@ -207,12 +210,13 @@ def oneDedge(length):
 def oneDNothing(length):
     return [1/length for _ in range(length)]
 
-def horizontalColumn(imShape, height):
+def horizontalColumn(imShape, height, highVal=None):
     print "column"
 
     midPointX = int(imShape[0]/2)
 
-    highVal = 1/(imShape[0]*imShape[1])
+    if highVal == None:
+        highVal = 1/(imShape[0]*imShape[1])
 
     returnArray = np.zeros(imShape)
     for i in range(imShape[0]):
@@ -224,12 +228,93 @@ def horizontalColumn(imShape, height):
 #    p.show()
     return returnArray
 
-def verticalColumn(imShape, width):
+def resizeArray(arr, newShape):
+    returnArray = []
+
+    xs = np.linspace(0, arr.shape[0]-1, newShape[0])
+    ys = np.linspace(0, arr.shape[1]-1, newShape[1])
+
+    for x in xs:
+        returnArray.append([])
+        for y in ys:
+            returnArray[-1].append(fuzzyLookup2D(arr, x, y))
+
+    returnArray = np.array(returnArray)
+
+#    print returnArray.shape
+
+    return returnArray
+
+def getR(im):
+    return np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)[0]
+
+def padArrayToShape(arr, shape, padVal=0):
+    arrShape = arr.shape
+
+    diff0 = shape[0] - arrShape[0]
+    diff1 = shape[1] - arrShape[1]
+
+    diff0above = int(diff0/2)
+    diff0below = diff0 - diff0above
+
+    diff1above = int(diff1/2)
+    diff1below = diff1 - diff1above
+
+    return np.pad(arr, [(diff0above, diff0below), (diff1above, diff1below)], "constant",
+        constant_values=padVal)
+
+
+def elephant(imShape, width):
+    elephantArr = pickle.load(open("elephant.p", "r"))
+
+    elephantBW = getR(elephantArr)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    elephantShape = [width*i for i in imShape]
+
+    innerElephant = resizeArray(elephantBW, elephantShape)
+
+    def moreThan127(x):
+        return 1*(x > 127)
+
+    innerElephantThresholded = np.vectorize(moreThan127)(innerElephant)
+
+    viewFrame(innerElephantThresholded)
+
+    innerElephantPadded = padArrayToShape(innerElephantThresholded, imShape, padVal=1)
+
+    viewFrame(innerElephantPadded)
+
+    return highVal*innerElephantPadded
+
+def elephantOccluder(imShape, width):
+    elephantArr = pickle.load(open("elephant.p", "r"))
+
+    elephantBW = getR(elephantArr)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    elephantShape = [width*i for i in imShape]
+
+    innerElephant = resizeArray(elephantBW, elephantShape)
+
+    def lessThan127(x):
+        return 1*(x <= 127)
+
+    innerElephantThresholded = np.vectorize(lessThan127)(innerElephant)
+
+    innerElephantPadded = padArrayToShape(innerElephantThresholded, imShape, padVal=0)
+
+    return highVal*innerElephantPadded
+
+def verticalColumn(imShape, width, highVal=None):
     print "column"
 
     midPointY = int(imShape[1]/2)
 
-    highVal = 1/(imShape[0]*imShape[1])
+    if highVal == None:
+        highVal = 1/(imShape[0]*imShape[1])
 
     returnArray = np.zeros(imShape)
     for i in range(imShape[0]):
@@ -1440,6 +1525,52 @@ def estimateBinaryOccluderFromSunsShadow(obs, highVal):
 
     return fullOccluder
 
+def verticalTransferMatrix(sceneDimensions):
+    sceneMaxX = sceneDimensions[0]
+    sceneMaxY = sceneDimensions[1]
+
+    returnMat = []
+
+    for sceneX in range(sceneMaxX):
+        matRow = []
+
+        for x in range(sceneMaxX):
+            for y in range(sceneMaxY):
+                if x == sceneX:
+                    matRow.append(1)
+                else:
+                    matRow.append(0)
+
+        returnMat.append(matRow)
+
+#    p.matshow(np.array(returnMat))
+#    p.show()
+
+    return np.array(returnMat)    
+
+def horizontalTransferMatrix(sceneDimensions):
+    sceneMaxX = sceneDimensions[0]
+    sceneMaxY = sceneDimensions[1]
+
+    returnMat = []
+
+    for sceneY in range(sceneMaxY):
+        matRow = []
+
+        for x in range(sceneMaxX):
+            for y in range(sceneMaxY):
+                if y == sceneY:
+                    matRow.append(1)
+                else:
+                    matRow.append(0)
+
+        returnMat.append(matRow)
+
+#    p.matshow(np.array(returnMat))
+ #   p.show()
+
+    return np.array(returnMat)     
+
 if __name__ == "__main__":
 
     if FOURIER_UNDERSTANDER:
@@ -2049,6 +2180,9 @@ if __name__ == "__main__":
 
         recoveredScene = doFuncToEachChannelVec(lambda x: np.dot(recoveryMat, x), obsPlane)
 
+    if MAKE_ELEPHANT:
+        viewFrame(imageify(elephant((100, 100), 1/2)), adaptiveScaling=True)
+
     if LIGHT_OF_THE_SUN_SIM:
 
         SUN_BRIGHTNESS = 5e11
@@ -2537,17 +2671,17 @@ if __name__ == "__main__":
     #    im = np.array(imRaw).astype(float)
 
         IM_BRIGHTNESS = 1e10
-        THERMAL_NOISE = 1e10
+        THERMAL_NOISE = 1e6
     #    THERMAL_NOISE = 1
-
 
         beta = 0.1
     #    beta = 1
 
     #    snr = IM_BRIGHTNESS / THERMAL_NOISE
 
-        snr = 1e4
-    #    snr = 3e6
+    #    snr = 1e4
+    #    snr = 1e5
+        snr = 3e6
     #    snr = 1e12
 
     #    im = pickle.load(open("winnie_downsampled_a_lot.p", "r"))*IM_BRIGHTNESS
@@ -2578,29 +2712,48 @@ if __name__ == "__main__":
     #    viewFrame(averageVertically(im), 1e-10)
 
 
-        occluderWindow1 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
+        forwardOccluder1 = elephantOccluder([2*i-1 for i in imSpatialDimensions], 1/2)
+        forwardOccluder2 = verticalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+        forwardOccluder3 = horizontalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+
+    #    backwardOccluder1 = pinSquare([2*i-1 for i in imSpatialDimensions], 1/4)
+        backwardOccluder1 = elephantOccluder([2*i-1 for i in imSpatialDimensions], 1/2)
+#        backwardOccluder1 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/6)
+        backwardOccluder2 = verticalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+        backwardOccluder3 = horizontalColumn([2*i-1 for i in imSpatialDimensions], 1/4)    #    occluderWindow1 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
     #    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
     #    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
     #    occluderWindow = fineCheckerBoard(imSpatialDimensions)
     #    occluderWindow = pinSquare(imSpatialDimensions, 1/4)
-    #    occluderWindow = squareSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow2 = squareSpeck([2*i-1 for i in imSpatialDimensions], 1/4)
     #    occluderWindow = pinHole(imSpatialDimensions)
     #    occluderWindow = pinSpeck(imSpatialDimensions)
     #    occluderWindow = randomOccluder(imSpatialDimensions)
     #    occluderWindow = lens2(imSpatialDimensions)
 #        occluderWindow2 = pinCircle([2*i-1 for i in imSpatialDimensions], 1/8)
-        occluderWindow2 = verticalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
-        occluderWindow3 = horizontalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+    #    occluderWindow2 = verticalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
+    #    occluderWindow3 = horizontalColumn([2*i-1 for i in imSpatialDimensions], 1/4)
     #    occluderWindow = spectrallyFlatOccluder(imSpatialDimensions)
 
     #    viewRepeatedOccluder(occluderWindow)
-        viewSingleOccluder(occluderWindow1)
-        viewSingleOccluder(occluderWindow2)
-        viewSingleOccluder(occluderWindow3)
+ #       viewSingleOccluder(occluderWindow1)
+#        viewSingleOccluder(occluderWindow2)
+#        viewSingleOccluder(occluderWindow3)
+
+        print np.sum(forwardOccluder1)
+        print np.sum(backwardOccluder1)
+
+        viewSingleOccluder(forwardOccluder1)
+        viewSingleOccluder(backwardOccluder1)
 
 #        listOfOccluders = [occluderWindow1]
-#        listOfOccluders = [occluderWindow1, occluderWindow2]
-        listOfOccluders = [occluderWindow1, occluderWindow2, occluderWindow3]
+        listOfForwardOccluders = [forwardOccluder1, forwardOccluder2, forwardOccluder3]
+        listOfBackwardOccluders = [backwardOccluder1, backwardOccluder2, backwardOccluder3]
+
+#        listOfForwardOccluders = [forwardOccluder1]
+#        listOfBackwardOccluders = [backwardOccluder1]
+
+ #       listOfOccluders = [occluderWindow1, occluderWindow2, occluderWindow3]
 #        bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
 #        pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
 #        sideLength = sqrt(pixels)
@@ -2625,15 +2778,18 @@ if __name__ == "__main__":
 #        transferMatrix1 = make2DTransferMatrix(imSpatialDimensions, occluderWindow1)
 #        transferMatrix2 = make2DTransferMatrix(imSpatialDimensions, occluderWindow2)
 
-        listOfTransferMatrices = [make2DTransferMatrix(imSpatialDimensions, occ) for occ in \
-            listOfOccluders]
+        listOfForwardTransferMatrices = [make2DTransferMatrix(imSpatialDimensions, occ) \
+            for occ in listOfForwardOccluders]
+        combinedForwardMatrix = np.concatenate(listOfForwardTransferMatrices, 0)
+
+        listOfBackwardTransferMatrices = [make2DTransferMatrix(imSpatialDimensions, occ) \
+            for occ in listOfBackwardOccluders]
+        combinedBackwardMatrix = np.concatenate(listOfBackwardTransferMatrices, 0)
 
 #        p.matshow(transferMatrix1)
 #        p.show()
 #        p.matshow(transferMatrix2)
 #        p.show()
-
-        combinedMatrix = np.concatenate(listOfTransferMatrices, 0)
 
 #        p.matshow(combinedMatrix)
 #        p.show()
@@ -2643,10 +2799,10 @@ if __name__ == "__main__":
 
 #        obsPlaneIm2 = doFuncToEachChannel(convolve2dMaker(occluderWindow2), im)
     
-        numOccluders = len(listOfOccluders)
+        numOccluders = len(listOfForwardOccluders)
     
         combinedObsPlaneIm = doFuncToEachChannel(lambda x: \
-            vectorizedDot(combinedMatrix, x, \
+            vectorizedDot(combinedForwardMatrix, x, \
             (imSpatialDimensions[0]*numOccluders, imSpatialDimensions[1])), im) 
 
         viewFrame(combinedObsPlaneIm, adaptiveScaling=True)
@@ -2655,7 +2811,7 @@ if __name__ == "__main__":
 
         noisyObsPlane = addNoise(combinedObsPlaneIm, THERMAL_NOISE)
 
-        inverseMatrix = getPseudoInverse(combinedMatrix, imSpatialDimensions, \
+        inverseMatrix = getPseudoInverse(combinedBackwardMatrix, imSpatialDimensions, \
             snr, beta)
 
 #        p.matshow(np.real(inverseMatrix))
@@ -2669,7 +2825,7 @@ if __name__ == "__main__":
         recoveredIm = doFuncToEachChannel(lambda x: \
             vectorizedDot(inverseMatrix, x, imSpatialDimensions), noisyObsPlane)
 
-        viewFrame(recoveredIm, adaptiveScaling=True)
+        viewFrame(recoveredIm, adaptiveScaling=True, magnification=1.5)
 
 
     #    print THERMAL_NOISE * np.ones(im.shape)
@@ -2697,7 +2853,7 @@ if __name__ == "__main__":
 
         pickle.dump(recoveredImSophisticated, open("recovered_im_2.p", "w"))
 
-        viewFrame(recoveredImSophisticated, adaptiveScaling=True)
+        viewFrame(recoveredImSophisticated, magnification=2.5, adaptiveScaling=True)
     #    viewFrame(recoveredImSophisticated, 1e-10, differenceImage=True, meanSubtraction=True)
     #    viewFrame(recoveredImSophisticated, 1e-9, differenceImage=True, meanSubtraction=True)
 
@@ -2733,4 +2889,36 @@ if __name__ == "__main__":
 
     #    viewFrame(recoveredImSophisticated, 3e-9)
 
+    if PROJECTION_INFO:
+        vid = pickle.load(open("steven_batched.p", "r"))
+
+        imSpatialDimensions = vid[0].shape[:-1]
+
+        beta = 0.0001
+        snr = 0.001
+
+        v = verticalTransferMatrix(imSpatialDimensions)
+        h = horizontalTransferMatrix(imSpatialDimensions)
+
+        listOfForwardTransferMatrices = [v, h]
+        combinedForwardMatrix = np.concatenate(listOfForwardTransferMatrices, 0)
+
+        listOfBackwardTransferMatrices = [v, h]
+        combinedBackwardMatrix = np.concatenate(listOfBackwardTransferMatrices, 0)
+
+        inverseMatrix = getPseudoInverse(combinedBackwardMatrix, imSpatialDimensions, \
+            snr, beta)
+
+        for i, frame in enumerate(vid):
+            print i
+
+            obs = doFuncToEachChannel(lambda x: vectorizedDot(combinedForwardMatrix, x, \
+                (50, \
+                len(listOfBackwardTransferMatrices))), frame)
+
+            recon = doFuncToEachChannel(lambda x: vectorizedDot(inverseMatrix, x, \
+                imSpatialDimensions), obs)
+
+            viewFrame(recon, adaptiveScaling=True, filename="proj_movie/frame_" + \
+                padIntegerWithZeros(i, 3) + ".png")
 

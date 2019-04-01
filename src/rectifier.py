@@ -24,7 +24,7 @@ subtractRectify = False
 subtractRectify2 = False
 hallwayImaging = False
 batchMovie = False
-rectifyVideo = True
+rectifyVideo = False
 rectifyVideo2 = False
 rectifyVideo3 = False
 rectifyOrange = False
@@ -35,6 +35,7 @@ rectifyFan = False
 rectifyFanMonitor = False
 rectifyPlant = False
 rectifyPlantMonitor = False
+rectifyDarpaVid = True
 
 def displayFlattenedFrame(flattenedFrame, height, magnification=1, \
     differenceImage=False, filename=None):
@@ -961,3 +962,43 @@ if __name__ == "__main__":
             rectifiedVideo.append(rectifiedArr)
 
         pickle.dump(np.array(rectifiedVideo), open("plant_monitor_rect.p", "w"))
+
+    if rectifyDarpaVid:
+#        CORNER = np.array([3, 35])
+#        P2 = np.array([96, 0])
+#        OPP_CORNER = np.array([88, 65])
+#        P1 = np.array([1, 0])
+
+        CORNER = np.array([3, 37])
+        P2 = np.array([78, 0])
+        OPP_CORNER = np.array([79, 71])
+        P1 = np.array([0, 56])
+
+        path = "/Users/adamyedidia/walls/src/darpa_vid_2.p"
+
+        arr = pickle.load(open(path, "r"))
+
+#        viewFrame(arr[200])
+
+        rectifiedVideo = []
+
+#        print len(arr)
+
+        for i, frame in enumerate(arr):
+#            viewFrame(frame)
+
+            rectifiedArr = rectify(frame, CORNER, P1, P2, OPP_CORNER, 70, 40)
+
+#            viewFrame(rectifiedArr)
+
+            print i
+#            print rectifiedArr
+#            print rectifiedArr.shape
+
+#            viewFrame(rectifiedArr)
+
+#            viewFrame(rectifiedArr)
+
+            rectifiedVideo.append(rectifiedArr)
+
+        pickle.dump(np.array(rectifiedVideo), open("darpa_vid_2_rect.p", "w"))

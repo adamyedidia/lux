@@ -570,6 +570,21 @@ def vectorToImage(rgbVec, imSpatialDimensions):
 
     return resultIm
 
+def flattenRGB(rgbIm):
+    rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
+    rIm = rearrangedIm[0]
+    gIm = rearrangedIm[1]
+    bIm = rearrangedIm[2]
+
+    flatR = rIm.flatten()
+    flatG = gIm.flatten()
+    flatB = bIm.flatten()
+
+    resultIm = np.swapaxes(np.array([flatR, flatG, \
+        flatB]), 0, 1)
+
+    return resultIm
+
 def doFuncToEachChannel(func, rgbIm):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
     rIm = rearrangedIm[0]

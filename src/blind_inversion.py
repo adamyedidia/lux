@@ -34,14 +34,14 @@ BUILD_AHAT_FROM_DIFF = False
 JUMBLED_RECOVERY = False
 TSNE_JUMBLED_APPROX = False
 RECOVERY_WITH_RIGHT_CENTERS = False
-SVDS = False
+SVDS = True
 SVDS_BW = False
 TSNE_JUMBLED_SVD = False
 MAKE_MOVING_IMPULSE_VID = False
 MAKE_GLASS_ROSE_GT_XFER_MAT = False
 GT_RECON = False
 GET_LINEAR_COMBS = False
-GET_BASIS_VEC_FROM_SPARSITY = True
+GET_BASIS_VEC_FROM_SPARSITY = False
 
 def turnVidToMatrix(vid):
 	returnArray = []
@@ -796,7 +796,8 @@ if RECOVERY_WITH_RIGHT_CENTERS:
 #		viewFrame(recovery, adaptiveScaling=True)
 
 if SVDS:
-	vid = pickle.load(open("steven_batched_coarse.p", "r"))
+#	vid = pickle.load(open("steven_batched_coarse.p", "r"))
+	vid = pickle.load(open("fan_rect.p"))
 	frameShape = vid[0].shape
 	print frameShape
 
@@ -805,11 +806,13 @@ if SVDS:
 	u, s, vh = np.linalg.svd(mat)
 
 	print u.shape
+	p.plot(s)
+	p.show()
 	print vh.shape
 
-	for sv in u[:20]:
-		p.plot(sv)
-		p.show()
+#	for sv in u[:20]:
+#		p.plot(sv)
+#		p.show()
 
 	for sv in vh[:20]:
 		viewFrame(np.reshape(sv, frameShape), differenceImage=True, adaptiveScaling=True)

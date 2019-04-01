@@ -59,8 +59,9 @@ plant_monitor = False
 glass_rose = False
 glass_rose_2 = False
 matthew_wall = False
-impulse_movie = True
-
+impulse_movie = False
+darpa_vid = False
+darpa_gt = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -1852,3 +1853,40 @@ if __name__ == "__main__":
 
         viewFrame(diffFrameBatched, differenceImage=True, adaptiveScaling=True, magnification=0.1)
 
+    if darpa_vid:
+        path = "/Users/adamyedidia/walls/src/fusion_exp/MVI_9459.MOV"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "0:59"
+        START_TIME = "0:08"        
+        END_TIME = "0:45"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(5, False), (10, False), (10, False), (1, False)], \
+            "darpa_vid_2", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)                   
+
+    if darpa_gt:
+        path = "/Users/adamyedidia/walls/src/ground_truth.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "0:50"
+        START_TIME = "0:10"        
+        END_TIME = "0:50"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(5, False), (10, False), (10, False), (1, False)], \
+            "darpa_vid_gt", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)                   

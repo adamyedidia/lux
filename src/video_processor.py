@@ -60,8 +60,8 @@ glass_rose = False
 glass_rose_2 = False
 matthew_wall = False
 impulse_movie = False
-darpa_vid = False
-darpa_gt = True
+darpa_vid = True
+darpa_gt = False
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -210,7 +210,9 @@ def batchAndIntegrate(arr, listOfResponses):
 
 
 
-def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling=True, differenceImage=True):
+def convertArrayToVideo(arr, magnification, filename, frameRate, \
+    adaptiveScaling=True, differenceImage=True, verbose=False):
+
     assert len(arr.shape) == 4
 
     print arr.shape
@@ -223,6 +225,12 @@ def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling
     for i, frame in enumerate(arr):
 #        print frame.shape
  #       print type(frame[0][0][0])
+
+        if verbose:
+            print i
+
+        p.clf()
+        p.axis("off")
         viewFrame(frame, magnification=magnification, filename="video_trash/" + filename + "_" + \
             padIntegerWithZeros(i, logNumFrames) + ".png", differenceImage=differenceImage, \
             adaptiveScaling=adaptiveScaling)
@@ -233,6 +241,94 @@ def convertArrayToVideo(arr, magnification, filename, frameRate, adaptiveScaling
         "-i video_trash/" + filename + "_%0" + str(int(numDigits)) + "d.png " + \
         "-vcodec libx264 -crf 25 -pix_fmt yuv420p " + filename + ".mp4")
     os.system("y")
+
+def convertTwoArraysToVideo(arr1, arr2, magnification, filename, frameRate, \
+    adaptiveScaling=True, differenceImage=True, verbose=False):
+    assert len(arr1.shape) == 4
+    assert len(arr2.shape) == 4
+
+    numFrames = arr1.shape[0]
+    logNumFrames = int(floor(log(numFrames, 10)))+1
+
+    os.system("rm video_trash/" + filename + "_*.png")
+
+    for i, frameTuple in enumerate(zip(arr1, arr2)):
+        frame1, frame2 = frameTuple
+
+        if verbose:
+            print i
+
+        p.clf()
+        p.subplot(211)
+        p.axis("off")
+        viewFrame(frame1, magnification=magnification, filename="pass", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling, relax=True)
+
+        p.subplot(212)
+        p.axis("off")
+        viewFrame(frame2, magnification=magnification, filename="pass", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling, relax=True)
+
+        p.savefig("video_trash/" + filename + "_" + \
+            padIntegerWithZeros(i, logNumFrames) + ".png")
+
+    numDigits = ceil(log(len(arr1), 10))
+
+    os.system("ffmpeg -r " + str(frameRate) + " -f image2 -s 500x500 " + \
+        "-i video_trash/" + filename + "_%0" + str(int(numDigits)) + "d.png " + \
+        "-vcodec libx264 -crf 25 -pix_fmt yuv420p " + filename + ".mp4")
+    os.system("y")
+
+def convertFourArraysToVideo(arr1, arr2, arr3, arr4, magnification, filename, \
+    frameRate, adaptiveScaling=True, differenceImage=True):
+
+    assert len(arr1.shape) == 4
+    assert len(arr2.shape) == 4
+    assert len(arr3.shape) == 4
+    assert len(arr4.shape) == 4
+
+    numFrames = arr1.shape[0]
+    logNumFrames = int(floor(log(numFrames, 10)))+1
+
+    os.system("rm video_trash/" + filename + "_*.png")
+
+    for i, frameTuple in enumerate(zip(arr1, arr2, arr3, arr4)):
+        frame1, frame2, frame3, frame4 = frameTuple
+
+        print i
+
+        p.clf()
+        p.subplot(221)
+        p.axis("off")
+        viewFrame(frame1, magnification=magnification, filename="pass", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling, relax=True)
+
+        p.subplot(222)
+        p.axis("off")
+        viewFrame(frame2, magnification=magnification, filename="pass", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling, relax=True)
+
+        p.subplot(223)
+        p.axis("off")
+        viewFrame(frame3, magnification=magnification, filename="pass", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling, relax=True)
+
+        p.subplot(224)
+        p.axis("off")
+        viewFrame(frame4, magnification=magnification, filename="pass", differenceImage=differenceImage, \
+            adaptiveScaling=adaptiveScaling, relax=True)
+
+        p.savefig("video_trash/" + filename + "_" + \
+            padIntegerWithZeros(i, logNumFrames) + ".png")
+
+    numDigits = ceil(log(len(arr1), 10))
+
+    os.system("ffmpeg -r " + str(frameRate) + " -f image2 -s 500x500 " + \
+        "-i video_trash/" + filename + "_%0" + str(int(numDigits)) + "d.png " + \
+        "-vcodec libx264 -crf 25 -pix_fmt yuv420p " + filename + ".mp4")
+    os.system("y")
+
+
 
 def getFrameAtTime(frameTime, videoTime, numFrames):
     return int(convertTimeToSeconds(frameTime) / \
@@ -1863,6 +1959,8 @@ if __name__ == "__main__":
         END_TIME = "0:45"
 
         numFrames = len(vid)
+
+        print numFrames
 
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)

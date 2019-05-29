@@ -12,7 +12,10 @@ from scipy.signal import max_len_seq as mls
 from scipy.integrate import quad
 import random
 from video_magnifier import viewFrame, viewFlatFrame
-
+from sklearn.manifold import TSNE, Isomap, MDS, LocallyLinearEmbedding
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+from scipy.stats import linregress
 
 #n = int(sys.argv[1])
 
@@ -70,7 +73,38 @@ GREEDY_SEARCH = False
 FIND_BEST_RHO = False
 COMPARE_RANDOM = False
 COMPARE_RANDOM_2 = False
-COMPARE_RANDOM_2_RESULT_PROC = True
+COMPARE_RANDOM_2_RESULT_PROC = False
+ANDREA_MAT_RANK = False
+ANDREA_MAT_RANK_CIRC = False
+BINARY_VISUALIZER = False
+SPACE_JAGGEDNESS = False
+CONV_JAGGEDNESS = False
+CONV_JAGGEDNESS_2 = False
+MAG_JAGGEDNESS = False
+MAG_PEAK_RADIUS = False
+CIRC_PEAK_RADIUS = False
+SUM_PEAK_RADIUS = False
+CHECKERBOARD_PEAK_RADIUS = False
+RANDOM_FUNC_RADIUS = False
+CIRC_FUNC_SATELLITES = False
+CIRC_FUNC_SMOOTHED_SATELLITES = False
+REAL_FUNC_SATELLITES = False
+PHASE_ORIENTED_FUNC_SATELLITES = False
+CIRC_FUNC_SATELLITES_TRANSFORMED = False
+CIRC_FUNC_SATELLITES_ANALYSIS = False
+CIRC_FUNC_SMOOTH_SATELLITES_ANALYSIS = True
+SUM_FUNC_SATELLITES = False
+CHECKERBOARD_FUNC_SATELLITES = False
+RANDOM_FUNC_SATELLITES = False
+PHASE_ANALYSIS = False
+
+def triangleFunc(x):
+    return x
+#    return x*(x-1)/2
+#    return x**2 + 3*x - 4
+#    return x**5 + 4*x**3 - 2*x**2 + 4*x - 6
+#    return 2**x
+
 
 # compute a^b mod c
 def modularExponentiation(a, b, c):
@@ -82,6 +116,36 @@ def modularExponentiation(a, b, c):
 
     if b % 2 == 1:
         return (a * modularExponentiation((a*a) % c, (b-1)/2, c)) % c
+
+def xor(a, b):
+    return (a+b)%2
+
+def listXor(l1, l2):
+    return [xor(i, j) for i, j in zip(l1, l2)]
+
+def fac(n):
+    if n <= 0:
+        return 1
+    else:
+        return n*fac(n-1)
+
+def choose(n, r):
+    return fac(n)/(fac(r)*(fac(n-r)))
+
+def getBinaryStringWithKOnes(n, k):
+    returnList = [0]*n
+
+    indices = np.random.choice(n, k, replace=False)
+
+    for i in indices:
+        returnList[i] = 1
+
+    return returnList
+
+def getRandomKNeighbor(vertex, k):
+    diffs = getBinaryStringWithKOnes(len(vertex), k)
+
+    return listXor(vertex, diffs)
 
 def quadResidue(a, p):
 #    modExpResult = modularExponentiation(a, (p-1)/2, p)
@@ -132,6 +196,36 @@ def octResidue(a, p):
 
     return False         
 
+def convertListToInteger(l):
+    counter = 0
+
+    for i, val in enumerate(l):
+        counter += val*2**i
+
+    return counter
+
+def projectComplex(comp, phase):
+    return np.real(comp * np.exp(1j*(2*pi - phase)))
+ 
+def randomFuncMaker(n):
+    randomPermutation = range(int(2**n))
+    random.shuffle(randomPermutation)
+
+    def randomFunc(l):
+        return randomPermutation[convertListToInteger(l)]
+
+    return randomFunc
+
+def randomFuncMakerDummyHelper(n):
+    randomPermutation = range(int(2**n))
+    random.shuffle(randomPermutation)
+
+    def randomFunc(l):
+        return (randomPermutation[convertListToInteger(l)], 0)
+
+    return randomFunc
+
+
 def gram(mat):
     return np.dot(np.transpose(mat), mat)
 
@@ -150,6 +244,9 @@ def alexQuadResidueOfProductOfTwoPrimes(a, p, q):
 
 def circhank(x):
     return np.flip(circulant(x),0)
+
+def circularConvolution(l1, l2):
+    return np.real(np.fft.ifft(np.fft.fft(l1)*np.fft.fft(l2)))
 
 def product(l):
     returnValue = 1
@@ -181,6 +278,13 @@ def generalizedURA(n, identityValue, listOfPrimes, mode="oneZero"):
 
     return returnSequence
 
+def signedLog(x):
+    if x >= 1:
+        return log(x)
+
+    elif x < 1:
+        return x-1
+
 def logHBE(n):
     if n % 4 == 0:
         return n/2 * log(n)
@@ -211,8 +315,24 @@ def imageify(arr):
 
     return result
 
+def transformBinaryFunction(f, mat):
+    def transformedFunction(x):
+        inpNonbinary = np.dot(mat, np.array(x))
+        binaryInp = [i%2 for i in inpNonbinary]
+
+        return f(binaryInp)
+    return transformedFunction
+
 def binaryTriangular(n):
     return np.triu(np.ones((n,n)))
+
+def cis(val):
+    angle = np.angle(val, deg=False)
+
+    if angle >= 0:
+        return angle
+    else:
+        return angle + 2*pi
 
 def bandDiagonal(n, k):
     tri = np.tri(n, k=k)
@@ -629,6 +749,143 @@ def getDeterminantofToeplitz(l):
 def dot(l1, l2):
     return sum([i*j for i, j in zip(l1, l2)])
 
+def getRandomPoint(n):
+    return [1*(random.random() > 0.5) for _ in range(n)]
+
+def getRankOfVal(val, sampleVals):
+#    print sampleVals
+#    print val
+
+    return np.searchsorted(sampleVals, val)
+
+def measureSpaceJaggednessBySampling(f, n, sampleCount=10000, searchCount=100):
+    samplePoints = [getRandomPoint(n) for _ in range(sampleCount)]
+
+    sampleValues = sorted([f(point)[0] for point in samplePoints])
+
+    avgFoundRank = 0
+
+    for _ in range(searchCount):
+        initPoint = getRandomPoint(n)
+
+        foundPoint = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        foundVal = f(foundPoint)[0]
+
+        foundRank = getRankOfVal(foundVal, sampleValues)/sampleCount
+
+        print foundRank
+
+        avgFoundRank += foundRank
+
+    return avgFoundRank / sampleCount
+
+def listEquals(l1, l2):
+    for i, j in zip(l1, l2):
+        if i != j:
+            return False
+
+    return True
+
+def measurePeakRadius(peak, f, n, sampleCount=100):
+    currentDistance = 0
+
+    distanceHistory = []
+
+    for _ in range(sampleCount):
+        initPoint = getRandomKNeighbor(peak, currentDistance)
+
+#        print initPoint
+
+        foundPoint = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+#        print foundPoint
+
+        if listEquals(foundPoint, peak):
+            currentDistance += 1
+            if currentDistance < 0:
+                print "WARNING: this isn't a real peak!"
+
+            if currentDistance > n:
+                currentDistance = n
+#                print "WARNING: enormous peak"
+
+        else:
+            currentDistance -= 1
+
+        distanceHistory.append(currentDistance)
+
+    return average(distanceHistory)
+
+def measureAveragePeakRadius(f, n, numPeaksSampled=1000, sampleCount=100):
+    avgPeakRadius = 0
+
+    for i in range(numPeaksSampled):
+        print i
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        peakRadius = measurePeakRadius(peak, f, n, sampleCount=sampleCount)
+
+        avgPeakRadius += peakRadius
+
+    return avgPeakRadius / numPeaksSampled
+
+def countPeakSatellitesFixedDistance(peak, f, n, k, sampleCount=100):
+    numSatellites = 0
+
+    for _ in range(sampleCount):
+        initPoint = getRandomKNeighbor(peak, k)    
+
+        foundPoint = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        if listEquals(foundPoint, peak):
+            numSatellites += 1
+
+    return numSatellites / sampleCount
+
+def countPeakSatellites(peak, f, n, sampleCount=100):
+    numSatellites = 1
+    k = 1
+
+    while True:
+        satelliteFraction = countPeakSatellitesFixedDistance(peak, \
+            f, n, k, sampleCount=100)
+
+        numSatellitesAtK = satelliteFraction * choose(n, k)
+
+        numSatellites += numSatellitesAtK
+
+        if numSatellitesAtK == 0:
+            break
+
+        k += 1
+
+        if k > n:
+            break
+
+    return numSatellites
+
+def countAveragePeakSatellites(f, n, numPeaksSampled=1000, sampleCount=100):
+    avgPeakSatellites = 0
+
+    for i in range(numPeaksSampled):
+#        print i
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+#        print peak
+
+        peakSatellites = countPeakSatellites(peak, f, n, sampleCount=sampleCount)
+
+        avgPeakSatellites += peakSatellites
+
+    return avgPeakSatellites / numPeaksSampled    
+
 def isPrime(n):
     for i in range(2, int(floor(sqrt(n)))+1):
         if n % i == 0:
@@ -636,6 +893,21 @@ def isPrime(n):
 
     else:
         return True
+
+def makeRandomPlausiblePhases(n):
+    returnList = [0]
+
+    firstHalf = [2*pi*random.random() for _ in range(int((n-1)/2))]
+    secondHalf = [2*pi - x for x in firstHalf][::-1]
+
+    if n % 2 == 1:
+        return [0] + firstHalf + secondHalf
+    elif n % 2 == 0:
+        return [0] + firstHalf + [pi*(random.random() < 0.5)] + secondHalf
+    else:
+        raise
+
+    return returnList
 
 # take binary list, swap two random non-equal elements
 def getRandomSwap(l):
@@ -3554,3 +3826,638 @@ if __name__ == "__main__":
         p.plot(primeList, searchedVals, "g-")
         p.plot(primeList, bestVals, "b-")
         p.show()
+
+    if ANDREA_MAT_RANK:
+
+        N = 30
+        mat = []
+        for i in range(N):
+            mat.append([])
+            for j in range(N):
+                mat[-1].append(triangleFunc(i+j+5000))
+
+        mat = np.array(mat)
+        print np.linalg.matrix_rank(mat)
+
+        p.matshow(mat)
+        p.show()
+
+    if ANDREA_MAT_RANK_CIRC:
+
+        N = 15
+        firstRow = []
+
+        for i in range(N):
+            firstRow.append(triangleFunc(i))
+
+        mat = circulant(firstRow)
+
+        print np.linalg.matrix_rank(mat)
+
+
+        p.matshow(mat)
+        p.show()
+
+    if SPACE_JAGGEDNESS:
+
+        n = 17
+
+        f = lambda x: (sum(np.log(np.abs(np.fft.fft(x)))), 0)
+#        f = lambda x: (sum(x), 0)
+
+#        f = lambda x: sum(x)
+
+        print measureSpaceJaggednessBySampling(f, n, sampleCount=100000, searchCount=100)
+
+
+    if CONV_JAGGEDNESS:
+
+        n = 18
+
+        assert n % 2 == 0
+
+        def convNearMaker(l1, l2):
+            trueConv = circularConvolution(l1, l2)
+
+            halfN = int(n/2)
+
+            def convNear(x):
+                tryL1 = x[:halfN]
+                tryL2 = x[halfN:]
+
+                tryL1 = convertBinaryToOneMinusOne(tryL1)
+                tryL2 = convertBinaryToOneMinusOne(tryL2)
+
+                tryConv = circularConvolution(tryL1, tryL2)
+
+                diff = np.sum(np.abs(trueConv - tryConv))
+
+                return (-diff, 0)
+
+            return convNear
+
+        l1 = [-1, 1, -1, 1, -1, 1, -1, 1, -1]
+#        l1 = [-1, -1, -1, -1, -1, 1, -1, 1, 1]
+        l2 = [1, 1, 1, -1, -1, -1, 1, 1, 1]
+
+        f = convNearMaker(l1, l2)
+#        f = lambda x: (sum(x), 0)
+
+#        f = lambda x: sum(x)
+
+        print measureSpaceJaggednessBySampling(f, n, sampleCount=100000, searchCount=100)
+
+    if CONV_JAGGEDNESS:
+
+        n = 18
+
+        assert n % 2 == 0
+
+        def convNearMaker(l1, l2):
+            trueConv = circularConvolution(l1, l2)
+
+            halfN = int(n/2)
+
+            def convNear(x):
+                tryL1 = x[:halfN]
+                tryL2 = x[halfN:]
+
+                tryL1 = convertBinaryToOneMinusOne(tryL1)
+                tryL2 = convertBinaryToOneMinusOne(tryL2)
+
+                tryConv = circularConvolution(tryL1, tryL2)
+
+                diff = np.sum(np.abs(trueConv - tryConv))
+
+                return (-diff, 0)
+
+            return convNear
+
+        l1 = [-1, 1, -1, 1, -1, 1, -1, 1, -1]
+#        l1 = [-1, -1, -1, -1, -1, 1, -1, 1, 1]
+        l2 = [1, 1, 1, -1, -1, -1, 1, 1, 1]
+
+        f = convNearMaker(l1, l2)
+#        f = lambda x: (sum(x), 0)
+
+#        f = lambda x: sum(x)
+
+        print measureSpaceJaggednessBySampling(f, n, sampleCount=100000, searchCount=100)
+
+    if CONV_JAGGEDNESS_2:
+
+        n = 17
+
+        def convNearMaker(l1, l2):
+            trueConv = circularConvolution(l1, l2)
+
+            def convNear(x):
+                tryL1 = convertBinaryToOneMinusOne(x)
+                tryL2 = convertBinaryToOneMinusOne(l2)
+
+                tryConv = circularConvolution(tryL1, tryL2)
+
+                diff = np.sum(np.abs(trueConv - tryConv))
+
+                return (-diff, 0)
+
+            return convNear
+
+#        l1 = [-1, -1, -1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1]
+        l1 = [1]*9 + [-1]*8
+
+#        l1 = [-1, -1, -1, -1, -1, 1, -1, 1, 1]
+#        l2 = [1]*9 + [-1]*8
+        l2 = [-1, -1, -1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1]
+
+        f = convNearMaker(l1, l2)
+#        f = lambda x: (sum(x), 0)
+
+#        f = lambda x: sum(x)
+
+        print measureSpaceJaggednessBySampling(f, n, sampleCount=100000, searchCount=100)
+
+
+    if MAG_JAGGEDNESS:
+
+        n = 17
+
+        def magNearMaker(l):
+            trueLogMags = np.log(np.abs(np.fft.fft(l)))
+
+            def magNear(x):
+                tryLogMags = np.log(np.abs(np.fft.fft(x)))
+
+                diff = np.sum(np.abs(trueLogMags - tryLogMags))
+
+                return (-diff, 0)
+
+            return magNear
+
+#        l1 = [-1, -1, -1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1]
+#        l1 = [0,0,0,0,0,1,0,1,1,0,1,1,1,0,1,1,1]
+#        l1 = [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1]
+        l1 = [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]
+
+        f = magNearMaker(l1)
+#        f = lambda x: (sum(x), 0)
+
+#        f = lambda x: sum(x)
+
+        print measureSpaceJaggednessBySampling(f, n, sampleCount=100000, searchCount=100)
+
+    if MAG_PEAK_RADIUS:
+
+        n = 17
+
+        def magNearMaker(l):
+            trueLogMags = np.log(np.abs(np.fft.fft(l)))
+
+            def magNear(x):
+                tryLogMags = np.log(np.abs(np.fft.fft(x)))
+
+                diff = np.sum(np.abs(trueLogMags - tryLogMags))
+
+                return (-diff, 0)
+
+            return magNear
+
+#        l1 = [-1, -1, -1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1]
+#        l1 = [0,0,0,0,0,1,0,1,1,0,1,1,1,0,1,1,1]
+#        l1 = [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1]
+        l1 = [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]
+
+        f = magNearMaker(l1)
+#        f = lambda x: (sum(x), 0)
+
+#        f = lambda x: sum(x)
+
+        print measureAveragePeakRadius(f, n, numPeaksSampled=30)
+
+    if CIRC_PEAK_RADIUS:
+
+        n = 17
+
+        def circVal(l):
+            val = np.sum(np.log(np.abs(np.fft.fft(l))))
+
+            return (val, 0)
+
+        f = circVal
+
+        print measureAveragePeakRadius(f, n, numPeaksSampled=30)
+
+    if SUM_PEAK_RADIUS:
+
+        n = 17
+
+        def sumFunc(l):
+            val = sum(l)
+            return (val, 0)
+
+        f = sumFunc
+
+        print measureAveragePeakRadius(f, n, numPeaksSampled=30)
+
+    if CHECKERBOARD_PEAK_RADIUS:
+
+        n = 17
+
+        def checkerboardFunc(l):
+            val = sum(l) % 2
+            return (val, 0)
+
+        f = checkerboardFunc
+
+        print measureAveragePeakRadius(f, n, numPeaksSampled=30)
+
+    if RANDOM_FUNC_RADIUS:
+
+        n = 17
+
+        f = randomFuncMakerDummyHelper(n)
+
+        print measureAveragePeakRadius(f, n, numPeaksSampled=30)
+
+    if CIRC_FUNC_SATELLITES:
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        def circVal(l):
+            val = np.sum(np.log(np.abs(np.fft.fft(l))))
+
+            return (val, 0)
+
+        f = circVal
+
+
+        for n in ns:
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg            
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_circ.p", "w"))
+
+    if CIRC_FUNC_SMOOTHED_SATELLITES:
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        def circValSmoothed(l):
+            val = np.sum(np.vectorize(signedLog)(np.abs(np.fft.fft(l))))
+
+            return (val, 0)
+
+        f = circValSmoothed
+
+
+        for n in ns:
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg            
+
+#        p.plot(ns, avgPeakSatellitesList)
+#        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_circ_smooth.p", "w"))
+
+
+    if REAL_FUNC_SATELLITES:
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        def realVal(l):
+            val = np.sum(np.vectorize(signedLog)(np.real(np.fft.fft(l))))
+
+            return (val, 0)
+
+        f = realVal
+
+        for n in ns:
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg            
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_circ.p", "w"))
+
+    if PHASE_ORIENTED_FUNC_SATELLITES:
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        def realValMaker(phases):
+            def realVal(l):
+                val = np.sum(np.vectorize(signedLog)( \
+                    [projectComplex(i, p) for i, p in zip(np.fft.fft(l), phases)]))
+
+                return (val, 0)
+
+            return realVal
+
+        for n in ns:
+            phases = [2*pi*random.random() for _ in range(n)]
+            print phases
+
+            f = realValMaker(phases)
+
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg            
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_circ.p", "w"))
+
+
+    if CIRC_FUNC_SATELLITES_TRANSFORMED:
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        def circVal(l):
+            val = np.sum(np.log(np.abs(np.fft.fft(l))))
+
+            return (val, 0)
+
+
+        for n in ns:
+            mat = binaryTriangular(n)
+
+#            viewFrame(imageify(mat))
+
+            f = transformBinaryFunction(circVal, mat)
+
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg            
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_circ_trans.p", "w"))
+
+    if CIRC_FUNC_SATELLITES_ANALYSIS:
+        avgPeakSatellitesList = pickle.load(open("avg_peak_satellites_circ.p", "r"))
+        ns = range(1, 30)
+
+        logVals = []
+
+        for n in ns:
+            val = avgPeakSatellitesList[n-1]
+
+            logVals.append(log(val))
+
+        slope, intercept, r_value, p_value, std_err = linregress(ns, \
+            logVals)
+
+        print slope, intercept
+
+        print exp(slope)
+
+        linRegressPredict = [intercept + slope*n for n in ns]
+        expLinRegressPredict = [exp(intercept) * exp(slope)**n for n in ns]
+
+        p.plot(ns, logVals)
+        p.plot(ns, linRegressPredict)
+        p.show()
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.plot(ns, expLinRegressPredict)
+        p.show()
+
+    if CIRC_FUNC_SMOOTH_SATELLITES_ANALYSIS:
+        avgPeakSatellitesList = pickle.load(open("avg_peak_satellites_circ_smooth.p", "r"))
+        ns = range(1, 30)
+
+        logVals = []
+
+        for n in ns:
+            val = avgPeakSatellitesList[n-1]
+
+            logVals.append(log(val))
+
+        slope, intercept, r_value, p_value, std_err = linregress(ns, \
+            logVals)
+
+        print slope, intercept
+
+        print exp(slope)
+
+        linRegressPredict = [intercept + slope*n for n in ns]
+        expLinRegressPredict = [exp(intercept) * exp(slope)**n for n in ns]
+
+        p.plot(ns, logVals)
+        p.plot(ns, linRegressPredict)
+        p.show()
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.plot(ns, expLinRegressPredict)
+        p.show()
+
+
+    if SUM_FUNC_SATELLITES:
+
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        def sumFunc(l):
+            val = sum(l)
+            return (val, 0)
+
+        f = sumFunc
+
+        for n in ns:
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg            
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_sum.p", "w"))
+
+
+
+    if CHECKERBOARD_FUNC_SATELLITES:
+
+        n = 17
+
+        def checkerboardFunc(l):
+            val = sum(l) % 2
+            return (val, 0)
+
+        f = checkerboardFunc
+
+        print countAveragePeakSatellites(f, n, numPeaksSampled=30)
+
+    if RANDOM_FUNC_SATELLITES:
+
+        avgPeakSatellitesList = []
+        ns = range(1, 30)
+
+        for n in ns:
+
+            f = randomFuncMakerDummyHelper(n)
+
+            avg = countAveragePeakSatellites(f, n, numPeaksSampled=30)
+            avgPeakSatellitesList.append(avg)
+
+            print n, avg
+
+        p.plot(ns, avgPeakSatellitesList)
+        p.show()
+
+        pickle.dump(avgPeakSatellitesList, open("avg_peak_satellites_rand.p", "w"))
+
+    if PHASE_ANALYSIS:
+
+        BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
+            "000101111,0000110111,00010110111,000110110111,0010111110111," + \
+            "00001011101111,000100110101111,0000101101110111,00000101101110111," + \
+            "000010011010101111,0000101011110011011,00000110110101110111"
+
+        BRENT_DECIMAL_STRING = "45999,117623,340831,843119,638287,957175,1796839," + \
+            "5469423,6774063,37463883,77446231,47828907,196303815,95151003," + \
+            "1324935477,1822895095,430812063,2846677239,10313700815,6269629671," + \
+            "26764629467,22992859983,92035379515,162368181483,226394696439," + \
+            "631304341299,4626135339999"
+
+        BRENT_DECIMAL_SIZES = range(21, 48)
+
+        brentBinaryList = [[int(j) for j in list(i)] for i in \
+            string.split(BRENT_BINARY_STRING, ",")]
+
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
+            enumerate(string.split(BRENT_DECIMAL_STRING, ","))]
+
+        overallList = brentBinaryList + brentDecimalList
+
+#        brentString = "000100110101111"
+#        brentString = "0010111"
+
+        brentString = overallList[46]
+
+        print brentString
+
+        n = len(brentString)
+        print n
+
+        brentList = list(brentString)
+#        brentList = [1*(random.random() > 0.5) for _ in range(n)]
+
+        fftList = np.fft.fft(brentList)
+
+        phases = [cis(i) for i in fftList]
+        print phases
+
+        p.plot([cis(i) for i in fftList])
+        p.show()
+
+        def realValMaker(phases):
+            def realVal(l):
+                val = np.sum(np.vectorize(signedLog)( \
+                    [projectComplex(i, p) for i, p in zip(np.fft.fft(l), phases)]))
+
+                return (val, 0)
+
+            return realVal
+
+        def circVal(l):
+            val = np.sum(np.log(np.abs(np.fft.fft(l))))
+
+            return (val, 0)
+
+        def circValSmoothed(l):
+            val = np.sum(np.vectorize(signedLog)(np.abs(np.fft.fft(l))))
+
+            return (val, 0)
+
+        f = realValMaker(phases)
+        
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        print peak
+        print f(peak)
+
+
+        f = circVal
+        
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        print peak
+        print circVal(peak)
+
+        phasesOfPeak = [cis(i) for i in np.fft.fft(peak)]
+
+        f = realValMaker(phasesOfPeak)
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        print peak
+        print circVal(peak)
+
+        randomPhases = makeRandomPlausiblePhases(n)
+        f = realValMaker(randomPhases)
+        
+        p.plot(randomPhases)
+        p.show()
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        print peak
+        print circVal(peak)
+
+        phasesOfPeak = [cis(i) for i in np.fft.fft(peak)]
+
+        f = realValMaker(phasesOfPeak)
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        print peak
+        print circVal(peak)
+
+        phasesOfPeak = [cis(i) for i in np.fft.fft(peak)]
+
+        f = realValMaker(phasesOfPeak)
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, f, maxOrMin="max")
+
+        print peak
+        print circVal(peak)
+
+        peak = randomGreedySearch(peak, circVal, maxOrMin="max")
+        print peak
+        print circVal(peak)
+
+        print circVal(getRandomPoint(n))
+
+        initPoint = getRandomPoint(n)
+
+        peak = randomGreedySearch(initPoint, circValSmoothed, maxOrMin="max")
+        print peak
+        print circValSmoothed(peak)
+        print circVal(peak)
+
+

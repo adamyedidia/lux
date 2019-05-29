@@ -79,13 +79,16 @@ def batchIntoBigFrames(listOfFrames, batchSize):
 
 def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
     absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,
-    adaptiveScaling=False):
+    adaptiveScaling=False, secondBiggest=False, colorbar=False):
 
     if not relax:
         p.clf()
     
     if adaptiveScaling:
-        scalingFactor = np.amax(np.abs(frame))/255
+        if secondBiggest:
+            scalingFactor = np.partition(frame.flatten(), -4)[-4]/255
+        else:
+            scalingFactor = np.amax(np.abs(frame))/255
     else:
         scalingFactor = 1
 
@@ -145,6 +148,8 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
 
 
     if filename == None:
+        if colorbar:
+            p.colorbar()
         p.show()
     elif filename == "pass":
         pass

@@ -17,7 +17,7 @@ import sys
 import random
 from sklearn import linear_model
 
-np.set_printoptions(threshold=np.nan)
+#np.set_printoptions(threshold=np.nan)
 
 EPS = 1e-8
 

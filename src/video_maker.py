@@ -8,7 +8,8 @@ from video_processor import batchArrayAlongAxis, batchAndDifferentiate, convertA
 
 SQUARE_CIRCLE = False
 CARLSEN_CIRCLE = False
-SQUARE_CIRCLE_CENTER_LOCS = True
+SQUARE_CIRCLE_CENTER_LOCS = False
+BLANK_CIRCLE = True
 
 def numberToColor(x):
 	r = int(x % 8) >> 2
@@ -195,6 +196,21 @@ if CARLSEN_CIRCLE:
 		startingPoint, movementVector, numFrames, frameShape)
 
 	pickle.dump(vid, open("circle_carlsen_nowrap_vid.p", "w"))
+
+if BLANK_CIRCLE:
+	backgroundImage = np.zeros((10, 10, 3))
+
+	frameShape = backgroundImage.shape
+
+	radius = 3
+	startingPoint = np.array([0,0])
+	movementVector = np.array([1.1,0.8])
+	numFrames = 200
+
+	vid = makeCircleBackgroundVideo(backgroundImage, radius, \
+		startingPoint, movementVector, numFrames, frameShape)
+
+	pickle.dump(vid, open("circle_nowrap_vid_10_10.p", "w"))
 
 
 

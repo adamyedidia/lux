@@ -10,7 +10,8 @@ import pickle
 from process_image import ungarbleImageX, ungarbleImageY, \
     createGarbleMatrixX, createGarbleMatrixY, createGarbleMatrixFull, \
     ungarbleImageXOld, ungarbleImageYOld, getQ
-from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup, stretchArray, fuzzyLookup2D
+from import_1dify import batchList, displayConcatenatedArray, fuzzyLookup, stretchArray, fuzzyLookup2D, \
+    getTransferMatrixFromOccluder
 import imageio
 from video_magnifier import viewFrame, viewFrameR, viewFlatFrame
 from scipy.signal import convolve2d
@@ -41,7 +42,12 @@ LOAD_BU_SIM_DATA = False
 LOAD_BU_REAL_DATA = False
 JOIN_INFO = False
 JOIN_INFO_BY_LIST = False
-PROJECTION_INFO = True
+PROJECTION_INFO = False
+EQUIV_OCC = True
+EQUIV_OCC_2 = False
+EQUIV_OCC_3 = False
+EQUIV_OCC_MOVIE_1 = False
+EQUIV_OCC_MOVIE_2 = False
 
 def hasOptimalCirculant(x):
     if int(log(x+1, 2)) == log(x+1, 2):
@@ -228,6 +234,9 @@ def horizontalColumn(imShape, height, highVal=None):
 #    p.show()
     return returnArray
 
+def convolve2DToeplitz(arr1, arr2):
+    return convolve2d(arr1, arr2, mode="valid")
+
 def resizeArray(arr, newShape):
     returnArray = []
 
@@ -368,6 +377,77 @@ def pinSquare(imShape, squareRadius):
 #    p.matshow(returnArray)
 #    p.show()
     return returnArray
+
+def occluderGenerator(derivativeArray, verticalConstants, horizontalConstants):
+    arrShape = derivativeArray.shape
+
+ #   viewFrame(imageify(derivativeArray), adaptiveScaling=True, differenceImage=True)
+
+    occluderVerticaled = np.cumsum(derivativeArray, 0)
+
+#    viewFrame(imageify(occluderVerticaled), adaptiveScaling=True, differenceImage=True)
+
+    occluderVerticalConstantsAdd = np.tile(verticalConstants, (arrShape[0], 1))
+
+ #   viewFrame(imageify(occluderVerticalConstantsAdd), adaptiveScaling=True, \
+ #       differenceImage=True)
+
+    occluderVerticaledWithConstants = occluderVerticaled + \
+        occluderVerticalConstantsAdd
+
+ #   viewFrame(imageify(occluderVerticaledWithConstants), adaptiveScaling=True, \
+ #       differenceImage=True)
+
+    occluderHorizontaled = np.cumsum(occluderVerticaledWithConstants, 1)
+
+    print "1"
+
+    viewFrame(imageify(occluderHorizontaled), adaptiveScaling=True, \
+        differenceImage=True)
+
+    occluderHorizontalConstantsAdd = np.transpose(np.tile(horizontalConstants, \
+        (arrShape[1], 1)))
+
+    print occluderHorizontalConstantsAdd
+
+    print "2"
+    viewFrame(imageify(occluderHorizontalConstantsAdd), adaptiveScaling=True, \
+        differenceImage=True)
+
+    occluder = occluderHorizontaled + occluderHorizontalConstantsAdd
+
+    print "3"
+    viewFrame(imageify(occluder), adaptiveScaling=True, \
+        differenceImage=True)
+    
+    return occluder
+
+def twoSquares(imShape, squareRadius):
+    print "square"
+
+    midPointX1 = int(imShape[0]/4)
+    midPointY1 = int(imShape[1]/4)
+
+    midPointX2 = int(3*imShape[0]/4)
+    midPointY2 = int(3*imShape[1]/4)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if abs(i - midPointX1) < squareRadius*imShape[0]:
+                if abs(j - midPointY1) < squareRadius*imShape[0]:
+                    returnArray[i][j] = highVal
+
+            if abs(i - midPointX2) < squareRadius*imShape[0]:
+                if abs(j - midPointY2) < squareRadius*imShape[0]:
+                    returnArray[i][j] = highVal
+
+#    p.matshow(returnArray)
+#    p.show()
+    return returnArray
+
 
 def squareSpeck(imShape, squareRadius):
     print "square"
@@ -532,6 +612,105 @@ def fineCheckerBoard(imShape):
                 returnArray[i][j] = highVal
 
     return returnArray
+
+def cornerOccluder(imShape):
+    print "corner occluder"
+    midPointX = int(imShape[0]/2)
+    midPointY = int(imShape[1]/2)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if (i > midPointX) or (j > midPointY):
+                returnArray[i][j] = highVal
+            else:
+                returnArray[i][j] = 0
+
+    return returnArray
+
+def cornerOccluderMovable(topLeftX, topLeftY, imShape):
+    print "corner occluder"
+    midPointX = int(imShape[0]/2)
+    midPointY = int(imShape[1]/2)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if (i > midPointX + topLeftX) or (j > midPointY + topLeftY) or \
+                (i < topLeftX) or (j < topLeftY):
+                returnArray[i][j] = highVal
+            else:
+                returnArray[i][j] = 0
+
+    return returnArray
+
+def cornerOccluderMovingCenter(cornerLoc, imShape):
+    print "corner occluder"
+    midPointX = int(imShape[0]/2)
+    midPointY = int(imShape[1]/2)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if (i > cornerLoc[0]) or (j > cornerLoc[1]):
+                returnArray[i][j] = highVal
+            else:
+                returnArray[i][j] = 0
+
+    return returnArray
+
+def cornerCheckerboard(imShape, reverse=False):
+    print "corner occluder"
+    midPointX = int(imShape[0]/2)
+    midPointY = int(imShape[1]/2)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if reverse:
+                if (i > midPointX) and (j > midPointY):
+                    returnArray[i][j] = 0
+                elif (i <= midPointX) and (j <= midPointY):
+                    returnArray[i][j] = 0                
+                else:
+                    returnArray[i][j] = highVal
+
+            else:
+                if (i > midPointX) and (j > midPointY):
+                    returnArray[i][j] = highVal
+                elif (i <= midPointX) and (j <= midPointY):
+                    returnArray[i][j] = highVal                
+                else:
+                    returnArray[i][j] = 0
+
+    return returnArray
+
+
+def cornerAperture(imShape):
+    print "corner aperture"
+    midPointX = int(imShape[0]/2)
+    midPointY = int(imShape[1]/2)
+
+    highVal = 1/(imShape[0]*imShape[1])
+
+    returnArray = np.zeros(imShape)
+    for i in range(imShape[0]):
+        for j in range(imShape[1]):
+            if (i > midPointX) and (j > midPointY):
+                returnArray[i][j] = highVal
+            else:
+                returnArray[i][j] = 0
+
+    return returnArray
+
 
 def randomOccluder(imShape):
     print "random occluder"
@@ -1666,8 +1845,9 @@ if __name__ == "__main__":
     #    viewFrame(averageVertically(im), 1e-10)
 
 
-        occluderWindow = pinCircle(imSpatialDimensions, 1/8)
-    #    occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
+    #    occluderWindow = pinCircle(imSpatialDimensions, 1/8)
+        occluderWindow = circleSpeck((28, 28), 1/5)
+#        occluderWindow = circleSpeck(imSpatialDimensions, 1/4)
     #    occluderWindow = coarseCheckerBoard(imSpatialDimensions)
     #    occluderWindow = fineCheckerBoard(imSpatialDimensions)
     #    occluderWindow = pinSquare(imSpatialDimensions, 1/4)
@@ -1681,6 +1861,8 @@ if __name__ == "__main__":
 
     #    viewRepeatedOccluder(occluderWindow)
         viewSingleOccluder(occluderWindow)
+
+        pickle.dump(occluderWindow, open("circle_28_28.p", "w"))
 
         bits = getBitsOfOccluder(occluderWindow, beta, snr*100)
         pixels = bits/log(IM_BRIGHTNESS/THERMAL_NOISE*100 + 1, 2)
@@ -2937,3 +3119,296 @@ if __name__ == "__main__":
             viewFrame(recon, adaptiveScaling=True, filename="proj_movie/frame_" + \
                 padIntegerWithZeros(i, 3) + ".png")
 
+    if EQUIV_OCC:
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+
+        viewFrame(im, magnification=0.5, differenceImage=True)
+
+        print im.shape
+
+        imDims = im.shape[:-1]
+        occDims = [2*i-1 for i in imDims]
+
+        snr = 1e10
+        beta = 1
+
+        occ1 = cornerOccluder(occDims)
+
+#        occ2 = np.flip(occ1, 1)
+        occ2 = cornerAperture(occDims)
+        occ2 = np.flip(occ2, 1)
+#        occ2 = pinSquare(occDims, 1/5)
+#        occ2 = twoSquares(occDims, 1/5)
+#        occ2 = cornerCheckerboard(occDims, reverse=True)
+
+
+        viewFrame(imageify(occ1), adaptiveScaling=True)
+        viewFrame(imageify(occ2), adaptiveScaling=True)
+
+        transferMat1 = make2DTransferMatrix(imDims, occ1)
+        transferMat2 = make2DTransferMatrix(imDims, occ2)
+
+#        inverseMatrix = getPseudoInverse(transferMat2, imDims, \
+#            snr, beta)
+
+        inverseMatrix = snr*np.linalg.inv(snr*transferMat2 + \
+            np.identity(transferMat2.shape[0]))
+
+        doraObs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat1, x, imDims), im)
+
+        viewFrame(doraObs, adaptiveScaling=True)
+
+        recon = doFuncToEachChannel(lambda x: vectorizedDot(inverseMatrix, x, imDims), doraObs)
+
+        print recon
+
+        viewFrame(recon, adaptiveScaling=False, magnification=0.5, differenceImage=True)
+
+    if EQUIV_OCC_2:
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+
+        viewFrame(im, magnification=0.5, differenceImage=True)
+
+        print im.shape
+
+        imDims = im.shape[:-1]
+        occDims = [2*i-1 for i in imDims]
+
+        snr = 1e10
+        beta = 1
+
+        derivativeArray = np.zeros(occDims)
+
+        nibLoc = (int(occDims[0]/2), int(occDims[1]/2))
+
+        highVal = 1/(occDims[0]*occDims[1])
+
+        derivativeArray[nibLoc[0],nibLoc[1]] = highVal
+
+        verticalConstants1 = np.zeros(occDims[1])
+        horizontalConstants1 = np.zeros(occDims[0])
+
+#        verticalConstants1[nibLoc[1]] = 0
+
+        verticalConstants2 = np.zeros(occDims[1])
+        horizontalConstants2 = np.zeros(occDims[0])
+        verticalConstants2[nibLoc[1]] = -highVal
+#        horizontalConstants2 = highVal*np.ones(occDims[0])
+
+        occ1 = occluderGenerator(derivativeArray, verticalConstants1, horizontalConstants1) 
+
+        print occ1.shape
+        viewFrame(imageify(occ1), adaptiveScaling=True)
+
+        print horizontalConstants2
+
+        occ2 = occluderGenerator(derivativeArray, verticalConstants2, horizontalConstants2) 
+
+        viewFrame(imageify(occ2), adaptiveScaling=True)
+
+        transferMat1 = make2DTransferMatrix(imDims, occ1)
+        transferMat2 = make2DTransferMatrix(imDims, occ2)
+
+#        inverseMatrix = getPseudoInverse(transferMat2, imDims, \
+#            snr, beta)
+
+        inverseMatrix = snr*np.linalg.inv(snr*transferMat2 + \
+            np.identity(transferMat2.shape[0]))
+
+        doraObs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat1, x, imDims), im)
+
+        viewFrame(doraObs, adaptiveScaling=True)
+
+        recon = doFuncToEachChannel(lambda x: vectorizedDot(inverseMatrix, x, imDims), doraObs)
+
+        print recon
+
+        viewFrame(recon, adaptiveScaling=False, magnification=0.5, differenceImage=True)
+
+    if EQUIV_OCC_3:
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+
+        viewFrame(im, magnification=0.5, differenceImage=True)
+
+        print im.shape
+
+        imDims = im.shape[:-1]
+        occDims = [2*i-1 for i in imDims]
+
+        snr = 1e10
+        beta = 1
+
+        derivativeArray = np.zeros(occDims)
+
+        nib1X = int(occDims[0]/3)
+        nib2X = int(2*occDims[0]/3)
+
+        nib1Y = int(occDims[1]/3)
+        nib2Y = int(2*occDims[1]/3)
+
+        highVal = 1/(occDims[0]*occDims[1])
+
+        derivativeArray[nib1X,nib1Y] = highVal
+        derivativeArray[nib1X,nib2Y] = -highVal
+        derivativeArray[nib2X,nib1Y] = -highVal
+        derivativeArray[nib2X,nib2Y] = highVal
+
+        verticalConstants1 = np.zeros(occDims[1])
+        horizontalConstants1 = np.zeros(occDims[0])
+
+#        verticalConstants1[nibLoc[1]] = 0
+
+        verticalConstants2 = np.zeros(occDims[1])
+        horizontalConstants2 = np.zeros(occDims[0])
+        horizontalConstants2 = highVal*np.ones(occDims[0])
+
+        verticalConstants2[nib1Y] = -highVal
+        verticalConstants2[nib2Y] = highVal
+
+        occ1 = occluderGenerator(derivativeArray, verticalConstants1, horizontalConstants1) 
+
+        print occ1.shape
+        viewFrame(imageify(occ1), adaptiveScaling=True)
+
+        occ2 = occluderGenerator(derivativeArray, verticalConstants2, horizontalConstants2) 
+
+        viewFrame(imageify(occ2), adaptiveScaling=True)
+
+        transferMat1 = make2DTransferMatrix(imDims, occ1)
+        transferMat2 = make2DTransferMatrix(imDims, occ2)
+
+#        inverseMatrix = getPseudoInverse(transferMat2, imDims, \
+#            snr, beta)
+
+        inverseMatrix = snr*np.linalg.inv(snr*transferMat2 + \
+            np.identity(transferMat2.shape[0]))
+
+        doraObs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat1, x, imDims), im)
+
+        viewFrame(doraObs, adaptiveScaling=True)
+
+        recon = doFuncToEachChannel(lambda x: vectorizedDot(inverseMatrix, x, imDims), doraObs)
+
+        print recon
+
+        viewFrame(recon, adaptiveScaling=False, magnification=0.5, differenceImage=True)
+
+    if EQUIV_OCC_MOVIE_1:
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+
+        viewFrame(im, magnification=0.5, differenceImage=True)
+
+        print im.shape
+
+        imDims = im.shape[:-1]
+        occDims = [2*i-1 for i in imDims]
+
+        snr = 1e10
+        beta = 1
+
+        occ1 = cornerOccluder(occDims)
+        transferMat1 = make2DTransferMatrix(imDims, occ1)
+
+        doraObs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat1, x, imDims), im)
+
+        frameCounter = 0
+
+        for cornerLocX in range(0, occDims[0], 12):
+            for cornerLocY in range(0, occDims[1], 12):
+                print frameCounter
+
+                cornerLoc = (cornerLocX, cornerLocY)
+
+                occ2 = cornerOccluderMovingCenter(cornerLoc, occDims)
+
+                transferMat2 = make2DTransferMatrix(imDims, occ2)
+
+#                inverseMatrix = getPseudoInverse(transferMat2, imDims, \
+#                    snr, beta)
+
+                inverseMatrix = snr*np.linalg.inv(snr*transferMat2 + \
+                    np.identity(transferMat2.shape[0]))
+
+#        viewFrame(doraObs, adaptiveScaling=True)
+
+                recon = doFuncToEachChannel(lambda x: vectorizedDot(inverseMatrix, x, imDims), doraObs)
+
+#                viewFrame(recon, adaptiveScaling=False, magnification=0.5, differenceImage=True, \
+#                    filename="equiv_occ_1/frame_" + padIntegerWithZeros())
+
+                p.clf()
+
+                p.subplot(121)
+#                p.axis("off")
+                viewFrame(imageify(occ2), filename="pass", adaptiveScaling=True,
+                    relax=True, magnification=1, differenceImage=False)
+
+                p.subplot(122)
+#                p.axis("off")
+                viewFrame(recon, filename="pass", adaptiveScaling=False,
+                    relax=True, magnification=0.5, differenceImage=True)
+
+                p.savefig("equiv_occ_2/frame_" + padIntegerWithZeros(frameCounter, 4) + ".png")
+
+                frameCounter += 1
+
+    if EQUIV_OCC_MOVIE_2:
+
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+
+        viewFrame(im, magnification=0.5, differenceImage=True)
+
+        print im.shape
+
+        imDims = im.shape[:-1]
+        occDims = [2*i-1 for i in imDims]
+
+        snr = 1e10
+        beta = 1
+
+        occ1 = cornerOccluder(occDims)
+        transferMat1 = make2DTransferMatrix(imDims, occ1)
+
+        doraObs = doFuncToEachChannel(lambda x: vectorizedDot(transferMat1, x, imDims), im)
+
+        frameCounter = 0
+
+        for squareRadius in np.linspace(0, 1/2, 30):
+            print frameCounter
+
+            occ2 = pinSquare(occDims, squareRadius)
+
+            transferMat2 = make2DTransferMatrix(imDims, occ2)
+
+#                inverseMatrix = getPseudoInverse(transferMat2, imDims, \
+#                    snr, beta)
+
+            inverseMatrix = snr*np.linalg.inv(snr*transferMat2 + \
+                np.identity(transferMat2.shape[0]))
+
+#        viewFrame(doraObs, adaptiveScaling=True)
+
+            recon = doFuncToEachChannel(lambda x: vectorizedDot(inverseMatrix, x, imDims), doraObs)
+
+#                viewFrame(recon, adaptiveScaling=False, magnification=0.5, differenceImage=True, \
+#                    filename="equiv_occ_1/frame_" + padIntegerWithZeros())
+
+            p.clf()
+
+            p.subplot(121)
+#                p.axis("off")
+            viewFrame(imageify(occ2), filename="pass", adaptiveScaling=True,
+                relax=True, magnification=1, differenceImage=False)
+
+            p.subplot(122)
+#                p.axis("off")
+            viewFrame(recon, filename="pass", adaptiveScaling=False,
+                relax=True, magnification=0.5, differenceImage=True)
+
+            p.savefig("equiv_occ_3/frame_" + padIntegerWithZeros(frameCounter, 4) + ".png")
+
+            frameCounter += 1

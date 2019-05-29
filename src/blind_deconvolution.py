@@ -27,7 +27,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.optimize import broyden1, fmin_bfgs, fmin_cg, fmin_tnc, fmin
 from pynverse import inversefunc
 from scipy.integrate import quad
-from video_processor import batchArrayAlongAxis, batchAndDifferentiate, convertArrayToVideo
+from video_processor import batchArrayAlongAxis, batchAndDifferentiate, convertArrayToVideo, \
+    convertTwoArraysToVideo, convertFourArraysToVideo
 from scipy.linalg import toeplitz
 from scipy.linalg import dft as dftMat
 from phase_retrieval import retrievePhase, retrievePhase2D
@@ -77,13 +78,14 @@ OVERLAP_PAD_TEST = False
 OVERLAP_PAD_TEST_2 = False
 PROCESS_EXP_OCCLUDER = False
 PROCESS_KNOWN_OCCLUDER_VERT = False
-PROCESS_COMBINED_OCCLUDER = True
+PROCESS_COMBINED_OCCLUDER = False
 PROCESS_EXP_OCCLUDER_2 = False
 PROCESS_EXP_OCCLUDER_BIN_ONLY = False
 PROCESS_EXP_OCCLUDER_CARDBOARD = False
 CREATE_RECONSTRUCTION_MOVIE_EXP = False
 CREATE_RECONSTRUCTION_MOVIE_EXP_2 = False
-CREATE_RECONSTRUCTION_MOVIE_DARPA_EXP = True
+CREATE_RECONSTRUCTION_MOVIE_DARPA_EXP = False
+CREATE_RECONSTRUCTION_MOVIE_DARPA_EXP_NOISY = False
 EXTRACT_MATRIX_FROM_IMAGE = False
 WIENER_FILTER_TEST = False
 CROP = False
@@ -93,6 +95,7 @@ MEAN_SUBTRACTION_POSITIVE = False
 UNIFORM_MEAN_SUBTRACTION = False
 SIM_COMPARISON = False
 SPLIT_VID = False
+BATCH_VID = False
 TIME_DIFF = False
 MED_FILT = False
 AVERAGE_DIVIDE = False
@@ -100,7 +103,11 @@ AVERAGE_DIVIDE_1D = False
 GET_ABS = False
 COLOR_AVG = False
 COLOR_FLATTEN = False
-MAKE_VIDEO = False
+MAKE_VIDEO = True
+MAKE_SEVERAL_VIDEOS = False
+VISUALIZE_TRANSFER_MAT = False
+MAKE_DOUBLE_VIDEO = False
+MAKE_QUAD_VIDEO = False
 CAP_ARR_VALS = False
 DOWNSIZE_ARR = False
 MACARENA_CORRECT_DECONV_DUMPER = False
@@ -123,6 +130,9 @@ CVPR_COMPUTE_HAMMING_DISTANCE = False
 CVPR_MAKE_EXAMPLE_MOVIE = False
 CVPR_MAKE_EXAMPLE_MOVIE_2 = False
 CONV_TWO_IMAGES = False
+DESATURATE = False
+RESIZE_IM = False
+SAVE_IM = False
 
 ZERO_DENSITY = 2
 NONZERO_DENSITY = 20
@@ -2989,8 +2999,8 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
     
 #    start = 420
 #    start = 1172
-#    start = 0
-    start = 190
+    start = 0
+#    start = 190
 
     convolvedFrame = diffVid[start]
 
@@ -3084,7 +3094,7 @@ def estimateOccluderFromDifferenceFramesCanvasPreserving(diffVid):
 
             contribCounter += 1
 
-        if i > 10:
+        if i > 50:
             break
 
 #        frameCounter += 3
@@ -4578,15 +4588,32 @@ if __name__ == "__main__":
             print "sumabs", np.sum(np.abs(recoveredFrame))
 
     if CREATE_RECONSTRUCTION_MOVIE:
-        vid = pickle.load(open("steven_batched.p", "r"))
+        vid = pickle.load(open("office_batched.p", "r"))
 
         occ = pickle.load(open("corr_occ_2.p", "r"))
 
-        oldStuff = False
+        oldStuff = True
 
         diffVid = pickle.load(open("steven_batched_diff_framesplit.p", "r"))    
         recoveredOcc = pickle.load(open("extracted_occ.p"))
-        binaryOcc = pickle.load(open("extracted_occ_bin.p"))
+        binaryOcc = pickle.load(open("corr_occ_3.p"))
+
+        print vid[0].shape[:-1]
+
+        binaryOcc = resizeArray(binaryOcc, vid[0].shape[:-1])
+        print binaryOcc
+
+        binaryOcc = np.vectorize(lambda x: 1*(x>0.5))(binaryOcc)
+
+        occ = resizeArray(occ, vid[0].shape[:-1])
+        print binaryOcc
+
+        occ = np.vectorize(lambda x: 1*(x>0.5))(occ)
+
+
+        viewFrame(imageify(binaryOcc), adaptiveScaling=True)
+        viewFrame(imageify(occ), adaptiveScaling=True)
+
     #    binaryOcc = convertOccToZeroOne(recoveredOcc)[6]
 
     #    viewFrame(imageify(recoveredOcc), adaptiveScaling=True)
@@ -4632,8 +4659,11 @@ if __name__ == "__main__":
          #           obsFrame)
         #        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.richardson_lucy(x, binaryOcc, clip=True), \
         #            obsFrame)
-                recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.wiener(x, binaryOcc, 10), \
-                    obsFrame)
+        #        recoveredFrameApproximate = doFuncToEachChannel(lambda x: restoration.wiener(x, binaryOcc, 10), \
+        #            obsFrame)
+
+                recoveredFrameApproximate = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrixApproximate, x, \
+                    frame.shape[:-1]), obsFrame)    
 
 
                 medfiltedRecoveredFrameApproximate = doFuncToEachChannel(medfilt, recoveredFrameApproximate)
@@ -4641,13 +4671,17 @@ if __name__ == "__main__":
                 p.clf()
 
                 p.subplot(221)
+                p.axis("off")        
                 viewFrame(frame, filename="pass", relax=True)
                 p.subplot(222)
+                p.axis("off")        
                 viewFrame(obsFrame, filename="pass", relax=True, adaptiveScaling=True)
                 p.subplot(223)
-                viewFrame(recoveredFrameClean, filename="pass", relax=True)
+                p.axis("off")        
+                viewFrame(recoveredFrameClean, filename="pass", relax=True, adaptiveScaling=True)
                 p.subplot(224)
-                viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, magnification=1e2)
+                p.axis("off")        
+                viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, adaptiveScaling=True)
         #        viewFrame(medfiltedRecoveredFrameApproximate, filename="pass", relax=True, magnification=2e2)
 
 
@@ -5012,13 +5046,13 @@ if __name__ == "__main__":
         pickle.dump(np.array(convVid), open("steven_batched_diff_conv_framesplit.p", "w"))
 
     if PROCESS_SIM_VIDEO:
-    #    diffVid = pickle.load(open("steven_batched_diff_conv_framesplit.p", "r"))
+        diffVid = pickle.load(open("steven_batched_diff_conv_framesplit.p", "r"))
     #    diffVid = pickle.load(open("blind_deconv_hourglass_rect_diff_framesplit.p", "r"))
     #    diffVid = pickle.load(open("fan_rect_meansub_framesplit.p", "r"))
     #    diffVid = pickle.load(open("plant_rect_meansub_pos_framesplit.p", "r"))
     #    diffVid = pickle.load(open("fan_monitor_rect_diff_framesplit.p", ))
     #    diffVid = pickle.load(open("office_batched_diff_framesplit_obs.p", "r"))
-        diffVid = pickle.load(open("darpa_vid_2_rect_vert_diff_framesplit.p", "r"))
+    #    diffVid = pickle.load(open("darpa_vid_2_rect_vert_diff_framesplit.p", "r"))
 
         frameShape = diffVid[0].shape
 
@@ -5267,11 +5301,23 @@ if __name__ == "__main__":
         p.show()
 
 #        inversionMatrix = getPseudoInverse(combinedForwardModelMatrix, 3e-4)
-        inversionMatrix = getPseudoInverseConcatenated(forwardModelMatrix1, forwardModelMatrix2, 3e-6, 3e-4)
+        inversionMatrix = getPseudoInverseConcatenated(forwardModelMatrix1, forwardModelMatrix2, 3e-4, 1e-4)
     
 #        print inversionMatrix.shape
 
         pickle.dump(inversionMatrix, open("extracted_inverter_exp_combined_darpa_vid.p", "w"))
+
+        inversionMatrix = getPseudoInverseConcatenated(forwardModelMatrix1, forwardModelMatrix2, 1e-5, 1e-4)
+
+        pickle.dump(inversionMatrix, open("extracted_inverter_exp_combined_darpa_vid_noisy.p", "w"))
+
+        inversionMatrix = getPseudoInverseConcatenated(forwardModelMatrix1, forwardModelMatrix2, 1e-10, 1e-4)
+
+        pickle.dump(inversionMatrix, open("extracted_inverter_exp_combined_darpa_vid_noisy_vert_only.p", "w"))
+
+        inversionMatrix = getPseudoInverseConcatenated(forwardModelMatrix1, forwardModelMatrix2, 1e-5, 1e-10)
+
+        pickle.dump(inversionMatrix, open("extracted_inverter_exp_combined_darpa_vid_noisy_fan_only.p", "w"))
 
     if PROCESS_EXP_OCCLUDER_2:
         rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
@@ -5507,6 +5553,90 @@ if __name__ == "__main__":
 
         pickle.dump(np.array(listOfRecoveredFrames), open("darpa_simple_recon.p", "w"))
 
+    if CREATE_RECONSTRUCTION_MOVIE_DARPA_EXP_NOISY:
+        obsVidFan = pickle.load(open("darpa_vid_2_rect_fan_meansub.p", "r"))
+        obsVidVert = pickle.load(open("darpa_vid_2_rect_vert_meansub.p", "r"))
+
+        inversionMatrixCombined = pickle.load(open("extracted_inverter_exp_combined_darpa_vid_noisy.p", "r"))
+        inversionMatrixVert = pickle.load(open("extracted_inverter_exp_combined_darpa_vid_noisy_vert_only.p", "r"))
+        inversionMatrixFan = pickle.load(open("extracted_inverter_exp_combined_darpa_vid_noisy_fan_only.p", "r"))
+        correct = pickle.load(open("darpa_simple_recon.p", "r"))
+
+        vertForwardMat = pickle.load(open("vert_forward_matrix.p", "r"))
+
+    #    inversionMatrix = pickle.load(open("extracted_inverter_exp_darpa_vid.p", "r"))
+    #    inversionMatrix = pickle.load(open("extracted_inverter_exp_fan.p", "r"))
+    #    inversionMatrix = pickle.load(open("extracted_inverter_fan_monitor.p", "r"))
+
+#        binaryOcc = pickle.load(open("binary_occ_exp_hourglass.p", "r"))
+    #    binaryOcc = pickle.load(open("binary_occ_exp_fan.p", "r"))
+    #    binaryOcc = pickle.load(open("binary_occ_exp_fan_monitor.p", "r"))
+
+ #       viewFrame(imageify(binaryOcc))
+
+        targetShape = (30, 42)
+    #    targetShape = (30, 60)
+    #    targetShape = (40, 70)
+
+        obsVertShape = (40, 22)
+
+        gaussKernel = getGaussianKernel(5, 1)
+        gaussKernelLarge = getGaussianKernel(10, 3)
+
+        recoveredMovie = []
+
+        listOfRecoveredFramesCombined = []
+        listOfRecoveredFramesFan = []
+        listOfRecoveredFramesVert = []
+
+
+        for i, obsTuple in enumerate(zip(obsVidFan, obsVidVert)):
+            print i
+
+            firstObs = addNoise(flattenRGB(obsTuple[0]))
+
+#            viewFrame(obsTuple[1], adaptiveScaling=True)
+#            viewFrame(doFuncToEachChannel(lambda x: vectorizedDot(vertForwardMat, x, obsVertShape), correct[i]), \
+#                adaptiveScaling=True)
+
+            secondObs = flattenRGB(obsTuple[1])
+
+            combinedObs = np.concatenate([firstObs, secondObs], 0)
+
+#            print obsFrame.shape
+
+            recoveredCombinedFrame = np.swapaxes(doFuncToEachChannelVec(lambda x: np.reshape(np.dot(inversionMatrixCombined, x), \
+                targetShape), combinedObs), 1, 2)    
+
+            recoveredVertFrame = np.swapaxes(doFuncToEachChannelVec(lambda x: np.reshape(np.dot(inversionMatrixVert, x), \
+                targetShape), combinedObs), 1, 2)    
+
+            recoveredFanFrame = np.swapaxes(doFuncToEachChannelVec(lambda x: np.reshape(np.dot(inversionMatrixFan, x), \
+                targetShape), combinedObs), 1, 2)    
+
+    #        groundTruthFrame = groundTruthVid[2*i+3]
+
+#            print recoveredFrame.shape
+
+#            p.clf()
+
+#            p.axis("off")
+    #        p.subplot(211)
+    #        viewFrame(groundTruthFrame, filename="pass", relax=True, differenceImage=True, magnification=0.5)
+    #        p.subplot(212)
+ #           viewFrame(recoveredCombinedFrame, filename="pass", adaptiveScaling=True,
+ #               relax=True, magnification=1, differenceImage=True)
+
+            listOfRecoveredFramesCombined.append(recoveredCombinedFrame)
+            listOfRecoveredFramesVert.append(recoveredVertFrame)
+            listOfRecoveredFramesFan.append(recoveredFanFrame)
+
+#            p.savefig("blind_deconv_movie_exp_darpa_combined/frame_" + padIntegerWithZeros(i, 4) + ".png")
+
+        pickle.dump(np.array(listOfRecoveredFramesCombined), open("darpa_combined_recon_noisy.p", "w"))
+        pickle.dump(np.array(listOfRecoveredFramesVert), open("darpa_vert_recon_noisy.p", "w"))
+        pickle.dump(np.array(listOfRecoveredFramesFan), open("darpa_fan_recon_noisy.p", "w"))
+
     if CREATE_RECONSTRUCTION_MOVIE_DARPA_EXP:
         obsVidFan = pickle.load(open("darpa_vid_2_rect_fan_meansub.p", "r"))
         obsVidVert = pickle.load(open("darpa_vid_2_rect_vert_meansub.p", "r"))
@@ -5577,12 +5707,20 @@ if __name__ == "__main__":
         pickle.dump(np.array(listOfRecoveredFrames), open("darpa_combined_recon.p", "w"))
 
     if EXTRACT_MATRIX_FROM_IMAGE:
-        mat = extractMatrixFromBWImage("corr_occ_2.png", 24)
+        matOld = extractMatrixFromBWImage("corr_occ_2.png", 24)
+        mat = extractMatrixFromBWImage("realvid_occ.png", 11.5)
 
+        print matOld.shape
         print mat.shape
-        viewFrame(imageify(mat), adaptiveScaling=True)
+        viewFrame(resizeArray(imageify(mat), matOld.shape)/255)
 
-        pickle.dump(mat, open("corr_occ_2.p", "w"))
+        bwMat = np.vectorize(lambda x: 1.*(x>128))(mat)
+
+        viewFrame(imageify(bwMat))
+
+        pickle.dump(bwMat, open("corr_occ_3.p", "w"))
+    
+
 
     if WIENER_FILTER_TEST:
         occ = pickle.load(open("corr_occ_2.p", "r"))
@@ -5742,6 +5880,15 @@ if __name__ == "__main__":
 
         pickle.dump(diffArr, open(arrName + "_diff.p", "w"))
 
+    if BATCH_VID:
+        arrName = "prafull_movie_colorflat"
+
+        arr = np.array(pickle.load(open(arrName + ".p", "r")))
+
+        batchedArr = batchAndDifferentiate(arr, [(2, False), (3, False), (3, False)])
+
+        pickle.dump(batchedArr, open(arrName + "_batched.p", "w"))
+
     if MED_FILT:
         arr = pickle.load(open("bld66_rect_diff.p", "r"))
 
@@ -5840,7 +5987,7 @@ if __name__ == "__main__":
         pickle.dump(returnArr, open(arrName + "_abs.p", "w"))
 
     if COLOR_AVG:
-        arrName = "glass_rose_calibration"
+        arrName = "dots_scene_movie"
 
         arr = pickle.load(open(arrName + ".p", "r"))
 
@@ -5856,9 +6003,14 @@ if __name__ == "__main__":
         pickle.dump(returnArr, open(arrName + "_coloravg.p", "w"))
 
     if COLOR_FLATTEN:
-        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv"
+#        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv"
+#        arrName = "circle_nowrap_vid_10_10"
+#        arrName = "prafull_scene_movie"
+        arrName = "dots_scene_movie"
 
         arr = pickle.load(open(arrName + ".p", "r"))
+
+        print arr.shape
 
         returnArr = []
 
@@ -5880,18 +6032,141 @@ if __name__ == "__main__":
 #        arrName = "prafull_ball_meansub_avgdiv"
 #        arrName = "circle_square_nowrap_vid_obs"
 #        arrName = "darpa_vid_2_rect_fan_diff"
-        arrName = "darpa_vid_gt"
+#        arrName = "darpa_vid_gt"
 #        arrName = "steven_batched"
-
+#        arrName = "steven_batched_phased"
+#        arrName = "anat_scene_movie_0"
+#        arrName = "circle_nowrap_vid_10_10"
+#        arrName = "circle_anat_obs_10_10"
+        arrName = "dots_scene_movie_coloravg"
+#        arrName = "anat_scene_movie_1"
+    
         arr = np.array(pickle.load(open(arrName + ".p", "r")))
-
+#        arr = imageify(np.array(pickle.load(open(arrName + ".p", "r"))))
+    
+#        viewFrame(arr[0], adaptiveScaling=True)
+    
         print arr.shape
 
 #        print arr
 
 #        convertArrayToVideo(np.array(arr), 30000, arrName, 15, adaptiveScaling=False, differenceImage=True)
 #        convertArrayToVideo(np.array(arr), 0.5, arrName, 15, adaptiveScaling=True, differenceImage=True)
-        convertArrayToVideo(np.array(arr), 1, arrName, 15, adaptiveScaling=True, differenceImage=False)
+        convertArrayToVideo(np.array(arr), 1, arrName, 15, adaptiveScaling=True, 
+            differenceImage=False, verbose=True)
+
+    if MAKE_SEVERAL_VIDEOS:
+
+        arrName = "anat_scene_movie_"
+#        arrName = "circle_nowrap_vid_10_10"
+#        arrName = "circle_anat_obs_10_10"
+
+        for i in range(5):
+
+            arr = np.array(pickle.load(open(arrName + str(i) + ".p", "r")))
+    #        arr = imageify(np.array(pickle.load(open(arrName + ".p", "r"))))
+
+            print arr.shape
+
+    #        print arr
+
+    #        convertArrayToVideo(np.array(arr), 30000, arrName, 15, adaptiveScaling=False, differenceImage=True)
+    #        convertArrayToVideo(np.array(arr), 0.5, arrName, 15, adaptiveScaling=True, differenceImage=True)
+            convertArrayToVideo(np.array(arr), 1, arrName + str(i), 15, adaptiveScaling=True, differenceImage=False)
+
+    if VISUALIZE_TRANSFER_MAT:
+        arrName = "anat_scene_xfer_1"
+
+        arr = np.array(pickle.load(open(arrName + ".p", "r")))
+
+        print arr.shape
+
+        obsShape = (96, 128)
+
+        transposedArr = np.transpose(arr)
+
+        print transposedArr.shape
+
+        convertibleVideo = []
+
+        for frame in transposedArr:
+            convertedFrame = imageify(np.reshape(frame, obsShape))
+            if np.sum(convertedFrame) > 0:
+                convertibleVideo.append(convertedFrame)
+            else:
+                convertibleVideo.append(-convertedFrame)
+
+#            viewFrame(convertedFrame, adaptiveScaling=True, \
+#                differenceImage=True)
+
+
+#        imageifiedArr = imageify(np.array(reshapedArr))
+
+        convertArrayToVideo(np.array(convertibleVideo), 1, arrName, 15, adaptiveScaling=True, differenceImage=False)        
+
+
+    if MAKE_DOUBLE_VIDEO:
+#        arrName = "circle_carlsen_nowrap_vid_meansub_abs_coloravg"
+#        arrName = "circle_carlsen_nowrap_vid"
+#        arrName = "circle_square_nowrap_vid_meansub_abs"
+#        arrName = "circle_carlsen_nowrap_vid_meansub_abs_coloravg_avgdiv"
+#        arrName = "recovered_vid"
+#        arrName = "prafull_ball_meansub_avgdiv"
+#        arrName = "circle_square_nowrap_vid_obs"
+#        arrName = "darpa_vid_2_rect_fan_diff"
+#        arrName = "darpa_vid_gt"
+#        arrName = "steven_batched"
+#        arrName = "steven_batched_phased"
+        arrName1 = "dots_scene_gt"
+        arrName2 = "anat_scene_movie_1"
+
+
+        arr1 = np.array(pickle.load(open(arrName1 + ".p", "r")))
+        arr2 = np.array(pickle.load(open(arrName2 + ".p", "r")))
+
+#        print arr
+
+#        convertArrayToVideo(np.array(arr), 30000, arrName, 15, adaptiveScaling=False, differenceImage=True)
+#        convertArrayToVideo(np.array(arr), 0.5, arrName, 15, adaptiveScaling=True, differenceImage=True)
+        convertTwoArraysToVideo(np.array(arr1), np.array(arr2), 1, arrName1 + "_" + arrName2, \
+            15, adaptiveScaling=True, differenceImage=False, verbose=True)
+
+    if MAKE_QUAD_VIDEO:
+#        arrName = "circle_carlsen_nowrap_vid_meansub_abs_coloravg"
+#        arrName = "circle_carlsen_nowrap_vid"
+#        arrName = "circle_square_nowrap_vid_meansub_abs"
+#        arrName = "circle_carlsen_nowrap_vid_meansub_abs_coloravg_avgdiv"
+#        arrName = "recovered_vid"
+#        arrName = "prafull_ball_meansub_avgdiv"
+#        arrName = "circle_square_nowrap_vid_obs"
+#        arrName = "darpa_vid_2_rect_fan_diff"
+#        arrName = "darpa_vid_gt"
+#        arrName = "steven_batched"
+#        arrName = "steven_batched_phased"
+        arrName1 = "office_batched"
+        arrName2 = "office_batched_phased"
+        arrName3 = "office_batched_phased_phasediff"
+        arrName4 = "office_batched_phased_phasediff_phasediff"
+
+
+
+        arr1 = np.array(pickle.load(open(arrName1 + ".p", "r")))
+        arr2 = np.array(pickle.load(open(arrName2 + ".p", "r")))
+        arr3 = np.array(pickle.load(open(arrName3 + ".p", "r")))
+        arr4 = np.array(pickle.load(open(arrName4 + ".p", "r")))
+
+        viewFrame(arr3[30], adaptiveScaling=True, differenceImage=False, \
+            magnification=1)
+
+        filename = "office_phasediff_investigation"
+
+#        print arr
+
+#        convertArrayToVideo(np.array(arr), 30000, arrName, 15, adaptiveScaling=False, differenceImage=True)
+#        convertArrayToVideo(np.array(arr), 0.5, arrName, 15, adaptiveScaling=True, differenceImage=True)
+        convertFourArraysToVideo(np.array(arr1), np.array(arr2), np.array(arr3), \
+            np.array(arr4), 1, filename, 15, adaptiveScaling=True, \
+            differenceImage=True)
 
     if DOWNSIZE_ARR:
         arr = pickle.load(open("36225_bright_fixed_rect_diff_medfilt.p", "r"))
@@ -6438,3 +6713,32 @@ if __name__ == "__main__":
         viewFrame(convolvedIm, adaptiveScaling=True)
 
 
+    if DESATURATE:
+        im = np.array(Image.open("/Users/adamyedidia/Desktop/recon_1.png")).astype(float)
+
+        subIm = im - 128*np.ones(im.shape)
+
+        viewFrame(2*subIm)
+
+    if RESIZE_IM:
+        im = pickle.load(open("dora_very_downsampled.p", "r"))
+        imSize = 28
+
+        bwIm = np.sum(im, 2)/3
+
+        bwIm = resizeArray(bwIm, (imSize, imSize))
+
+        print bwIm.shape
+
+        viewFrame(imageify(bwIm), adaptiveScaling=True)
+
+        pickle.dump(bwIm, open("dora_"+str(imSize)+"_"+\
+            str(imSize)+".p", "w"))
+
+#    if MAKE_NOISE_IM:
+#        im 
+
+    if SAVE_IM:
+        bwIm = pickle.load(open("dora_28_28.p", "r"))
+
+        viewFrame(imageify(bwIm), adaptiveScaling=True, filename="dora_28_28.png")

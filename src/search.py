@@ -124,6 +124,41 @@ def randomGreedySearch(initList, evalFunc, maxOrMin="min", verbose=False, \
 
     return oldList
 
+def randomGreedySearchReturnAllSteps(initList, evalFunc, maxOrMin="min", verbose=False, \
+    helper=False, evalFuncOptimized=None):
+
+    currentList = initList
+    currentVal, currentHelperVal = evalFunc(currentList)
+
+    iterCount = 0
+
+    listOfSteps = [initList]
+
+    while currentList != "Local minimum!":
+        oldList = currentList
+        if verbose:
+            print "Current value:", currentVal
+
+        if helper:
+            currentList, currentVal, currentHelperVal = \
+                betterRandomGreedyStep(currentList, evalFunc, maxOrMin, \
+                helper=helper, evalFuncOptimized=evalFuncOptimized, \
+                currentVal=currentVal, currentHelperVal=currentHelperVal)
+
+        else:
+            currentList, currentVal = betterRandomGreedyStep(currentList, evalFunc, maxOrMin, \
+                currentVal=currentVal)
+
+        if currentList != "Local minimum!":
+            listOfSteps.append(currentList)
+
+        iterCount += 1
+
+    if verbose:
+        print "Iteration count:", iterCount
+
+    return oldList, listOfSteps
+
 def randomGreedySearchStepCount(initList, evalFunc, maxOrMin="min", verbose=False, \
     helper=False, evalFuncOptimized=None):
 

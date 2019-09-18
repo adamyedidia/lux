@@ -10,6 +10,7 @@ import pickle
 from PIL import Image
 from PIL import ImageFilter
 import sys
+import cv2
 
 #filename = 'pokemon_video_2.m4v'
 #vid = imageio.get_reader(filename,  'ffmpeg')
@@ -155,6 +156,85 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
         pass
     else:
         p.savefig(filename)
+
+def CV2ViewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
+    absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,
+    adaptiveScaling=False, secondBiggest=False, colorbar=False):
+
+    if not relax:
+        p.clf()
+    
+    if adaptiveScaling:
+        if secondBiggest:
+            scalingFactor = np.partition(frame.flatten(), -4)[-4]/255
+        else:
+            scalingFactor = np.amax(np.abs(frame))/255
+    else:
+        scalingFactor = 1
+
+    if np.isnan(scalingFactor):
+        scalingFactor = np.nanmax(np.abs(frame))/255
+        print "warning: there are nans in your array"
+
+    frameShape = frame.shape
+
+    if meanSubtraction:
+        numPixels = frame.shape[0]*frame.shape[1]
+        averagePixel = np.sum(np.sum(frame, 0), 0)/numPixels
+
+        adjustedFrame = np.zeros(frameShape)
+
+        for i in range(frame.shape[0]):
+            for j in range(frame.shape[1]):
+                if absoluteMeanSubtraction:
+                    adjustedFrame[i][j] = abs(frame[i][j] - averagePixel)
+                else:
+                    adjustedFrame[i][j] = frame[i][j] - averagePixel
+
+#        frame -= arrayOfAveragePixel
+    else:
+        adjustedFrame = frame.copy()
+
+#    print frame, magnification
+#    print type(frame[0][0][0]), type(magnification)
+
+#    print type(adjustedFrame)
+#    print adjustedFrame
+
+    adjustedFrame = (adjustedFrame*magnification)/scalingFactor
+
+#    print adjustedFrame
+
+    if differenceImage:
+        adjustedFrame += np.full(shape=frameShape, \
+            fill_value=128.)
+
+    if subFrameShape == None:
+        coercedFrame = np.minimum(np.maximum(adjustedFrame, np.zeros(frameShape)), \
+            np.full(shape=frameShape, fill_value=255))
+            
+    else:
+        realSubFrameShape = (subFrameShape[0], subFrameShape[1], 3)
+        coercedFrame = np.minimum(np.maximum(adjustedFrame, np.zeros(realSubFrameShape)), \
+            np.full(shape=realSubFrameShape, fill_value=255))        
+
+    #print coercedFrame.astype(np.uint8)
+
+#    print coercedFrame
+#    print coercedFrame.astype(np.uint8)
+
+    cv2.imshow("image", coercedFrame.astype(np.uint8))
+
+
+
+#    if filename == None:
+#        if colorbar:
+#            p.colorbar()
+ #       p.show()
+ #   elif filename == "pass":
+  #      pass
+   # else:
+   #     p.savefig(filename)
 
 def viewFrameR(frameR, magnification=1, differenceImage=False, fileName=None):
     frameShape = frameR.shape

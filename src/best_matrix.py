@@ -4505,73 +4505,73 @@ if __name__ == "__main__":
         print circValSmoothed(peak)
         print circVal(peak)
 
-if VIEW_BRENT_FREQS:
-    BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
-        "000101111,0000110111,00010110111,000110110111,0010111110111," + \
-        "00001011101111,000100110101111,0000101101110111,00000101101110111," + \
-        "000010011010101111,0000101011110011011,00000110110101110111"
+    if VIEW_BRENT_FREQS:
+        BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
+            "000101111,0000110111,00010110111,000110110111,0010111110111," + \
+            "00001011101111,000100110101111,0000101101110111,00000101101110111," + \
+            "000010011010101111,0000101011110011011,00000110110101110111"
 
-    BRENT_DECIMAL_STRING = "45999,117623,340831,843119,638287,957175,1796839," + \
-        "5469423,6774063,37463883,77446231,47828907,196303815,95151003," + \
-        "1324935477,1822895095,430812063,2846677239,10313700815,6269629671," + \
-        "26764629467,22992859983,92035379515,162368181483,226394696439," + \
-        "631304341299,4626135339999"
+        BRENT_DECIMAL_STRING = "45999,117623,340831,843119,638287,957175,1796839," + \
+            "5469423,6774063,37463883,77446231,47828907,196303815,95151003," + \
+            "1324935477,1822895095,430812063,2846677239,10313700815,6269629671," + \
+            "26764629467,22992859983,92035379515,162368181483,226394696439," + \
+            "631304341299,4626135339999"
 
-    BRENT_DECIMAL_SIZES = range(21, 48)
+        BRENT_DECIMAL_SIZES = range(21, 48)
 
-    brentBinaryList = [[int(j) for j in list(i)] for i in \
-        string.split(BRENT_BINARY_STRING, ",")]
+        brentBinaryList = [[int(j) for j in list(i)] for i in \
+            string.split(BRENT_BINARY_STRING, ",")]
 
-    brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
-        enumerate(string.split(BRENT_DECIMAL_STRING, ","))]
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
+            enumerate(string.split(BRENT_DECIMAL_STRING, ","))]
 
-    overallList = brentBinaryList + brentDecimalList
+        overallList = brentBinaryList + brentDecimalList
 
-#        brentString = "000100110101111"
-#        brentString = "0010111"
+    #        brentString = "000100110101111"
+    #        brentString = "0010111"
 
-    brentString = overallList[44]
+        brentString = overallList[44]
 
-    freqs = np.fft.fft(brentString)    
+        freqs = np.fft.fft(brentString)    
 
-    viewFrequencies(freqs)
+        viewFrequencies(freqs)
 
-if MAKE_CIRC_MOVIE:
-    n = 200
-    point = getRandomPoint(n)
+    if MAKE_CIRC_MOVIE:
+        n = 200
+        point = getRandomPoint(n)
 
-    freqs = np.fft.fft(point)
+        freqs = np.fft.fft(point)
 
-#    viewFrequencies(freqs)
+    #    viewFrequencies(freqs)
 
 
-    def circVal(l):
-        val = np.sum(np.log(np.abs(np.fft.fft(l))))
+        def circVal(l):
+            val = np.sum(np.log(np.abs(np.fft.fft(l))))
 
-        return (val, 0)
+            return (val, 0)
 
-    def logCubed(x):
-        return np.log(x) + 1
-#        return np.log(x)
-#        return (signedLog(x)+1)**1
-    
-    def circValSmoothed(l):
-#            val = np.sum(np.vectorize(signedLog)(np.abs(np.fft.fft(l))))
-        val = np.sum(np.vectorize(logCubed)(np.abs(np.fft.fft(l))))
+        def logCubed(x):
+            return np.log(x) + 1
+    #        return np.log(x)
+    #        return (signedLog(x)+1)**1
+        
+        def circValSmoothed(l):
+    #            val = np.sum(np.vectorize(signedLog)(np.abs(np.fft.fft(l))))
+            val = np.sum(np.vectorize(logCubed)(np.abs(np.fft.fft(l))))
 
-        return (val, 0)
+            return (val, 0)
 
-    bestList, listOfSteps = randomGreedySearchReturnAllSteps(point, circValSmoothed, \
-        maxOrMin="max")
+        bestList, listOfSteps = randomGreedySearchReturnAllSteps(point, circValSmoothed, \
+            maxOrMin="max")
 
-#    print listOfSteps
+    #    print listOfSteps
 
-    for i, step in enumerate(listOfSteps):
-        freqs = np.fft.fft(step)
+        for i, step in enumerate(listOfSteps):
+            freqs = np.fft.fft(step)
 
-        print circVal(step)
+            print circVal(step)
 
-        viewFrequencies(freqs, filename="freq_vid_2/frame_" + padIntegerWithZeros(i, \
-            3) + ".png")
+            viewFrequencies(freqs, filename="freq_vid_2/frame_" + padIntegerWithZeros(i, \
+                3) + ".png")
 
 

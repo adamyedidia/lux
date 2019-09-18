@@ -1,8 +1,8 @@
 from __future__ import division
 import numpy as np
 import random
-from video_magnifier import viewFrame, viewFrameR, viewFlatFrame
-from image_distortion_simulator import imageify, imageifyComplex
+from video_magnifier import viewFrame, viewFrameR, viewFlatFrame, CV2ViewFrame
+from image_distortion_simulator import imageify, imageifyComplex, separate
 from scipy.signal import convolve, deconvolve, argrelextrema, convolve2d, correlate2d, medfilt, medfilt2d
 from numpy.fft import fft, ifft
 from math import sqrt, pi, exp, log, sin, cos, floor, ceil
@@ -34,11 +34,15 @@ from scipy.linalg import dft as dftMat
 from phase_retrieval import retrievePhase, retrievePhase2D
 import imageio
 from best_matrix import padIntegerWithZeros
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from PIL import Image
 from skimage import color, data, restoration
 import scipy.io
 import matplotlib
+import cv2
+from rectifier import rectify
+import jenkspy
+from sys import platform as sys_pf
 
 LOOK_AT_FREQUENCY_PROFILES = False
 DIVIDE_OUT_STRATEGY = False
@@ -73,6 +77,7 @@ DIFF_EXP_VIDEO = False
 CONV_SIM_VIDEO = False
 PROCESS_SIM_VIDEO = False
 PROCESS_EXP_VIDEO = False
+PROCESS_EXP_VIDEO_LIVE = True
 VIEW_OCC = False
 OVERLAP_PAD_TEST = False
 OVERLAP_PAD_TEST_2 = False
@@ -102,8 +107,9 @@ AVERAGE_DIVIDE = False
 AVERAGE_DIVIDE_1D = False
 GET_ABS = False
 COLOR_AVG = False
+TIME_BLUR = False
 COLOR_FLATTEN = False
-MAKE_VIDEO = True
+MAKE_VIDEO = False
 MAKE_SEVERAL_VIDEOS = False
 VISUALIZE_TRANSFER_MAT = False
 MAKE_DOUBLE_VIDEO = False
@@ -141,6 +147,13 @@ SIGNAL_SIGMA = 1
 NOISE_SIGMA = 10000
 
 output = open("trash.txt", "w")
+
+#if sys_pf == 'darwin':
+#    import matplotlib
+#    matplotlib.use("TkAgg")
+
+matplotlib.use("macOSX")
+
 
 def pront(x):
     print x
@@ -2914,6 +2927,354 @@ def estimateOccluderFromDifferenceFrames(diffVid, canvasShape):
 
             viewFrame(imageify(canvas), adaptiveScaling=True)
 
+def keepRunningAverageFrame(beta):
+    cam = cv2.VideoCapture(0)
+    _, firstFrame = cam.read()
+
+    currentAverage = np.zeros(firstFrame.shape).astype(np.float)
+
+    while True:
+        ret_val, img = cam.read()
+
+        currentAverage = beta * currentAverage + (1 - beta)*img
+        CV2ViewFrame(currentAverage, adaptiveScaling=True)
+
+        if cv2.waitKey(1) == 27: 
+            break  # esc to quit
+
+    cv2.destroyAllWindows()
+
+
+# Here is an example mouse callback function, that captures the left button double-click
+
+def draw_circle(event,x,y,flags,param):
+    global mouseX,mouseY
+    if event == cv2.EVENT_LBUTTONDBLCLK:
+        cv2.circle(img,(x,y),100,(255,0,0),-1)
+        mouseX,mouseY = x,y
+
+def getCorners():
+    clickCounter = [0]
+
+    listOfCorners = []
+
+    def recordFourClicks(event,x,y,flags,param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+#            i = 0
+#            ret_val, img = cam.read()
+    #        cv2.imshow('my webcam', img)
+                # to display the characters
+    #            k = cv2.waitKey(0)
+            print(x, y)
+ #           global clickCounter
+            clickCounter[0] += 1
+ #           global listOfCorners    
+            listOfCorners.append(np.array([x, y]))
+    #            cv2.putText(img, str((x,y)) , (x+i,y), font, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
+     #           i+=10
+                # Press q to stop writing
+     #           if k == ord('q'):
+     #               break
+
+    #        if cv2.waitKey(1) == 27: 
+    #            break  # esc to quit
+        
+
+    # Create a black image, a window and bind the function to window
+
+    cam = cv2.VideoCapture(0)
+
+    for _ in range(100):
+        ret_val, img = cam.read()
+
+
+    #img = np.zeros((512,512,3), np.uint8)
+    cv2.namedWindow('image')
+    cv2.setMouseCallback('image',recordFourClicks)
+
+    while clickCounter[0] < 4:
+        cv2.imshow('image',img)
+        if cv2.waitKey(20) == 27:
+            break
+    cv2.destroyAllWindows()
+
+    return listOfCorners
+
+def doWholeThing():
+    listOfCorners = getCorners()
+
+    processImages(listOfCorners, 0.99, 0.9)
+
+ #   show_webcam()
+#    print listOfCorners
+
+#def viewFrameCV2():
+
+def getVariationPenalty(possibleOccluder):
+    bwIm = possibleOccluder
+
+    for i in range(2):
+        bwIm = np.gradient(bwIm, axis=i)
+
+    bwIm = np.power(np.abs(bwIm), 0.25)
+
+    return np.sum(bwIm)
+
+def getDifferencePenalty(bwIm):
+    averageVal = np.average(bwIm)
+
+    medianVal = np.median(bwIm)
+
+    return (averageVal - medianVal)**2
+
+def getUniformityPenalty(possibleOccluder):
+    possibleOccluderFlat = possibleOccluder.flatten()
+
+    whiteFraction = sum(possibleOccluderFlat)/len(possibleOccluderFlat)
+
+    return - whiteFraction * np.log(whiteFraction) - (1 - whiteFraction) * \
+        np.log(whiteFraction)
+
+def getScore(bwIm, listOfLambdas):
+    possibleOccluder = occluderify(bwIm)
+    variationPenalty = getVariationPenalty(possibleOccluder)
+    differencePenalty = getDifferencePenalty(bwIm)
+    uniformityPenalty = getUniformityPenalty(possibleOccluder)
+
+    overallPenalty =  listOfLambdas[0] * variationPenalty + \
+        listOfLambdas[1] * differencePenalty + \
+        listOfLambdas[2] * uniformityPenalty
+
+    #print(listOfLambdas[0] * variationPenalty, \
+    #    listOfLambdas[1] * differencePenalty, \
+    #    listOfLambdas[2] * uniformityPenalty, overallPenalty)
+
+    return overallPenalty
+
+
+def updateLiveOccluderEstimate(im, currentOccluder, currentOccluderPenalty, \
+    bonusFactorDecay, listOfLambdas):
+    
+    newOcc = False
+
+    imSeparated = separate(im)
+    bestScore = currentOccluderPenalty
+    bestOccluder = currentOccluder
+
+    for separateIm in imSeparated:
+        absIm = np.abs(separateIm)
+        imNormalized = absIm/np.max(absIm)
+        newScore = getScore(imNormalized, listOfLambdas)
+
+#        print(bestScore)
+
+        if newScore < bestScore:
+            bestScore = newScore * 0.8
+            bestOccluder = occluderify(absIm)
+#            newBonusFactor = 1
+            newOcc = True
+
+    return bestOccluder, bestScore / bonusFactorDecay, newOcc
+
+def occluderify(bwIm):
+#    medianVal = np.median(bwIm)
+#    breakVal = jenkspy.jenks_breaks(bwIm.flatten(), nb_class=2)[1]
+    breakVal = np.average(bwIm)
+
+#    medianVal = 
+
+    def moreThanBreak(x):
+        return 1*(x > breakVal)
+
+    return np.vectorize(moreThanBreak)(bwIm)
+
+def processImages(listOfCorners, beta1, beta2):
+    cam = cv2.VideoCapture(0)
+
+    cv2.namedWindow('meanSub',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('meanSub', 600,600)
+
+    cv2.namedWindow('occluder',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('occluder', 600,600)
+
+    imSpatialDimensions = (50, 50)
+    imShape = np.array(imSpatialDimensions + tuple([3]))
+    imSpatialDimensions = np.array(imSpatialDimensions)
+
+    shortTermAverage = np.zeros(imShape).astype(np.float)
+    currentAverage = np.zeros(imShape).astype(np.float)
+    lastIm = np.zeros(imShape).astype(np.float)
+
+    currentBonusFactor = 1
+    occ = None
+    occScore = float("Inf")
+    bonusFactor = 1
+    BONUS_FACTOR_DECAY = 0.999
+    LIST_OF_LAMBDAS = [1, 1, 1e2]
+
+    frameCounter = 0
+
+    inversionMatrix = None
+
+    sceneSpatialDimensions = np.array([25, 25])
+
+    while True:
+        ret_val, img = cam.read()
+        floatIm = img.astype(float)
+
+        rectifiedImg = rectify(floatIm, listOfCorners[0], listOfCorners[1], listOfCorners[3], \
+            listOfCorners[2], imSpatialDimensions[0], imSpatialDimensions[1])
+
+        shortTermAverage = beta1*currentAverage + (1-beta1)*rectifiedImg
+        currentAverage = beta2*currentAverage + (1-beta2)*rectifiedImg
+        meanSubIm = currentAverage - shortTermAverage 
+
+        diffIm = rectifiedImg - lastIm
+        lastIm = rectifiedImg
+
+        if frameCounter > 10:
+            occ, occScore, newOcc = updateLiveOccluderEstimate(diffIm, occ, occScore, \
+                BONUS_FACTOR_DECAY, LIST_OF_LAMBDAS)
+
+            imshowCV2('occluder', imageify(occ))
+
+            if newOcc:
+                forwardModelMatrix = getForwardModelMatrix2DToeplitzFullFlexibleShape(occ, imSpatialDimensions, extra=(25, 25), padVal=1)
+
+                inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
+
+            recovery = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, targetShape), \
+                rectifiedImg)  
+
+            imShowCV2('recovery', imageify(recovery))
+
+        frameCounter += 1
+
+        imshowCV2('meanSub', meanSubIm, differenceImage=True)
+        if cv2.waitKey(1) == 27: 
+            break  # esc to quit
+    cv2.destroyAllWindows()
+
+def imshowCV2(imName, im, differenceImage=False):
+    maxVal = np.max(np.abs(im))
+#    print(maxVal)
+
+    if differenceImage:
+        normalizedIm = im/(maxVal*2)
+        imShiftedUp = normalizedIm + 0.5*np.ones(im.shape)
+
+    else:
+        normalizedIm = im/maxVal
+        imShiftedUp = normalizedIm
+
+
+#    print(imShiftedUp)
+
+    cv2.imshow(imName, imShiftedUp)
+
+def showMeanSubtractedRectifiedWebcam(listOfCorners, beta1, beta2):
+    cam = cv2.VideoCapture(0)
+
+#    _, img = cam.read()   
+
+#    img = img.astype(np.float)
+
+    cv2.namedWindow('image',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('image', 600,600)
+
+    imSpatialDimensions = (50, 50)
+    imShape = imSpatialDimensions + tuple([3])
+
+    shortTermAverage = np.zeros(imShape).astype(np.float)
+    currentAverage = np.zeros(imShape).astype(np.float)
+
+
+    while True:
+        ret_val, img = cam.read()
+#        if mirror: 
+#            img = cv2.flip(img, 1)
+#        print(type(img[0][0][0]))
+
+#        reversedImage = (255*np.ones(img.shape) - img).astype(np.uint8)
+#        print(img)
+#        print(reversedImage)
+#        cv2.imshow('my webcam', reversedImage)
+#        CV2ViewFrame(img)
+        floatIm = img.astype(float)
+
+        rectifiedImg = rectify(floatIm, listOfCorners[0], listOfCorners[1], listOfCorners[3], \
+            listOfCorners[2], imSpatialDimensions[0], imSpatialDimensions[1])
+
+        shortTermAverage = beta1*currentAverage + (1-beta1)*rectifiedImg
+        currentAverage = beta2*currentAverage + (1-beta2)*rectifiedImg
+
+        meanSubIm = shortTermAverage - currentAverage
+
+#        print(np.average(meanSubIm))
+#        print(meanSubIm)
+
+#        CV2ViewFrame(rectifiedImg)
+        imshowCV2(meanSubIm)
+        if cv2.waitKey(1) == 27: 
+            break  # esc to quit
+    cv2.destroyAllWindows()
+
+
+def showRectifiedWebcam(listOfCorners):
+    cam = cv2.VideoCapture(0)
+
+#    _, img = cam.read()   
+
+#    img = img.astype(np.float)
+
+    cv2.namedWindow('image',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('image', 600,600)
+
+    while True:
+        ret_val, img = cam.read()
+#        if mirror: 
+#            img = cv2.flip(img, 1)
+#        print(type(img[0][0][0]))
+
+#        reversedImage = (255*np.ones(img.shape) - img).astype(np.uint8)
+#        print(img)
+#        print(reversedImage)
+#        cv2.imshow('my webcam', reversedImage)
+#        CV2ViewFrame(img)
+        rectifiedImg = rectify(img.astype(float), listOfCorners[0], listOfCorners[1], listOfCorners[3], \
+            listOfCorners[2], 50, 50)
+
+
+#        CV2ViewFrame(rectifiedImg)
+        cv2.imshow('image', rectifiedImg.astype(np.uint8))
+        if cv2.waitKey(1) == 27: 
+            break  # esc to quit
+    cv2.destroyAllWindows()
+
+def show_webcam(mirror=False):
+    cam = cv2.VideoCapture(0)
+
+    _, img = cam.read()   
+
+#    img = img.astype(np.float)
+
+    while True:
+        ret_val, img = cam.read()
+        if mirror: 
+            img = cv2.flip(img, 1)
+        print(type(img[0][0][0]))
+
+        reversedImage = (255*np.ones(img.shape) - img).astype(np.uint8)
+#        print(img)
+#        print(reversedImage)
+#        cv2.imshow('my webcam', reversedImage)
+
+        CV2ViewFrame(reversedImage)
+        if cv2.waitKey(1) == 27: 
+            break  # esc to quit
+    cv2.destroyAllWindows()
+
+
 def estimateOccluderFromDifferenceFramesOld(diffVid):
 
     random.shuffle(diffVid)
@@ -5031,6 +5392,10 @@ if __name__ == "__main__":
 
         viewFrame(occ, adaptiveScaling=True, differenceImage=False)
 
+    if PROCESS_EXP_VIDEO_LIVE:
+        doWholeThing()
+#        keepRunningAverageFrame(0.9)
+
     if CONV_SIM_VIDEO:
         diffVidUnconvolved = pickle.load(open("steven_batched_diff_framesplit.p", "r"))
 
@@ -5320,8 +5685,11 @@ if __name__ == "__main__":
         pickle.dump(inversionMatrix, open("extracted_inverter_exp_combined_darpa_vid_noisy_fan_only.p", "w"))
 
     if PROCESS_EXP_OCCLUDER_2:
-        rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
+        rawOcc = pickle.load(open("binary_occ_exp_plant.p", "r"))
+#        rawOcc = pickle.load(open("plant_extracted_occ.p", "r"))
+#        rawOcc = pickle.load(open("fan_extracted_occ.p", "r"))
         viewFrame(imageify(rawOcc), adaptiveScaling=True)
+
 
         medFiltOcc = medfilt(rawOcc)
         viewFrame(imageify(medFiltOcc), adaptiveScaling=True)
@@ -5756,7 +6124,7 @@ if __name__ == "__main__":
 
     if MEAN_SUBTRACTION:
 
-        name = "darpa_vid_2_rect_vert"
+        name = "obama_batched"
 
         vid = pickle.load(open(name + ".p", "r"))
 #        vid = np.swapaxes(pickle.load(open(name + ".p", "r")), 1, 2) # you probably don't want this
@@ -5975,7 +6343,7 @@ if __name__ == "__main__":
         pickle.dump(returnArr, open("circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv.p", "w"))
 
     if GET_ABS:
-        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub"
+        arrName = "obama_batched_meansub"
 
         arr = pickle.load(open(arrName + ".p", "r"))
 
@@ -5987,7 +6355,7 @@ if __name__ == "__main__":
         pickle.dump(returnArr, open(arrName + "_abs.p", "w"))
 
     if COLOR_AVG:
-        arrName = "dots_scene_movie"
+        arrName = "obama_batched_meansub_abs"
 
         arr = pickle.load(open(arrName + ".p", "r"))
 
@@ -6001,6 +6369,17 @@ if __name__ == "__main__":
             returnArr.append(newFrame)
 
         pickle.dump(returnArr, open(arrName + "_coloravg.p", "w"))
+
+    if TIME_BLUR:
+
+        arrName = "obama_long"
+
+        arr = pickle.load(open(arrName + ".p", "r"))
+
+        blurredArr = gaussian_filter1d(arr, 10, 0)
+
+        pickle.dump(blurredArr, open(arrName + "_timeblur.p", "w"))        
+
 
     if COLOR_FLATTEN:
 #        arrName = "circle_square_nowrap_vid_obs_jumbled_recovery_grouped_meansub_abs_coloravg_avgdiv"
@@ -6038,9 +6417,15 @@ if __name__ == "__main__":
 #        arrName = "anat_scene_movie_0"
 #        arrName = "circle_nowrap_vid_10_10"
 #        arrName = "circle_anat_obs_10_10"
-        arrName = "dots_scene_movie_coloravg"
+#        arrName = "dots_scene_movie_coloravg"
 #        arrName = "anat_scene_movie_1"
-    
+#        arrName = "obama_batched"
+#        arrName = "obama_batched_meansub_abs_coloravg"
+#        arrName = "obama_long"
+#        arrName = "obama_long_timeblur"
+#        arrName = "fan_monitor_rect_diff"
+        arrName = "fan_monitor_rect"
+
         arr = np.array(pickle.load(open(arrName + ".p", "r")))
 #        arr = imageify(np.array(pickle.load(open(arrName + ".p", "r"))))
     
@@ -6117,8 +6502,8 @@ if __name__ == "__main__":
 #        arrName = "darpa_vid_gt"
 #        arrName = "steven_batched"
 #        arrName = "steven_batched_phased"
-        arrName1 = "dots_scene_gt"
-        arrName2 = "anat_scene_movie_1"
+        arrName1 = "obama_long"
+        arrName2 = "recovered_vid"
 
 
         arr1 = np.array(pickle.load(open(arrName1 + ".p", "r")))

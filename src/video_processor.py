@@ -60,8 +60,9 @@ glass_rose = False
 glass_rose_2 = False
 matthew_wall = False
 impulse_movie = False
-darpa_vid = True
+darpa_vid = False
 darpa_gt = False
+obama = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -1988,3 +1989,23 @@ if __name__ == "__main__":
             [(5, False), (10, False), (10, False), (1, False)], \
             "darpa_vid_gt", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)                   
+
+    if obama:
+        path = "/Users/adamyedidia/walls/src/obama.mp4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "9:00"
+        START_TIME = "0:00"        
+        END_TIME = "7:00"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(10, False), (5, False), (5, False), (1, False)], \
+            "obama_long", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)                   
+

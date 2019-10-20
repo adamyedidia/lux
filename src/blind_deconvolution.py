@@ -77,7 +77,7 @@ DIFF_EXP_VIDEO = False
 CONV_SIM_VIDEO = False
 PROCESS_SIM_VIDEO = False
 PROCESS_EXP_VIDEO = False
-PROCESS_EXP_VIDEO_LIVE = True
+PROCESS_EXP_VIDEO_LIVE = False
 VIEW_OCC = False
 OVERLAP_PAD_TEST = False
 OVERLAP_PAD_TEST_2 = False
@@ -95,7 +95,7 @@ EXTRACT_MATRIX_FROM_IMAGE = False
 WIENER_FILTER_TEST = False
 CROP = False
 DOWNSAMPLE_VID = False
-MEAN_SUBTRACTION = False
+MEAN_SUBTRACTION = True
 MEAN_SUBTRACTION_POSITIVE = False
 UNIFORM_MEAN_SUBTRACTION = False
 SIM_COMPARISON = False
@@ -109,7 +109,7 @@ GET_ABS = False
 COLOR_AVG = False
 TIME_BLUR = False
 COLOR_FLATTEN = False
-MAKE_VIDEO = False
+MAKE_VIDEO = True
 MAKE_SEVERAL_VIDEOS = False
 VISUALIZE_TRANSFER_MAT = False
 MAKE_DOUBLE_VIDEO = False
@@ -3122,6 +3122,8 @@ def processImages(listOfCorners, beta1, beta2):
         ret_val, img = cam.read()
         floatIm = img.astype(float)
 
+        print(floatIm.shape)
+
         rectifiedImg = rectify(floatIm, listOfCorners[0], listOfCorners[1], listOfCorners[3], \
             listOfCorners[2], imSpatialDimensions[0], imSpatialDimensions[1])
 
@@ -6124,7 +6126,7 @@ if __name__ == "__main__":
 
     if MEAN_SUBTRACTION:
 
-        name = "obama_batched"
+        name = "fan_monitor_rect"
 
         vid = pickle.load(open(name + ".p", "r"))
 #        vid = np.swapaxes(pickle.load(open(name + ".p", "r")), 1, 2) # you probably don't want this
@@ -6424,7 +6426,7 @@ if __name__ == "__main__":
 #        arrName = "obama_long"
 #        arrName = "obama_long_timeblur"
 #        arrName = "fan_monitor_rect_diff"
-        arrName = "fan_monitor_rect"
+        arrName = "fan_monitor_rect_meansub"
 
         arr = np.array(pickle.load(open(arrName + ".p", "r")))
 #        arr = imageify(np.array(pickle.load(open(arrName + ".p", "r"))))

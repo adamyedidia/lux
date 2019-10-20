@@ -82,6 +82,25 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
     absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,
     adaptiveScaling=False, secondBiggest=False, colorbar=False):
 
+    frameShape = frame.shape
+
+    adjustedFrame = frame
+
+    if meanSubtraction:
+        numPixels = frame.shape[0]*frame.shape[1]
+        averagePixel = np.sum(np.sum(frame, 0), 0)/numPixels
+
+        adjustedFrame = np.zeros(frameShape)
+
+        for i in range(frame.shape[0]):
+            for j in range(frame.shape[1]):
+                if absoluteMeanSubtraction:
+                    adjustedFrame[i][j] = abs(frame[i][j] - averagePixel)
+                else:
+                    adjustedFrame[i][j] = frame[i][j] - averagePixel
+
+        frame = adjustedFrame
+
     if not relax:
         p.clf()
     
@@ -97,24 +116,8 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
         scalingFactor = np.nanmax(np.abs(frame))/255
         print("warning: there are nans in your array")
 
-    frameShape = frame.shape
-
-    if meanSubtraction:
-        numPixels = frame.shape[0]*frame.shape[1]
-        averagePixel = np.sum(np.sum(frame, 0), 0)/numPixels
-
-        adjustedFrame = np.zeros(frameShape)
-
-        for i in range(frame.shape[0]):
-            for j in range(frame.shape[1]):
-                if absoluteMeanSubtraction:
-                    adjustedFrame[i][j] = abs(frame[i][j] - averagePixel)
-                else:
-                    adjustedFrame[i][j] = frame[i][j] - averagePixel
 
 #        frame -= arrayOfAveragePixel
-    else:
-        adjustedFrame = frame.copy()
 
 #    print frame, magnification
 #    print type(frame[0][0][0]), type(magnification)

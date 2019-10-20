@@ -9,7 +9,8 @@ import matplotlib.pyplot as p
 #pickle.dump(vid[1200], open("sparse_vickie_movement.p", "wb"))
 
 CONVERTER = False
-MAKE_GAUSS = True
+GENERAL_CONVERTER = True
+MAKE_GAUSS = False
 
 if __name__ == "__main__":
 
@@ -23,6 +24,15 @@ if __name__ == "__main__":
 
 		pickle.dump(im, open(moniker+"_"+str(imSize)+"_"+\
 		            str(imSize)+".p", "wb"))
+
+	if GENERAL_CONVERTER:
+
+		imSize = 28
+		moniker = "dora_slightly_downsampled"
+
+		im = pickle.load(open(moniker+".p", "rb"), encoding="latin1")
+
+		pickle.dump(im, open(moniker+"_python3friendly.p", "wb"))
 
 	if MAKE_GAUSS:
 		imSize = 28

@@ -140,6 +140,7 @@ CONV_TWO_IMAGES = False
 DESATURATE = False
 RESIZE_IM = False
 SAVE_IM = False
+RANK1IFY_TEST = False
 
 ZERO_DENSITY = 2
 NONZERO_DENSITY = 20
@@ -202,6 +203,9 @@ def majorityGame(arr, coolingTime):
 
         arr = newArr
     return arr
+
+def coloravg(frame):
+    return imageify(np.sum(frame, 2)/(3*255))
 
 def extractMatrixFromBWImage(imPath, pixelsPerPixel):
     imRaw = Image.open(imPath)
@@ -1485,6 +1489,24 @@ def makeAggregateMesh(listOfSeqs, normalizationAngle, numSteps=300, minX=-1.5, m
     return X, Y, averageZ
 #    for _ in range()    
 
+def getDerivMagImage(im):
+    if len(np.shape(im)) == 3:
+        vertDerivImage = batchAndDifferentiate(im, \
+            [(1, True), (1, False), (1, False)])
+        horizDerivImage = batchAndDifferentiate(im, \
+            [(1, False), (1, True), (1, False)])
+
+    elif len(np.shape(im)) == 2:
+        vertDerivImage = batchAndDifferentiate(im, \
+            [(1, True), (1, False)])
+        horizDerivImage = batchAndDifferentiate(im, \
+            [(1, False), (1, True)])
+
+    derivMagImage = np.sqrt(np.power(vertDerivImage, 2) + \
+        np.power(horizDerivImage, 2))
+
+    return derivMagImage
+
 def makeRadialMesh(seq, normalizationAngle, densityFunc, thetaSteps=1000, rSteps=1000):
     
     thetaRange = np.linspace(0, 2*pi, thetaSteps)    
@@ -2574,6 +2596,9 @@ def padArrayToShape(arr, shape, padVal=0):
     diff1above = int(diff1/2)
     diff1below = diff1 - diff1above
 
+    if padVal == "edge":
+        return np.pad(arr, [(diff0above, diff0below), (diff1above, diff1below)], "edge")
+
     return np.pad(arr, [(diff0above, diff0below), (diff1above, diff1below)], "constant",
         constant_values=padVal)
 
@@ -2627,6 +2652,29 @@ def getForwardModelMatrix2DToeplitzFullFlexibleShape(occ, obsShape, extra=(0,0),
 #    print paddedOcc.shape
 
     return np.flip(np.array(returnMat), 1)
+
+def getForwardModelMatrix2DToeplitzFullFlexibleShapeReturnPaddedOcc(occ, obsShape, extra=(0,0), padVal=0):
+    returnMat = []
+    occShape = occ.shape
+
+    paddedOcc = padArrayToShape(occ, (2*obsShape[0]-occShape[0]+extra[0], \
+        2*obsShape[1]-occShape[1]+extra[1]), padVal=padVal)
+
+#    viewFrame(imageify(paddedOcc), adaptiveScaling=True)
+
+    print(paddedOcc.shape)
+
+    for i in range(obsShape[0]):
+        for j in range(obsShape[1]):
+#            print (paddedOcc[i:i+obsShape[0]-occShape[0], j:j+obsShape[1]-occShape[1]]).shape
+
+            returnMat.append((paddedOcc[i:i+obsShape[0]-occShape[0]+extra[0], j:j+obsShape[1]-occShape[1]+extra[1]]).flatten())
+#            pass    
+#    print np.array(returnMat).shape
+
+#    print paddedOcc.shape
+
+    return np.flip(np.array(returnMat), 1), paddedOcc
 
 def getForwardModelMatrix2DToeplitzFeedPaddedArray(occShape, obsShape, paddedOcc, extra=(0,0)):
     returnMat = []
@@ -2901,6 +2949,82 @@ def getFirstMatch(diffVid, occ, vid):
 #    p.plot(canvasSimilarities)
  #   p.savefig("canvas_video/canvas_similarities.png")
 
+def boundFriendlyIndex(occ, index):
+    if index[0] < 0 or index[0] >= occ.shape[0] or \
+        index[1] < 0 or index[1] >= occ.shape[1]:
+
+        return None
+
+    else:
+        return occ[index[0]][index[1]]
+
+def toTuple(index):
+    return (index[0], index[1])
+
+def getContiguousChunkFromIJ(occ, startLoc):
+    partOfTheChunk = {}
+    listToVisit = [startLoc]
+
+    LIST_OF_DIRECTIONS = [np.array([0,1]), \
+                        np.array([1,0]), \
+                        np.array([0,-1]), \
+                        np.array([-1,0])]
+    
+    while len(listToVisit) > 0:
+        currentNode = listToVisit[-1]
+        del listToVisit[-1]
+
+        val = boundFriendlyIndex(occ, currentNode)
+
+        if not val is None:
+            if val == 0:
+                partOfTheChunk[toTuple(currentNode)] = True            
+
+                for direction in LIST_OF_DIRECTIONS:
+                    newNode = currentNode + direction
+                    if not toTuple(newNode) in partOfTheChunk:
+                        listToVisit.append(newNode)
+
+    return partOfTheChunk
+
+def inAnyChunk(node, listOfChunks):
+    for chunk in listOfChunks:
+#        print(chunk)
+        if toTuple(node) in chunk:
+#            print("returning True")
+            return True
+
+#    print("returning False")
+#    return False
+
+def getContiguousChunks(occ):    
+    occSpatialDimensions = occ.shape
+    listOfChunks = []
+
+    for i in range(occSpatialDimensions[0]):
+        for j in range(occSpatialDimensions[1]):
+            node = np.array([i, j])
+            if not inAnyChunk(node, listOfChunks):
+                chunk = getContiguousChunkFromIJ(occ, np.array([i, j]))
+                if len(chunk) > 0:
+                    listOfChunks.append(chunk)
+
+    return listOfChunks
+
+def removeAllButBiggestChunk(occ, listOfChunks):
+    if len(listOfChunks) <= 1:
+        return occ
+
+    listOfChunks.sort(key=lambda x: -len(x))
+
+    newOcc = occ.copy()
+
+    for chunk in listOfChunks[1:]:
+        for index in chunk:
+            newOcc[index[0]][index[1]] = 1
+
+    return newOcc
+
 def estimateOccluderFromDifferenceFrames(diffVid, canvasShape):
     random.shuffle(diffVid)
     convolvedFrame = random.choice(diffVid)
@@ -2954,7 +3078,7 @@ def draw_circle(event,x,y,flags,param):
         cv2.circle(img,(x,y),100,(255,0,0),-1)
         mouseX,mouseY = x,y
 
-def getCorners():
+def getCorners(cameraNumber=1, feedFrame=None):
     clickCounter = [0]
 
     listOfCorners = []
@@ -2983,28 +3107,61 @@ def getCorners():
 
     # Create a black image, a window and bind the function to window
 
-    cam = cv2.VideoCapture("udp://127.0.0.1:10000")
+#    cam = cv2.VideoCapture("udp://127.0.0.1:10000")
 
-    for _ in range(100):
-        ret_val, img = cam.read()
+    if feedFrame is None:
+        cam = cv2.VideoCapture(cameraNumber)
 
+        for _ in range(100):
+            ret_val, img = cam.read()
+
+    else:
+        img = feedFrame
 
     #img = np.zeros((512,512,3), np.uint8)
-    cv2.namedWindow('image')
-    cv2.setMouseCallback('image',recordFourClicks)
+    cv2.namedWindow('corners',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('corners', 600,600)
+    cv2.moveWindow('corners', 400,0)
+    cv2.setMouseCallback('corners',recordFourClicks)
+
+
+#    cv2.namedWindow('image')
+#    cv2.resizeWindow('image', 400,400)
+#    cv2.imshow('image',batchAndDifferentiate(img/255, [(2, False), (2, False), (1, False)]))
+
 
     while clickCounter[0] < 4:
-        cv2.imshow('image',img)
+        cv2.imshow('corners',batchAndDifferentiate(img/255, [(2, False), (2, False), (1, False)]))
         if cv2.waitKey(20) == 27:
             break
     cv2.destroyAllWindows()
 
     return listOfCorners
 
-def doWholeThing():
-    listOfCorners = getCorners()
+def doWholeThing(cameraNumber=1, padVal=1, \
+    filePath="fan_darpa_longer.p", rectifyVid=True):
+#    filePath=None):
+#    filePath="../fan_rect_python3friendly.p"):
+#    filePath="../fan_monitor_rect_python3friendly.p"):
 
-    processImages(listOfCorners, 0.99, 0.9)
+    listOfCorners = [np.array([53, 14]), np.array([53, 50]), np.array([82, 51]), np.array([80, 0])]
+
+    if not filePath is None:
+        movie = pickle.load(open(filePath, "rb"))
+
+    elif listOfCorners is None:
+        if filePath is None:
+            listOfCorners = getCorners(cameraNumber=cameraNumber)
+
+        elif rectifyVid:
+            listOfCorners = getCorners(cameraNumber=cameraNumber, feedFrame=movie[0])
+
+        else:
+            listOfCorners = None
+
+    processImages(listOfCorners, 0.8, 0.993, cameraNumber=cameraNumber, padVal=padVal, \
+        movie=movie, rectifyVid=rectifyVid)
+#        filePath=None)
 
  #   show_webcam()
 #    print listOfCorners
@@ -3024,9 +3181,11 @@ def getVariationPenalty(possibleOccluder):
 def getDifferencePenalty(bwIm):
     averageVal = np.average(bwIm)
 
-    medianVal = np.median(bwIm)
+#    medianVal = np.median(bwIm)
 
-    return (averageVal - medianVal)**2
+
+
+    return np.sum(np.sqrt(np.abs(averageVal - bwIm)))
 
 def getUniformityPenalty(possibleOccluder):
     possibleOccluderFlat = possibleOccluder.flatten()
@@ -3036,25 +3195,296 @@ def getUniformityPenalty(possibleOccluder):
     return - whiteFraction * np.log(whiteFraction) - (1 - whiteFraction) * \
         np.log(whiteFraction)
 
-def getScore(bwIm, listOfLambdas):
-    possibleOccluder = occluderify(bwIm)
-    variationPenalty = getVariationPenalty(possibleOccluder)
-    differencePenalty = getDifferencePenalty(bwIm)
-    uniformityPenalty = getUniformityPenalty(possibleOccluder)
+def horizontalEdgeMask(imSpatialDimensions):
+    returnArray = []
 
-    overallPenalty =  listOfLambdas[0] * variationPenalty + \
-        listOfLambdas[1] * differencePenalty + \
-        listOfLambdas[2] * uniformityPenalty
+    for i in range(imSpatialDimensions[0]):
+        if i <= bandSize or imSpatialDimensions[0] - i <= bandSize:
+            returnArray.append([0]*imSpatialDimensions[1])
+        else:
+            returnArray.append([1]*imSpatialDimensions[1])
+
+    return np.array(returnArray)
+
+def verticalEdgeMask(imSpatialDimensions):
+    returnArray = []
+
+    for i in range(imSpatialDimensions[1]):
+        if i == 0 or i == imSpatialDimensions[1] - 1:
+            returnArray.append([0]*imSpatialDimensions[0])
+        else:
+            returnArray.append([1]*imSpatialDimensions[0])
+
+    return np.transpose(np.array(returnArray))
+
+def getOccludedEdgePenalty(possibleOccluder):
+    penalty = 0
+    imSpatialDimensions = possibleOccluder.shape
+
+    for i in range(imSpatialDimensions[0]):
+        for j in range(imSpatialDimensions[1]):
+            if i == 0 or \
+                j == 0 or j == imSpatialDimensions[1] - 1: 
+#            if i == 0 or i == imSpatialDimensions[0] - 1 or \
+
+                if possibleOccluder[i][j] == 0:
+                    penalty += 3
+
+            else:
+
+                if possibleOccluder[i][j] == 1:
+                    penalty += 0.04
+
+    return penalty
+
+def getEdgeMask(imSpatialDimensions):
+    mask = []
+
+    for i in range(imSpatialDimensions[0]):
+        mask.append([])
+        for j in range(imSpatialDimensions[1]):
+            if i == 0 or i == imSpatialDimensions[0] - 1 or \
+                j == 0 or j == imSpatialDimensions[1] - 1: 
+
+                mask[-1].append([0,0,0])
+
+            else:
+                mask[-1].append([1,1,1])
+
+
+    return np.array(mask)
+ 
+def getChunksPenalty(possibleOccluder):
+    chunks = getContiguousChunks(possibleOccluder)
+
+    if len(chunks) == 0:
+        return 0, {}
+
+    if len(chunks) == 1:
+        return 0, [chunks[0]]
+
+    else:
+        chunks.sort(key=lambda x: -len(x))
+        
+        penaltyChunks = sum([len(x) for x in chunks[1:]])
+        chunkRatio = penaltyChunks / (penaltyChunks + len(chunks[0]))
+
+#        print(type(chunks))
+
+        return chunkRatio, chunks
+
+def clumpPenaltyMaker(biggestChunk):
+    def getClumpPenalty(possibleOccluder):
+        if len(biggestChunk) == 0:
+            return 0
+
+        locs = biggestChunk.keys()
+        locsArr = [np.array(loc) for loc in locs]
+
+        massCenter = sum(locsArr)/len(locsArr)
+#        print("massCenter", sum([np.linalg.norm(loc - massCenter) for loc in locs]))
+
+
+        return sum([np.linalg.norm(loc - massCenter) for loc in locs])
+    return getClumpPenalty
+
+def linePenaltyMaker(biggestChunk):
+    def getLinePenalty(possibleOccluder):
+        if len(biggestChunk) == 0:
+            return 0
+
+        totalPenalty = 0
+
+        locs = biggestChunk.keys()
+        locsArr = [np.array(loc) for loc in locs]
+
+        for _ in range(100):
+            randomInBetweenIndex = sum(random.sample(locsArr, 2))/2
+
+            totalPenalty += fuzzyLookup2D(possibleOccluder, \
+                randomInBetweenIndex[0], randomInBetweenIndex[1])
+
+        return totalPenalty
+    return getLinePenalty
+
+def playStencilGame(arr, coolingTime):
+    maxX = arr.shape[0]
+    maxY = arr.shape[1]
+
+    for i in range(coolingTime):
+        newArr = np.zeros(arr.shape)
+
+        print(i)
+
+        for x in range(-1, maxX-1):
+            for y in range(-1, maxY-1):
+                voteCounter = 0
+                for deltaX in [-1, 0, 1]:
+                    for deltaY in [-1, 0, 1]:
+#                        voteCounter += arr[x+deltaX][y+deltaY]
+                        if abs(deltaX) + abs(deltaY) == 2:
+                            factor = 0.5
+                        else:
+                            factor = 1
+
+                        if arr[x+deltaX][y+deltaY] == 0:
+                            val = 1
+                        else:
+                            val = -1
+
+                        voteCounter += val*factor
+
+                if voteCounter >= 1:
+                    newArr[x][y] = 0
+                else:
+                    newArr[x][y] = arr[x][y]
+
+        arr = newArr
+    return arr
+
+
+
+def occluderifyEdgeBased(bwIm, cutoff=1):
+    derivMagImage = getDerivMagImage(bwIm)
+
+    stencilImage = occluderify(-derivMagImage)
+
+    filledInStencil = stencilImage
+#    filledInStencil = playStencilGame(stencilImage, 5)
+
+    return filledInStencil
+
+def getScoreNew(possibleOccluder, listOfLambdas):
+
+    chunkRatio, chunks = getChunksPenalty(possibleOccluder)
+    if len(chunks) > 0:
+        biggestChunk = chunks[0]
+    else:
+        biggestChunk = {}
+
+    penaltyFuncs = [getVariationPenalty, 
+        getDifferencePenalty,
+        getUniformityPenalty, 
+        getOccludedEdgePenalty, 
+        lambda x: chunkRatio]
+
+    penaltyVals = np.array([f(possibleOccluder) for f in penaltyFuncs])
+    lambdaArr = np.array(listOfLambdas)
+
+    return np.dot(lambdaArr, penaltyVals), [i*j for i,j in zip(lambdaArr, \
+        penaltyVals)]
+
+def getScore(bwIm, listOfLambdas, cutoff=1, possibleOccluder=None):
+    if possibleOccluder is None:
+        possibleOccluder = occluderify(bwIm, cutoff=1)
+
+    meanSubDerivMagImage = getDerivMagImage(bwIm)
+    occDerivMagImage = getDerivMagImage(possibleOccluder)
+
+#    variationPenalty = getVariationPenalty(possibleOccluder)
+#    differencePenalty = getDifferencePenalty(bwIm)
+#    uniformityPenalty = getUniformityPenalty(possibleOccluder)
+#    occludedEdgePenalty = getOccludedEdgePenalty(possibleOccluder)
+#    chunksPenalty = getChunksPenalty(possibleOccluder)
+
+    chunkRatio, chunks = getChunksPenalty(possibleOccluder)
+    if len(chunks) > 0:
+        biggestChunk = chunks[0]
+    else:
+        biggestChunk = {}
+
+    windowSize = 400
+
+#    cv2.namedWindow('occDerivMagImage',cv2.WINDOW_NORMAL)
+#    cv2.resizeWindow('occDerivMagImage', windowSize,windowSize)
+#    cv2.moveWindow('occDerivMagImage', 400,400)
+
+#    cv2.namedWindow('meanSubDerivMagImage',cv2.WINDOW_NORMAL)
+#    cv2.resizeWindow('meanSubDerivMagImage', windowSize,windowSize)
+#    cv2.moveWindow('meanSubDerivMagImage', 0, 400)
+
+#    imshowCV2('occDerivMagImage', occDerivMagImage)
+ #   imshowCV2('meanSubDerivMagImage', meanSubDerivMagImage)
+
+
+    penaltyFuncs = [getVariationPenalty, 
+        getDifferencePenalty,
+        getUniformityPenalty, 
+        getOccludedEdgePenalty, 
+        lambda x: chunkRatio,
+        clumpPenaltyMaker(biggestChunk),
+        linePenaltyMaker(biggestChunk),
+        lambda x: np.sum(np.multiply(occDerivMagImage, meanSubDerivMagImage))/\
+            np.sum(occDerivMagImage)]
+
+    penaltyVals = np.array([f(possibleOccluder) for f in penaltyFuncs])
+    lambdaArr = np.array(listOfLambdas)
+
+#    print(penaltyVals)
+
+#    chunksPenalty = 0
+
+#    print(listOfLambdas[0] * variationPenalty, \
+#        listOfLambdas[1] * differencePenalty, \
+#        listOfLambdas[2] * uniformityPenalty, \
+#        listOfLambdas[3] * occludedEdgePenalty, \
+#        listOfLambdas[4] * chunksPenalty)
+
+#    overallPenalty = listOfLambdas[0] * variationPenalty + \
+#        listOfLambdas[1] * differencePenalty + \
+#        listOfLambdas[2] * uniformityPenalty + \
+#        listOfLambdas[3] * occludedEdgePenalty + \
+#        listOfLambdas[4] * chunksPenalty
 
     #print(listOfLambdas[0] * variationPenalty, \
     #    listOfLambdas[1] * differencePenalty, \
     #    listOfLambdas[2] * uniformityPenalty, overallPenalty)
 
-    return overallPenalty
+    return np.dot(lambdaArr, penaltyVals), [i*j for i,j in zip(lambdaArr, \
+        penaltyVals)]
 
+def instantMeanSubFrame(frame):
+    numPixels = frame.shape[0]*frame.shape[1]
+    averagePixel = np.sum(np.sum(frame, 0), 0)/numPixels
 
-def updateLiveOccluderEstimate(im, currentOccluder, currentOccluderPenalty, \
+    frameDims = frame.shape[:-1]
+    meanPixelFrame = np.array([[averagePixel for i in range(frameDims[1])] for j in range(frameDims[0])])
+
+    return frame - meanPixelFrame
+
+def updateLiveOccluderEstimateNew(im, currentOccluder, currentOccluderPenalty, \
     bonusFactorDecay, listOfLambdas):
+
+    newOcc = False
+
+    bestScore = currentOccluderPenalty
+    bestOccluder = currentOccluder
+
+    for cutoff in [1.5]:  
+
+        avg = np.average(im)
+
+        newOccluder = occluderifyNew(im, cutoff*avg)
+
+        newScore, penalties = getScoreNew(newOccluder, listOfLambdas)
+
+        if newScore < bestScore:
+            bestScore = newScore
+            bestOccluder = newOccluder
+    #                    bestOccluder = occluderifyEdgeBased(absIm, cutoff=10)
+    #            newBonusFactor = 1
+            newOcc = True
+
+            print(penalties)
+
+    chunks = getContiguousChunks(bestOccluder)
+
+    if newOcc:
+        bestScore *= 0.8
+
+    return bestOccluder, bestScore / bonusFactorDecay, newOcc, chunks
+
+def updateLiveOccluderEstimate(im, currentOccluder, currentOccluderPenalty, bonusFactorDecay, listOfLambdas):
     
     newOcc = False
 
@@ -3062,25 +3492,61 @@ def updateLiveOccluderEstimate(im, currentOccluder, currentOccluderPenalty, \
     bestScore = currentOccluderPenalty
     bestOccluder = currentOccluder
 
+#    print(bestScore)
+
     for separateIm in imSeparated:
-        absIm = np.abs(separateIm)
-        imNormalized = absIm/np.max(absIm)
-        newScore = getScore(imNormalized, listOfLambdas)
+#        absIm = np.abs(separateIm)
+        for factor in [1,-1]:
+#        for factor in [1]:
+            absIm = separateIm*factor
+            imNormalized = absIm/np.max(absIm)
 
-#        print(bestScore)
+            for cutoff in [0.5, 0.7, 0.9]:
 
-        if newScore < bestScore:
-            bestScore = newScore * 0.8
-            bestOccluder = occluderify(absIm)
-#            newBonusFactor = 1
-            newOcc = True
+                newScore, penalties = getScore(imNormalized, listOfLambdas, cutoff=cutoff)
+#                print(penalties)
 
-    return bestOccluder, bestScore / bonusFactorDecay, newOcc
+        #        print(bestScore)
 
-def occluderify(bwIm):
+                if newScore < bestScore:
+                    bestScore = newScore
+                    bestOccluder = occluderify(imNormalized, cutoff=cutoff)
+#                    bestOccluder = occluderifyEdgeBased(absIm, cutoff=10)
+        #            newBonusFactor = 1
+                    newOcc = True
+
+                    print(penalties)
+
+    chunks = getContiguousChunks(bestOccluder)
+
+    if newOcc:
+        bestScore *= 0.8
+
+    return bestOccluder, bestScore / bonusFactorDecay, newOcc, chunks
+
+def attenuationFromCenterMask(arrSpatialDimensions, edgeVal):
+    returnArr = []
+
+    for i in range(arrSpatialDimensions[0]):
+        returnArr.append([])
+        for j in range(arrSpatialDimensions[1]):
+            distanceFromCenter = sqrt((i - (arrSpatialDimensions[0]-1)/2)**2 + \
+                (j - (arrSpatialDimensions[1]-1)/2)**2)
+
+            returnArr[-1].append(edgeVal**(2*distanceFromCenter / arrSpatialDimensions[0]))
+
+    return returnArr
+
+def occluderify(bwIm, cutoff=1):
 #    medianVal = np.median(bwIm)
 #    breakVal = jenkspy.jenks_breaks(bwIm.flatten(), nb_class=2)[1]
-    breakVal = np.average(bwIm)
+#    breakVal = 0.75*np.average(bwIm)
+#    print(attenuationFromCenterMask(bwIm.shape, 1.15))
+    bwIm = bwIm - np.amin(bwIm) * np.ones(bwIm.shape)
+#    bwIm = np.multiply(bwIm, attenuationFromCenterMask(bwIm.shape, 1.3))
+    bwIm = np.multiply(bwIm, attenuationFromCenterMask(bwIm.shape, 1.))
+
+    breakVal = cutoff * np.average(bwIm)
 
 #    medianVal = 
 
@@ -3089,20 +3555,128 @@ def occluderify(bwIm):
 
     return np.vectorize(moreThanBreak)(bwIm)
 
-def processImages(listOfCorners, beta1, beta2):
-    cam = multithread_example.VideoCapture("udp://127.0.0.1:10000")
-#    cam = cv2.VideoCapture("udp://127.0.0.1:10000")
+def averagePixel1D(arr):
+    returnVal = np.array([0.,0.,0.])
 
-    cv2.namedWindow('meanSub',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('meanSub', 600,600)
+    for i in arr:
+        returnVal += i
 
-    cv2.namedWindow('occluder',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('occluder', 600,600)
+    return np.array([returnVal/len(arr)]*len(arr))
+
+def imageTranspose(im):
+    return np.swapaxes(im, 0, 1)
+
+def rank1ifyHorizontal(im):
+    returnArray = []
+
+    for row in im:
+        returnArray.append(averagePixel1D(row))
+
+    return np.array(returnArray)
+
+def rank1ifyVertical(im):
+    return imageTranspose(rank1ifyHorizontal(imageTranspose(im)))
+
+def rank2ify(im):
+    return (rank1ifyVertical(im) + rank1ifyHorizontal(im))/2
+
+def cleanVerticalDerivs(im, derivMagImageBinarified):
+    derivIm = np.concatenate([np.array([im[0]]), np.diff(im, axis=0)], axis=0)
+
+    derivIm = np.multiply(derivIm, derivMagImageBinarified)
+
+#   print(np.array([im[0]]).shape)
+#   print(np.diff(im, axis=0).shape)
+#   print(derivIm.shape)
+
+    return np.cumsum(derivIm, axis=0)
+
+def cleanHorizontalDerivs(im, derivMagImageBinarified):
+#    print(np.array([im[:,0,:]]).transpose().shape)
+    derivIm = np.concatenate([np.swapaxes(np.array([im[:,0,:]]),0,1), np.diff(im, axis=1)], axis=1)
+
+    derivIm = np.multiply(derivIm, derivMagImageBinarified)
+
+#   print(np.array([im[0]]).shape)
+#   print(np.diff(im, axis=0).shape)
+#   print(derivIm.shape)
+
+    return np.cumsum(derivIm, axis=1)
+
+def cleanBothAxes(im, derivMagImageBinarified):
+#    derivImVert = np.concatenate([np.array([im[0]]), np.diff(im, axis=0)], axis=0)
+#    derivImVert = np.multiply(derivImVert, derivMagImageBinarified)
+
+#    derivImHoriz = np.concatenate([np.swapaxes(np.array([im[:,0,:]]),0,1), np.diff(im, axis=1)], axis=1)
+#    derivImHoriz = np.multiply(derivImHoriz, derivMagImageBinarified)
+
+#    f1 = lambda x: np.power(np.abs(x), 1/4)
+#    f2 = lambda x: x[0] * x[1] * x[2] * x[3]
+
+    f0 = lambda x: np.power(np.abs(x), 1/4)
+    f1 = lambda x: x
+    f2 = lambda x: f0(x[0]) + f0(x[1]) + f0(x[2]) + f0(x[3])
+
+    listOfCleanIms = [cleanVerticalDerivs(im, derivMagImageBinarified),
+        cleanHorizontalDerivs(im, derivMagImageBinarified), 
+        np.flip(cleanVerticalDerivs(np.flip(im, 0), np.flip(derivMagImageBinarified, 0)), 0),
+        np.flip(cleanHorizontalDerivs(np.flip(im, 1), np.flip(derivMagImageBinarified, 1)), 1)]
+
+    return f1(f2(listOfCleanIms))
+
+def binarify(im, cutoff):
+#    medianVal = np.median(bwIm)
+#    breakVal = jenkspy.jenks_breaks(bwIm.flatten(), nb_class=2)[1]
+#    breakVal = 0.75*np.average(bwIm)
+#    print(attenuationFromCenterMask(bwIm.shape, 1.15))
+#    bwIm = bwIm - np.amin(bwIm) * np.ones(bwIm.shape)
+#    bwIm = np.multiply(bwIm, attenuationFromCenterMask(bwIm.shape, 1.3))
+
+    breakVal = cutoff
+
+#    medianVal = 
+
+    def moreThanBreak(x):
+        return 1*(x > breakVal)
+
+    return np.vectorize(moreThanBreak)(im)
+
+def occluderifyNew(im, cutoff):
+    return separate(binarify(coloravg(im), cutoff))[0]
+
+def processImages(listOfCorners, beta1, beta2, cameraNumber=1, padVal="edge", \
+    movie=None, rectifyVid=True):
+
+#    cam = multithread_example.VideoCapture("udp://127.0.0.1:10000")
+    cam = cv2.VideoCapture(cameraNumber)
+
+    windowSize = 400
+
+    cv2.namedWindow('from_movie',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('from_movie', windowSize,windowSize)
+    cv2.moveWindow('from_movie', 400,0)
 
     cv2.namedWindow('recovery',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('recovery', 600,600)
+    cv2.resizeWindow('recovery', windowSize,windowSize)
+    cv2.moveWindow('recovery', 0,400)
 
-    imSpatialDimensions = (50, 50)
+    cv2.namedWindow('raw',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('raw', windowSize,windowSize)
+    cv2.moveWindow('raw', 400,400)
+
+    cv2.namedWindow('occluder',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('occluder', windowSize,windowSize)
+    cv2.moveWindow('occluder', 0, 0)
+
+    cv2.namedWindow('meanSub',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('meanSub', windowSize,windowSize)    
+    cv2.moveWindow('meanSub',800,0)
+
+    cv2.namedWindow('rank2Image', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('rank2Image', windowSize,windowSize)
+    cv2.moveWindow('rank2Image',800,400)
+
+    imSpatialDimensions = (16, 26)
     imShape = np.array(imSpatialDimensions + tuple([3]))
     imSpatialDimensions = np.array(imSpatialDimensions)
 
@@ -3114,68 +3688,202 @@ def processImages(listOfCorners, beta1, beta2):
     occ = None
     occScore = float("Inf")
     bonusFactor = 1
-    BONUS_FACTOR_DECAY = 0.999
-    LIST_OF_LAMBDAS = [1, 1, 1e2]
+    BONUS_FACTOR_DECAY = 0.99
+#    LIST_OF_LAMBDAS = [1, -0.2, 1e2, 2, 1e2, -0.01, 1, 0]
+    LIST_OF_LAMBDAS = [1, -0.2, 1e2, 2, 1e2]
 
     frameCounter = 0
 
+    varianceEstimate = 0
+
     inversionMatrix = None
 
-    sceneSpatialDimensions = np.array([25, 25])
+#    sceneSpatialDimensions = np.array([20, 40])
+    sceneSpatialDimensions = np.array([16, 40])
+
+    paddedOcc = np.zeros(sceneSpatialDimensions)
 
     while True:
-#        ret_val, img = cam.read()
-        img = cam.read()
-        floatIm = img.astype(float)
+        if movie is None:
+            ret_val, img = cam.read()
 
-        rectifiedImg = rectify(floatIm, listOfCorners[0], listOfCorners[1], listOfCorners[3], \
-            listOfCorners[2], imSpatialDimensions[0], imSpatialDimensions[1])
+            floatIm = img.astype(float)
 
-        shortTermAverage = beta1*currentAverage + (1-beta1)*rectifiedImg
-        currentAverage = beta2*currentAverage + (1-beta2)*rectifiedImg
-        meanSubIm = currentAverage - shortTermAverage 
+#            print(floatIm.shape)
+
+#            rectifiedImg = doFuncToEachChannel(lambda x: resizeArray(x, imSpatialDimensions, batchAndDifferentiate(floatIm, [(100, False), (100, False),\
+#                (1, False)]))) 
+
+#            rectifiedImg = np.flip(rectify(floatIm, listOfCorners[0]*2, listOfCorners[1]*2, listOfCorners[3]*2, \
+#                listOfCorners[2]*2, imSpatialDimensions[1], imSpatialDimensions[0]), 1)
+
+            rectifiedImg = rectify(floatIm, listOfCorners[0]*2, listOfCorners[1]*2, listOfCorners[3]*2, \
+                listOfCorners[2]*2, imSpatialDimensions[1], imSpatialDimensions[0])
+
+
+        else:
+            rectifiedImg = movie[frameCounter]
+            
+#            print(rectifiedImg.shape)
+
+            imshowCV2('from_movie', rectifiedImg)
+            
+            if rectifyVid:
+                rectifiedImg = rectify(rectifiedImg, listOfCorners[0]*2, listOfCorners[1]*2, listOfCorners[3]*2, \
+                    listOfCorners[2]*2, imSpatialDimensions[1], imSpatialDimensions[0])
+
+            else:
+                rectifiedImg = doFuncToEachChannel(lambda x: resizeArray(x, imSpatialDimensions), batchAndDifferentiate(rectifiedImg, [(2, False), (2, False),\
+                    (1, False)]))
+
+        rank2Image = rectifiedImg
+#        rank2Image = rank2ify(rectifiedImg)
+#        rank2Image = rank1ifyHorizontal(rectifiedImg)
+
+#        rectifiedImg = rectify(floatIm, np.array([0,0]), np.array([0,floatIm.shape[1]-1]), \
+#            np.array([floatIm.shape[0]-1,floatIm.shape[1]-1]), np.array([floatIm.shape[0]-1,0]), \
+#            imSpatialDimensions[0], imSpatialDimensions[1])
+
+        shortTermAverage = beta1*shortTermAverage + (1-beta1)*rectifiedImg
+#        currentAverage = beta2*currentAverage + (1-beta2)*rectifiedImg
+        currentAverage = beta2*currentAverage + (1-beta2)*rank2Image
+
+#        currentAverage = 
+
+        meanSubIm = shortTermAverage/(1-beta1**frameCounter) - currentAverage/(1-beta2**frameCounter)
+#        print(sqrt(np.sum(np.power(meanSubIm, 2))))
+
+        if frameCounter > 0:
+            varianceEstimateFromThisFrame = sqrt(np.average(np.power(meanSubIm, 2)))
+            varianceEstimate = beta2*varianceEstimate + (1-beta2)*varianceEstimateFromThisFrame
+            actualVarianceEstimate = varianceEstimate/(1-beta2**frameCounter)
+            print(actualVarianceEstimate, varianceEstimate, varianceEstimateFromThisFrame)
+        else:
+            actualVarianceEstimate = 0
+
+
+        meanSubDerivMagImage = getDerivMagImage(meanSubIm)
+        instantMeanSubIm = instantMeanSubFrame(meanSubIm)
+
+        derivMagImageBinarified = np.multiply(getEdgeMask(imSpatialDimensions), \
+            binarify(coloravg(meanSubDerivMagImage), 0.1*actualVarianceEstimate))
+
+#        vertDerivImage = batchAndDifferentiate(meanSubIm, [(1, True), \
+#            (1, False), (1, False)])
+#        vertDerivImage = np.diff(meanSubIm, axis=0)
+        cleanedMeanSubIm = cleanBothAxes(meanSubIm, derivMagImageBinarified)
+#        cleanedMeanSubIm2 = cleanHorizontal
+
+#        cleanedMeanSubIm = cleanHorizontalDerivs(meanSubIm, \
+#            derivMagImageBinarified)
+
+#        print(cleanedMeanSubIm.shape)
+
+#        instantMeanSubIm = instantMeanSubFrame(rectifiedImg)
+
+#        print(beta1, beta2)
+
+#        print(frameCounter)
+#        print(np.sum(shortTermAverage/(1-beta1**frameCounter)), \
+#            np.sum(currentAverage/(1-beta2**frameCounter)))
+
+
+#        print(np.sum(shortTermAverage), \
+ #           np.sum(currentAverage))
 
         diffIm = rectifiedImg - lastIm
         lastIm = rectifiedImg
 
+        newOccluderEstimateMaterial = np.multiply(coloravg(np.abs(instantMeanSubIm)), \
+            cleanedMeanSubIm)
+
         if frameCounter > 10:
-            occ, occScore, newOcc = updateLiveOccluderEstimate(meanSubIm, occ, occScore, \
+#            occ, occScore, newOcc, chunks = updateLiveOccluderEstimate(meanSubIm, occ, occScore, \
+#                BONUS_FACTOR_DECAY, LIST_OF_LAMBDAS)
+            occ, occScore, newOcc, chunks = updateLiveOccluderEstimateNew(newOccluderEstimateMaterial, occ, occScore, \
                 BONUS_FACTOR_DECAY, LIST_OF_LAMBDAS)
+                        
+            occ = removeAllButBiggestChunk(occ, chunks)
+
+ #           occ = np.zeros(imSpatialDimensions)
+ #           if frameCounter == 11:
+ #               newOcc = True
+ #           else:
+ #               newOcc = False
 
 #            print(occ, occ.shape, type(occ))
-
-            imshowCV2('occluder', imageify(occ))
 
 #            newOcc = True
             displayRecovery = True
 
             if newOcc:
-                forwardModelMatrix = getForwardModelMatrix2DToeplitzFullFlexibleShape(occ, imSpatialDimensions, extra=(25, 25), padVal=1)
+                forwardModelMatrix, paddedOcc = getForwardModelMatrix2DToeplitzFullFlexibleShapeReturnPaddedOcc(occ, imSpatialDimensions, extra=(sceneSpatialDimensions[0], \
+                    sceneSpatialDimensions[1]), padVal=padVal)
+#                    imSpatialDimensions[1]), padVal=padVal)
+#                    0), padVal=padVal)
 
                 inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
 
             if displayRecovery:
 
                 recovery = doFuncToEachChannel(lambda x: vectorizedDot(inversionMatrix, x, sceneSpatialDimensions), \
-                    rectifiedImg)  
+                    meanSubIm)  
 
                 recovery /= np.max(np.abs(recovery))
 
 #                print(recovery, recovery.shape, type(recovery))
 
+#                imshowCV2('recovery', np.flip(np.flip(recovery, 0), 1), differenceImage=True)
                 imshowCV2('recovery', recovery, differenceImage=True)
 
         frameCounter += 1
 
+#        chunks = getContiguousChunks(paddedOcc)
+#        print(chunks)
+#        print("num chunks", len(chunks), [len(chunk) for chunk in chunks])
+
+
+        imshowCV2('occluder', imageify(getDerivMagImage(paddedOcc)))
+        imshowCV2('raw', cleanedMeanSubIm, differenceImage=True)
         imshowCV2('meanSub', meanSubIm, differenceImage=True)
+#        imshowCV2('rank2Image', derivMagImageBinarified, differenceImage=False)
+        imshowCV2('rank2Image', newOccluderEstimateMaterial, differenceImage=False)
+#        print(cv2.waitKey(1))
+
 #        imshowCV2('meanSub', rectifiedImg, differenceImage=True)
-        if cv2.waitKey(1) == 27: 
+#        if cv2.waitKey(1) == 27: 
+        if frameCounter > 10:
             print("recomputing") 
             occScore = float("Inf")
+#            occ, occScore, newOcc, chunks = updateLiveOccluderEstimate(meanSubIm, occ, occScore, \
+#                BONUS_FACTOR_DECAY, LIST_OF_LAMBDAS)
+            occ, occScore, newOcc, chunks = updateLiveOccluderEstimateNew(newOccluderEstimateMaterial, occ, occScore, \
+                BONUS_FACTOR_DECAY, LIST_OF_LAMBDAS)
+            occ = removeAllButBiggestChunk(occ, chunks)
+            occScore = -float("Inf")
+
+            actuallyRecompute = True
+
+            forwardModelMatrix, paddedOcc = getForwardModelMatrix2DToeplitzFullFlexibleShapeReturnPaddedOcc(occ, imSpatialDimensions, extra=(sceneSpatialDimensions[0], \
+                sceneSpatialDimensions[1]), padVal=padVal)
+
+            if actuallyRecompute or frameCounter == 11:
+                inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)
+
 #           break
-        if chr(cv2.waitKey(1)&255) == 'r':   
-            print("recomputing") 
-            occScore = float("Inf")
+        if cv2.waitKey(1)&255 == ord('r'):   
+            print("You pressed r!!")
+ #           print("recomputing") 
+  #          occScore = float("Inf")
+  #          occ, occScore, newOcc = updateLiveOccluderEstimate(meanSubIm, occ, occScore, \
+   #             BONUS_FACTOR_DECAY, LIST_OF_LAMBDAS)
+   #         occScore = -float("Inf")
+#
+#            forwardModelMatrix, paddedOcc = getForwardModelMatrix2DToeplitzFullFlexibleShapeReturnPaddedOcc(occ, imSpatialDimensions, extra=(sceneSpatialDimensions[0], \
+ #               sceneSpatialDimensions[1]), padVal=padVal)
+#
+#            inversionMatrix = getPseudoInverse(forwardModelMatrix, 3e-4)            
+
     cv2.destroyAllWindows()
 
 def imshowCV2(imName, im, differenceImage=False):
@@ -3244,7 +3952,7 @@ def showMeanSubtractedRectifiedWebcam(listOfCorners, beta1, beta2):
 
 
 def showRectifiedWebcam(listOfCorners):
-    cam = cv2.VideoCapture(0)
+    cam = cv2.VideoCapture(1)
 
 #    _, img = cam.read()   
 
@@ -6447,7 +7155,7 @@ if __name__ == "__main__":
 #        arrName = "obama_long"
 #        arrName = "obama_long_timeblur"
 #        arrName = "fan_monitor_rect_diff"
-        arrName = "fan_monitor_rect"
+        arrName = "fan_rect"
 
         arr = np.array(pickle.load(open(arrName + ".p", "r")))
 #        arr = imageify(np.array(pickle.load(open(arrName + ".p", "r"))))
@@ -7150,3 +7858,12 @@ if __name__ == "__main__":
         bwIm = pickle.load(open("dora_28_28.p", "r"))
 
         viewFrame(imageify(bwIm), adaptiveScaling=True, filename="dora_28_28.png")
+
+    if RANK1IFY_TEST:
+        im = pickle.load(open("../dora_slightly_downsampled_python3friendly.p", \
+            "rb"))
+
+        viewFrame(im)
+        viewFrame(rank1ifyHorizontal(im))
+        viewFrame(rank1ifyVertical(im))
+        viewFrame(rank2ify(im))

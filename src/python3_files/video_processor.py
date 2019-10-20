@@ -62,7 +62,8 @@ matthew_wall = False
 impulse_movie = False
 darpa_vid = False
 darpa_gt = False
-obama = True
+obama = False
+darpa_fan = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -151,7 +152,8 @@ def batchArrayAlongAxis(arr, axis, batchSize):
     return(np.swapaxes(batchedArray, 0, axis))
 
 def convertTimeToSeconds(timeString):
-    colonIndex = string.find(timeString, ":")
+#    colonIndex = string.find(timeString, ":")
+    colonIndex = timeString.find(":")
     minutes = int(timeString[:colonIndex])
     seconds = int(timeString[colonIndex+1:])
 
@@ -406,7 +408,7 @@ def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1
     if toVideo:
         convertArrayToVideo(arr, magnification, filename, newFrameRate)
     else:
-        pickle.dump(arr, open(filename + ".p", "w"))
+        pickle.dump(arr, open(filename + ".p", "wb"))
 
 def getTheta(warpPoint, x, y):
     deltaX = x - warpPoint[0]
@@ -2009,3 +2011,21 @@ if __name__ == "__main__":
             "obama_long", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)                   
 
+    if darpa_fan:
+        path = "/Users/adamyedidia/DARPA_demo/C0283.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "2:05"
+        START_TIME = "1:28"        
+        END_TIME = "2:05"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(5, False), (10, False), (10, False), (1, False)], \
+            "fan_darpa_longer", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)     

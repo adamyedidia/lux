@@ -1,4 +1,4 @@
-
+from math import sqrt
 import pylab
 import imageio
 import numpy as np
@@ -63,7 +63,14 @@ impulse_movie = False
 darpa_vid = False
 darpa_gt = False
 obama = False
-darpa_fan = True
+darpa_fan = False
+darpa_iphone_fan = False
+darpa_mannequin = False
+particle_vid = False
+sidewalk = False
+lion_king_bottle = False
+lion_king_bottle_sparsified = False
+lion_king_bottle_build_array = True
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -357,7 +364,7 @@ def processVideo(vid, vidLength, listOfResponses, filename, magnification=1, \
 
 def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1,
     firstFrame=0, lastFrame=None, toVideo=False, minY=None, maxY=None, minX=None, 
-    maxX=None):
+    maxX=None, returnSomething=False):
 
     listOfBatchedFrames = []
 
@@ -371,8 +378,6 @@ def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1
 #        except:
 #            im = vid[i]
         frame = np.array(im).astype(float)
-
-#        print frame.shape
 
         if minY == None and minX == None:
             batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
@@ -389,10 +394,14 @@ def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1
 #                print batchedFrame.shape
 #                viewFrame(batchedFrame)
 
-            batchedFrame = batchedFrame[minY:maxY,minX:maxX]            
 
-        if i == 100:
+            batchedFrame = batchedFrame[minY:maxY,minX:maxX]            
+        if i == firstFrame + 100:
+            print(batchedFrame.shape)
+
             viewFrame(batchedFrame)
+
+#        if i == 100:
 
         listOfBatchedFrames.append(batchedFrame)
 
@@ -405,10 +414,79 @@ def processVideoCheap(vid, vidLength, listOfResponses, filename, magnification=1
     originalFrameRate = numFramesInOriginalVideo / convertTimeToSeconds(vidLength)
 
     newFrameRate = originalFrameRate / listOfResponses[0][0]       
-    if toVideo:
-        convertArrayToVideo(arr, magnification, filename, newFrameRate)
+    if returnSomething:
+        return arr
     else:
-        pickle.dump(arr, open(filename + ".p", "wb"))
+        if toVideo:
+            convertArrayToVideo(arr, magnification, filename, newFrameRate)
+        else:
+            pickle.dump(arr, open(filename + ".p", "wb"))
+
+def processVideoCheapWithPixels(vid, listOfPixels, vidLength, listOfResponses, filename, magnification=1,
+    firstFrame=0, lastFrame=None, toVideo=False, minY=None, maxY=None, minX=None, 
+    maxX=None, returnSomething=False):
+
+    listOfBatchedFrames = []
+
+    print(firstFrame, lastFrame)
+
+    for i in range(firstFrame, lastFrame):
+        print(i-firstFrame, "/", lastFrame - firstFrame)
+
+#        try:
+        im = vid.get_data(i)
+#        except:
+#            im = vid[i]
+        frame = np.array(im).astype(float)
+
+        trueFrame = []
+        for pixel in listOfPixels[:10000]:
+#            print(pixel)
+            trueFrame.append(frame[pixel[0]][pixel[1]])
+
+        if minY == None and minX == None:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+        elif minX == None:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+            batchedFrame = batchedFrame[minY:maxY,:]
+        elif minY == None:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+            batchedFrame = batchedFrame[:,minX:maxX]
+        else:
+            batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
+
+#            if i % 100 == 0:
+#                print batchedFrame.shape
+#                viewFrame(batchedFrame)
+
+
+            batchedFrame = batchedFrame[minY:maxY,minX:maxX]            
+        if i == firstFrame + 100:
+            print(batchedFrame.shape)
+
+            viewFrame(np.reshape(np.array(trueFrame), (100, 100, 3)))
+
+#        if i == 100:
+
+        listOfBatchedFrames.append(np.reshape(np.array(trueFrame), (100, 100, 3)))
+
+#    print listOfResponses
+
+    arr = batchAndDifferentiate(np.array(listOfBatchedFrames), \
+        [listOfResponses[0]] + [(1, False), (1, False), (1, False)])
+
+    numFramesInOriginalVideo = len(vid)
+    originalFrameRate = numFramesInOriginalVideo / convertTimeToSeconds(vidLength)
+
+    newFrameRate = originalFrameRate / listOfResponses[0][0]       
+    if returnSomething:
+        return arr
+    else:
+        if toVideo:
+            convertArrayToVideo(arr, magnification, filename, newFrameRate)
+        else:
+            pickle.dump(arr, open(filename + ".p", "wb"))
+
 
 def getTheta(warpPoint, x, y):
     deltaX = x - warpPoint[0]
@@ -956,6 +1034,91 @@ def findBestWarpPointsBruteForce(arr):
     xopt, fopt = bruteForceSearch(evaluateAngle, ranges, Ns)
 
     return xopt
+
+def average(x):
+    return sum(x)/len(x)
+
+def distanceBetween(x, y):
+    return sqrt((x[0]-y[0])**2 + (x[1]-y[1])**2)
+
+def pixelAngle(arr, pixel1, pixel2):
+    history1 = arr[pixel1[0]][pixel1[1]]
+    history2 = arr[pixel2[0]][pixel2[1]]
+
+    flatHistory1 = history1.flatten()
+    flatHistory2 = history2.flatten()
+
+    return np.dot(flatHistory1, flatHistory2)/\
+        (np.linalg.norm(flatHistory1)*np.linalg.norm(flatHistory2))
+
+def extractUniquePixels(arr):
+    swappedArr = np.swapaxes(np.swapaxes(arr, 0, 1), 1, 2)
+
+    listOfGoodPixels = []
+
+    for i in range(swappedArr.shape[0]):
+        print(i, "/", swappedArr.shape[0])
+        for j in range(swappedArr.shape[1]):
+            pixel = swappedArr[i][j]
+
+            pixelStdev = np.std(pixel, axis=0)
+
+            if average(pixelStdev) > 30:
+                listOfGoodPixels.append((i,j))
+
+#    for pixel in listOfGoodPixels:
+#        p.plot(pixel[0], pixel[1], "bo")
+#    p.show()
+
+    listOfUniquePixels = []
+
+    print(len(listOfGoodPixels))
+
+#    print(listOfGoodPixels)
+
+    for i, pixel in enumerate(listOfGoodPixels):
+        smallestDistance = 1e10
+        nearestPixel = None
+
+        if i % 1000 == 0:
+            print(i, "/", len(listOfGoodPixels), len(listOfUniquePixels))
+
+        unique = True
+
+        for uniquePixel in listOfUniquePixels[-2000:]:
+#            print(pixel, uniquePixel, distanceBetween(pixel, uniquePixel))
+            if distanceBetween(pixel, uniquePixel) <= 8:            
+                angle = pixelAngle(swappedArr, pixel, uniquePixel)
+#                print(angle)
+                if angle > 0.99:
+                    unique = False
+
+#        print(unique)
+
+        if unique:
+            listOfUniquePixels.append(pixel)
+
+
+#        if nearestPixel == None:        
+#            listOfUniquePixels.append(pixel)
+#        else:
+#            print(angle)
+
+#            if angle < 0.9:
+#                listOfUniquePixels.append(pixel)
+
+    print(len(listOfUniquePixels))
+
+#    listOfPixelHistories = []
+
+#    for pixel in listOfUniquePixels:
+#        listOfPixelHistories.append(swappedArr[pixel[0]][pixel[1]])
+
+#    for pixel in listOfUniquePixels:
+#        p.plot(pixel[0], pixel[1], "bo")
+#    p.show()   
+
+    return listOfUniquePixels
 
 if __name__ == "__main__":
 
@@ -2029,3 +2192,162 @@ if __name__ == "__main__":
             [(5, False), (10, False), (10, False), (1, False)], \
             "fan_darpa_longer", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False)     
+
+    if darpa_iphone_fan:
+        path = "/Users/adamyedidia/DARPA_demo/C0278.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "0:38"
+        START_TIME = "0:00"        
+        END_TIME = "0:38"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(5, False), (10, False), (10, False), (1, False)], \
+            "darpa_iphone_fan", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)     
+
+
+    if darpa_mannequin:
+        path = "/Users/adamyedidia/DARPA_demo/C0281.MP4"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "0:38"
+        START_TIME = "0:00"        
+        END_TIME = "0:38"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(5, False), (10, False), (10, False), (1, False)], \
+            "mannequin_darpa", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)     
+
+    if particle_vid:
+        path = "/Users/adamyedidia/walls/src/IMG_0864.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "0:29"
+        START_TIME = "0:00"        
+        END_TIME = "0:06"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(1, False), (3, False), (3, False), (1, False)], \
+            "particle_vid", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)     
+
+    if sidewalk:
+        path = "/Users/adamyedidia/walls/src/python3_files/sidewalk.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "0:38"
+        START_TIME = "0:15"        
+        END_TIME = "0:25"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(1, False), (3, False), (3, False), (1, False)], \
+            "sidewalk_vid", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False)             
+
+    if lion_king_bottle:
+        path = "/Users/adamyedidia/walls/src/python3_files/lion_king.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "4:08"
+        START_TIME = "0:05"        
+        END_TIME = "4:00"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+#        print(firstFrame.shape)
+
+        processVideoCheap(vid, VIDEO_TIME, \
+            [(3, False), (10, False), (10, False), (1, False)], \
+            "lion_king", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False, minX=20, maxX=87, minY=42, maxY=191)             
+
+    if lion_king_bottle_sparsified:
+        path = "/Users/adamyedidia/walls/src/python3_files/lion_king.m4v"
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "4:08"
+        START_TIME = "0:05"        
+        END_TIME = "4:00"
+
+        sampleStart = "0:15"
+        sampleEnd = "0:30"
+
+        numFrames = len(vid)
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        firstFrameSample = getFrameAtTime(sampleStart, VIDEO_TIME, numFrames)
+        lastFrameSample = getFrameAtTime(sampleEnd, VIDEO_TIME, numFrames)
+
+        multiple = 1
+
+#        print(firstFrame.shape)
+
+        arr = processVideoCheap(vid, VIDEO_TIME, \
+            [(3, False), (multiple, False), (multiple, False), (1, False)], \
+            "lion_king", magnification=1, firstFrame=firstFrameSample, lastFrame=lastFrameSample, 
+            toVideo=False, minX=int(200/multiple), maxX=int(870/multiple), minY=int(420/multiple), maxY=int(1910/multiple), returnSomething=True)             
+
+        pixelLocs = extractUniquePixels(arr)
+
+        pickle.dump(pixelLocs, open("unique_pixels_lion_king.p", "wb"))
+
+    if lion_king_bottle_build_array:
+        path = "/Users/adamyedidia/walls/src/python3_files/lion_king.m4v"
+        vid = imageio.get_reader(path, 'ffmpeg')
+
+        listOfPixels = pickle.load(open("unique_pixels_lion_king.p", "rb"))
+        numFrames = len(vid)
+
+#        for i,pixel in enumerate(listOfPixels[:3000]):
+#            print(i)
+#            p.plot(pixel[0], pixel[1], "bo")
+#        p.show()
+
+        vid = imageio.get_reader(path, 'ffmpeg')
+        
+        VIDEO_TIME = "4:08"
+        START_TIME = "0:20"        
+        END_TIME = "0:22"
+
+        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+
+        processVideoCheapWithPixels(vid, listOfPixels, VIDEO_TIME, \
+            [(3, False), (1, False), (1, False), (1, False)], \
+            "lion_king_1", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            toVideo=False, minX=200, maxX=870, minY=420, maxY=1910, returnSomething=False)             
+
+

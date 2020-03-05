@@ -879,7 +879,7 @@ if __name__ == "__main__":
 
 	if TSNE_JUMBLED:
 
-	#	originalVid = pickle.load(open("steven_batched_coarse.p", "r"))
+#		originalVid = pickle.load(open("steven_batched_coarse.p", "rb"))
 	#	originalVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
 	#	originalVid = pickle.load(open("circle_batched_ds.p", "r"))
 	#	originalVid = np.array(pickle.load(open("glass_rose.p", "r")))
@@ -887,8 +887,10 @@ if __name__ == "__main__":
 	#	originalVid = pickle.load(open("circle_carlsen_nowrap_vid.p", "r"))	
 	#	originalVid = pickle.load(open("circle_square_vid.p", "r"))
 	#	originalVid = pickle.load(open("circle_carlsen_vid.p", "r"))
-		originalVid = pickle.load(open("obama_long.p", "r"))
-	#	jumbledVid = pickle.load(open("steven_batched_coarse_jumbled.p", "r"))
+	#	originalVid = pickle.load(open("obama_long.p", "r"))
+		originalVid = pickle.load(open("lion_king_1.p", "rb"))
+		jumbledVid = pickle.load(open("lion_king_1.p", "rb"))
+#		jumbledVid = pickle.load(open("steven_batched_coarse_jumbled.p", "rb"))
 	#	jumbledVid = pickle.load(open("steven_batched_coarse.p", "r"))
 	#	jumbledVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
 	#	jumbledVid = pickle.load(open("circle_batched_ds.p", "r"))
@@ -906,7 +908,7 @@ if __name__ == "__main__":
 	#	jumbledVid = pickle.load(open("obama_batched_meansub_abs_coloravg.p", "r"))
 	#	jumbledVid = pickle.load(open("obama_batched.p", "r"))
 #		jumbledVid = pickle.load(open("obama_long.p", "r"))
-		jumbledVid = pickle.load(open("obama_long_timeblur.p", "r"))
+	#	jumbledVid = pickle.load(open("obama_long_timeblur.p", "r"))
 
 	#	print jumbledVid.shape
 
@@ -925,6 +927,7 @@ if __name__ == "__main__":
 		flatVid = np.reshape(jumbledVid, (numFrames, frameDims[0]*frameDims[1], 3))
 
 		colorStackedVid = np.reshape(np.swapaxes(jumbledVid, 1, 3), (numFrames*3, frameDims[0]*frameDims[1]))
+
 #		colorStackedVid = np.reshape(np.swapaxes(originalVid, 1, 3), (numFrames*3, frameDims[0]*frameDims[1]))
 
 	#	print colorStackedVid.shape
@@ -985,7 +988,7 @@ if __name__ == "__main__":
 	#		xBounds=[0,80], yBounds=[55,85])
 
 
-		pickle.dump(recoveredVid, open("recovered_vid.p", "w"))
+		pickle.dump(recoveredVid, open("recovered_vid.p", "wb"))
 
 	#		viewFrame(diffFrame)
 	#		viewFrame(obs, adaptiveScaling=True)
@@ -1196,8 +1199,8 @@ if __name__ == "__main__":
 	#		viewFrame(recovery, adaptiveScaling=True)
 
 	if SVDS:
-	#	vid = pickle.load(open("steven_batched_coarse.p", "r"))
-		vid = pickle.load(open("fan_rect.p"))
+		vid = pickle.load(open("circle_carlsen_nowrap_vid_python3friendly.p", "rb"))
+	#	vid = pickle.load(open("fan_rect.p"))
 		frameShape = vid[0].shape
 		print(frameShape)
 
@@ -1243,8 +1246,9 @@ if __name__ == "__main__":
 
 	if TSNE_JUMBLED_SVD:
 
-		originalVid = pickle.load(open("glass_rose.p", "r"))
+#		originalVid = pickle.load(open("glass_rose.p", "r"))
 	#	jumbledVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
+		originalVid = pickle.load(open("steven_batched_python3friendly.p", "rb"))
 
 		transferMat = np.transpose(pickle.load(open("glass_rose_xfer_sv.p", "r")))
 

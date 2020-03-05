@@ -1002,3 +1002,4 @@ if __name__ == "__main__":
             rectifiedVideo.append(rectifiedArr)
 
         pickle.dump(np.array(rectifiedVideo), open("darpa_vid_2_rect.p", "w"))
+

@@ -1,11 +1,11 @@
-
+from scipy.optimize import fmin_bfgs 
 import numpy as np
 import sys
 import matplotlib.pyplot as p
 import matplotlib.patches as mpatches
 from search import randomBits, randomGreedySearch, \
     randomGreedySearchReturnAllSteps
-from math import log, sqrt, pi, floor, exp, cos, sin, ceil, atan
+from math import log, sqrt, pi, floor, exp, cos, sin, ceil, atan, atan2, asin
 import pickle
 import string
 from scipy.linalg import dft, circulant, hadamard, toeplitz, hankel
@@ -19,7 +19,11 @@ from sklearn.decomposition import PCA
 from scipy.stats import linregress
 from custom_plot import createCMapDictHelix, LogLaplaceScale
 from matplotlib.colors import LinearSegmentedColormap
+from import_1dify import fuzzyLookup2D  
 import pylab
+import os
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import svm
 
 #n = int(sys.argv[1])
 
@@ -102,7 +106,38 @@ CHECKERBOARD_FUNC_SATELLITES = False
 RANDOM_FUNC_SATELLITES = False
 PHASE_ANALYSIS = False
 VIEW_BRENT_FREQS = False
-MAKE_CIRC_MOVIE = True
+MAKE_CIRC_MOVIE = False
+VIEW_LANDSCAPE = False
+VIEW_GRAMS = False
+GRADIENT_DESCENT = False
+BRUTE_FORCE_0_05_1 = False
+BRUTE_FORCE_0_05_1_2 = False
+LINEAR_RELATIONSHIP = False
+SEGMENTED_SEARCH = False
+LINEAR_COMPARE = False
+VIEW_FREQ_HIST_BRENT = False
+GREEDY_SQUARES = False
+VIEW_FREQ_HIST = False
+DEPTH_OPT = False
+BEST_RECT_TOEP = False
+SQUISH_TEST = False
+SQUISH_TEST_2 = False
+SINGULAR_VALUES = False
+CHARLIE_PRIOR = False
+MAXIMIZE_RECT_MAT = False
+MAXIMIZE_RECT_MAT_2 = False
+MAXIMIZE_RECT_MAT_3 = False
+SEMICIRCLE_OCC = False
+GANESH_POWER_OF_2 = False
+LOOK_AT_PRIMES = False
+PRIME_PREDICTION_0 = False
+PRIME_PREDICTION_1 = False
+PRIME_PREDICTION_2 = False
+PRIME_PREDICTION_3 = False
+COMPLEX_OPT = False
+COMPLEX_OPT_2 = False
+COMPLEX_OPT_3 = False
+COMPLEX_OPT_4 = False
 
 def triangleFunc(x):
     return x
@@ -138,6 +173,25 @@ def fac(n):
 def choose(n, r):
     return fac(n)/(fac(r)*(fac(n-r)))
 
+def gaussianBlurMatrix(n, sigma):
+    returnMat = []
+
+    for i in range(n):
+        returnMat.append([])
+
+        for j in range(n):
+            returnMat[-1].append(exp(-(i-j)**2/sigma**2))
+
+    return np.array(returnMat)
+
+def gaussianBlurVec(n, sigma):
+    returnVec = []
+
+    for i in range(n):
+        returnVec.append(exp(-(i-n/2)**2/sigma**2))
+
+    return np.array(returnVec)
+
 def getBinaryStringWithKOnes(n, k):
     returnList = [0]*n
 
@@ -153,6 +207,21 @@ def getRandomKNeighbor(vertex, k):
 
     return listXor(vertex, diffs)
 
+def squishMatrix(mat, newShape):
+    matShape = mat.shape
+
+    xs = np.linspace(0, matShape[0]-1, newShape[0])
+    ys = np.linspace(0, matShape[1]-1, newShape[1])
+
+    returnMat = []
+
+    for x in xs:
+        returnMat.append([])
+        for y in ys:
+            returnMat[-1].append(fuzzyLookup2D(mat, x, y))
+
+    return np.array(returnMat)
+
 def quadResidue(a, p):
 #    modExpResult = modularExponentiation(a, (p-1)/2, p)
     modExpResult = pow(a, int((p-1)/2), p)
@@ -162,7 +231,7 @@ def quadResidue(a, p):
     if modExpResult == -1 or modExpResult == p - 1:
         return False
 #    print modExpResult   
-    print("WARNING")
+#    print("WARNING")
     if random.random() > 0.5:
         return True
     return False
@@ -174,6 +243,9 @@ def listSum(listOfLists):
         returnList += l
 
     return returnList
+
+def rewardForList(arr):
+    return -logDetCircEfficient(arr/np.max(np.abs(arr)))
 
 def quartResidue(a, p):
     if quadResidue(a, p):
@@ -307,6 +379,43 @@ def ura(n):
             returnSequence.append(0)
 
     return returnSequence
+
+def uraFancy(n):
+    returnSequence = []
+
+    for i in range(n):
+        if i == 0:
+            if n % 4 == 1:
+                returnSequence.append(0.5)
+            else:
+                returnSequence.append(1)
+        elif quadResidue(i, n):
+            returnSequence.append(1)
+        else:
+            returnSequence.append(0)
+
+    return returnSequence
+
+def uraFancyWithPadding(n):
+    returnSequence = []
+
+    if isPrime(n):
+        for i in range(n):
+            if i == 0:
+                if n % 4 == 1:
+                    returnSequence.append(0.5)
+                else:
+                    returnSequence.append(1)
+            elif quadResidue(i, n):
+                returnSequence.append(1)
+            else:
+                returnSequence.append(0)
+    else:
+        return uraFancyWithPadding(n-1) + [1]
+
+
+    return returnSequence
+
 
 def generalizedURA(n, identityValue, listOfPrimes, mode="oneZero"):
 
@@ -649,9 +758,23 @@ def evaluate2DOccluder(arr):
 def logDetCircEfficient(l):
     f = np.fft.fft(l)
 
+
     returnSum = 0
 
     for eig in f:
+        if abs(eig) <= 0:
+            return -1e10
+
+        returnSum += log(abs(eig))
+
+    return returnSum
+
+def logDetCircEfficientIgnoreDC(l):
+    f = np.fft.fft(l)
+
+    returnSum = 0
+
+    for eig in f[1:]:
         if abs(eig) <= 0:
             return -1e10
 
@@ -933,6 +1056,20 @@ def isPrime(n):
     else:
         return True
 
+def numDistinctPrimeFactors(n):
+    returnVal = 1
+
+    for i in range(2, int(floor(sqrt(n)))+1):
+        if isPrime(i) and n % i == 0:
+            returnVal += 1
+
+    return returnVal
+
+def smallestPrimeFactor(n):
+    for i in range(2, n+1):
+        if isPrime(i) and n % i == 0:
+            return i           
+
 def makeRandomPlausiblePhases(n):
     returnList = [0]
 
@@ -1078,6 +1215,17 @@ def allListsOfSizeX(x):
         oneLess = allListsOfSizeX(x-1)
         return [i + [0] for i in oneLess] + [i + [1] for i in oneLess]
 
+def allListsOfSizeXFromGivenChoices(x, choices):
+    if x == 0:
+        return [[]]
+
+    else:
+        oneLess = allListsOfSizeXFromGivenChoices(x-1, choices)
+        returnList = []
+        for choice in choices: 
+            returnList.extend([i + [choice] for i in oneLess])
+        return returnList
+
 def allListsOfSizeXPlusMinusOne(x):
     if x == 0:
         return [[]]
@@ -1124,13 +1272,16 @@ def getMaxLineMatrix(x):
 
     return bestMats, bestLists, bestDet
 
-def decToBin(num, binLength):
+def decToBin(num, binLength, zeroOne=True):
     if binLength == 0:
         return []
 
     else:
         lastBit = num % 2
-        return decToBin(num >> 1, binLength - 1) + [lastBit]
+        if not zeroOne:
+            lastBit = int(2*(lastBit - 0.5))
+
+        return decToBin(num >> 1, binLength - 1, zeroOne) + [lastBit]
 
 def inflateList(x, newLength):
     return [x[int(i/newLength*len(x))] for i in range(newLength)]
@@ -1508,6 +1659,50 @@ def getToeplitzLikeTransferMatrixWithVariedDepth(occluder, d1, d2):
         returnArray.append(snapshot)
 
     return np.flip(np.transpose(np.array(returnArray)), 0)
+
+def getDepthPerceptionMatrix(occ, occluderDepth, sceneDepth):
+
+#    sceneDepths = np.linspace(occluderDepth+0.5, occluderDepth+sceneDepth-0.5, sceneDepth)
+#    occluderDepths = np.linspace(0.5, occluderDepth-0.5, occluderDepth)
+
+    sceneDepths = np.linspace(10, 10, sceneDepth)
+    occluderDepths = np.linspace(4, 6, occluderDepth)
+
+    listOfTransferMatrices = []
+
+    for i, occluderDepth in enumerate(occluderDepths):
+        listOfConcatMatrices = []
+
+        for sceneDepth in sceneDepths:
+            rawD1 = occluderDepth
+            rawD2 = sceneDepth
+
+            d1 = rawD1 / (rawD1 + rawD2)
+            d2 = rawD2 / (rawD1 + rawD2)
+
+            mat = getToeplitzLikeTransferMatrixWithVariedDepth(occ[i], d1, d2)
+
+            listOfConcatMatrices.append(mat)
+
+        concatMat = np.concatenate(listOfConcatMatrices, axis=1)
+
+#        p.matshow(concatMat)
+#        p.colorbar()
+#        p.show()
+
+        listOfTransferMatrices.append(concatMat)
+
+    returnMat = np.ones(concatMat.shape)
+
+    for concatMat in listOfTransferMatrices:
+        returnMat = np.multiply(returnMat, concatMat)
+
+#    p.matshow(returnMat)
+#    p.colorbar()
+#    p.show()    
+
+    return returnMat
+
 
 def getToeplitzRectMatrixWithVariedDepthExplicitIndices(occluder, n1, n2):
     returnArray = []
@@ -1909,6 +2104,264 @@ def evaluateEpsilonOptimizedMaker(aVec):
 
         return outerSumResult, (innerSumResult, newEpsVal)
     return evaluateEpsilonOptimized
+
+def rectangularToeplitz(vec, height, width):
+    assert height + width - 1 == len(vec)
+
+#    print(vec[:height][::-1])
+
+    return toeplitz(vec[:height][::-1], vec[height-1:])
+
+def curvedTransferMatrixMultiDepth(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth):
+#    curvedTransferMatrixSingleDepth(occ, curveFunc, curveFuncPrime, sceneDepths[0], sceneWidth, obsWidth, plotStuff=True)
+
+    return np.concatenate([curvedTransferMatrixSingleDepth(occ, curveFunc, curveFuncPrime, sceneDepth, sceneWidth, obsWidth) for \
+        sceneDepth in sceneDepths], 1)
+
+def curvedTransferMatrixSingleDepth(occ, curveFunc, curveFuncPrime, sceneDepth, sceneWidth, obsWidth, plotStuff=False):
+    sceneXs = np.linspace(-sceneWidth, sceneWidth, sceneWidth)
+    obsXs = np.linspace(-obsWidth, obsWidth, sceneWidth)
+
+    returnArray = []
+    dots = []
+
+    for i,sceneX in enumerate(sceneXs):
+        returnArray.append([])
+        for obsX in obsXs:
+            sceneLoc = np.array([sceneX, sceneDepth])
+            obsLoc = np.array([obsX, -sqrt(obsWidth**2-obsX**2)])
+
+            x1 = sceneX
+            y1 = sceneDepth
+
+            x2 = obsX
+#            y2 = -sqrt(obsWidth**2-obsX**2)
+            y2 = curveFunc(obsX/obsWidth)
+
+            if i == 0 and plotStuff:
+                p.plot(x2, y2, "bo")
+
+
+            m = (y2 - y1)/(x2 - x1)
+            b = (y1*x2 - y2*x1)/(x2 - x1)
+
+#            print(y1, m * x1 + b)
+#            print(y2, m * x2 + b)
+
+            x0 = -b/m
+
+            occIndex = (x0 + obsWidth) / (2 * obsWidth) * (len(occ) - 1)
+
+            if occIndex < 0 or occIndex > len(occ) - 1:
+                occlusion = 1
+
+            else:
+                occlusion = fuzzyLookup(occ, occIndex)
+
+#            obsAngle = asin(obsX/obsWidth)
+            obsAngle = atan(curveFuncPrime(obsX/obsWidth))
+            angleFromScene = atan2(y1 - y2, x1 - x2) - pi/2
+
+#            print(obsAngle, angleFromScene)
+
+            cosineFactor = max(cos(obsAngle - angleFromScene), 0)
+#            print(sceneX, obsX, occlusion, cosineFactor)
+#            print("")
+
+            distanceFactor = 1/sqrt((x1-x2)**2 + (y1-y2)**2)
+
+            returnArray[-1].append(cosineFactor * occlusion * distanceFactor)
+        
+#        print(i)
+        if i == 0 and plotStuff:
+            p.show()
+
+    return np.transpose(np.array(returnArray))
+
+def semicircleTransferMatrixMultiDepth(occ, sceneDepths, sceneWidth, obsWidth):
+    return np.concatenate([semicircleTransferMatrixSingleDepth(occ, sceneDepth, sceneWidth, obsWidth) for \
+        sceneDepth in sceneDepths], 1)
+
+def semicircleTransferMatrixSingleDepth(occ, sceneDepth, sceneWidth, obsWidth):
+    sceneXs = np.linspace(-sceneWidth, sceneWidth, sceneWidth)
+    obsXs = np.linspace(-obsWidth, obsWidth, sceneWidth)
+
+    returnArray = []
+
+    for sceneX in sceneXs:
+        returnArray.append([])
+        for obsX in obsXs:
+            sceneLoc = np.array([sceneX, sceneDepth])
+            obsLoc = np.array([obsX, -sqrt(obsWidth**2-obsX**2)])
+
+            x1 = sceneX
+            y1 = sceneDepth
+
+            x2 = obsX
+            y2 = -sqrt(obsWidth**2-obsX**2)
+#            y2 = curveFunc(obsX/obsWidth)
+
+
+            m = (y2 - y1)/(x2 - x1)
+            b = (y1*x2 - y2*x1)/(x2 - x1)
+
+#            print(y1, m * x1 + b)
+#            print(y2, m * x2 + b)
+
+            x0 = -b/m
+
+            occIndex = (x0 + obsWidth) / (2 * obsWidth) * (len(occ) - 1)
+
+            if occIndex < 0 or occIndex > len(occ) - 1:
+                occlusion = 1
+
+            else:
+                occlusion = fuzzyLookup(occ, occIndex)
+
+            obsAngle = asin(obsX/obsWidth)
+#            obsAngle = atan(curveFuncPrime(obsX/obsWidth))
+            angleFromScene = atan2(y1 - y2, x1 - x2) - pi/2
+
+#            print(obsAngle, angleFromScene)
+
+            cosineFactor = max(cos(obsAngle - angleFromScene), 0)
+#            print(sceneX, obsX, occlusion, cosineFactor)
+
+            distanceFactor = 1/sqrt((x1-x2)**2 + (y1-y2)**2)
+
+            returnArray[-1].append(cosineFactor * occlusion * distanceFactor)
+
+    return np.transpose(np.array(returnArray))
+
+            #y1 = m x1 + b
+            #y2 = m x2 + b
+            #b/x1 = y1/x1 - m
+            #b/x2 = y2/x2 - m 
+            #b/x1 - b/x2 = y1/x1 - y2/x2
+            #x2 b - x1 b = y1x2 - y2x1
+            #b (x2 - x1) = y1x2 - y2x1
+
+            #m = (y2 - y1)/(x2 - x1)
+            #b = (y1x2 - y2x1)/(x2 - x1)
+
+def makeSceneSetupPicture(sceneXs, sceneDepths):
+    for sceneDepth in sceneDepths:
+        for sceneX in sceneXs:
+            p.plot(sceneX, sceneDepth, "ro")
+
+def makeOccSetupPicture(occ, obsWidth):
+    occStartAndStops = np.linspace(-obsWidth, obsWidth, len(occ)+1)
+
+    for i, val in enumerate(occ):
+        if val == 0:
+            p.plot([occStartAndStops[i], occStartAndStops[i+1]], [0,0], "k-")
+
+def makeObsSetupPicture(curveFunc, obsWidth, sceneWidth):
+    obsXs = np.linspace(-obsWidth-obsWidth/sceneWidth, obsWidth+obsWidth/sceneWidth, sceneWidth+1)
+
+    for i in range(sceneWidth):
+        obsX1 = obsXs[i]
+        obsY1 = curveFunc(obsX1)
+        obsX2 = obsXs[i+1]
+        obsY2 = curveFunc(obsX2)
+
+        p.plot([obsX1, obsX2], [obsY1, obsY2], "b-")
+
+
+def makeCurveSetupPicture(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth):
+    sceneXs = np.linspace(-sceneWidth, sceneWidth, sceneWidth)
+    makeSceneSetupPicture(sceneXs, sceneDepths)
+    makeOccSetupPicture(occ, obsWidth)
+    makeObsSetupPicture(curveFunc, obsWidth, sceneWidth)
+    p.show()
+
+    makeOccSetupPicture(occ, obsWidth)
+    makeObsSetupPicture(curveFunc, obsWidth, sceneWidth)
+    p.show()    
+
+def makeFlatSetupPicture(occ, sceneDepths, sceneWidth, obsWidth):
+    sceneXs = np.linspace(-sceneWidth, sceneWidth, sceneWidth)
+    makeSceneSetupPicture(sceneXs, sceneDepths)
+    makeOccSetupPicture(occ, obsWidth)
+    makeObsSetupPicture(lambda x: -obsWidth, obsWidth, sceneWidth)
+    p.show()
+
+    makeOccSetupPicture(occ, obsWidth)
+    makeObsSetupPicture(lambda x: -obsWidth, obsWidth, sceneWidth)
+    p.show()    
+
+def flatTransferMatrixMultiDepth(occ, sceneDepths, sceneWidth, obsWidth):
+    return np.concatenate([flatTransferMatrixSingleDepth(occ, sceneDepth, sceneWidth, obsWidth) for \
+        sceneDepth in sceneDepths], 1)
+
+def flatTransferMatrixSingleDepth(occ, sceneDepth, sceneWidth, obsWidth):
+    sceneXs = np.linspace(-sceneWidth, sceneWidth, sceneWidth)
+    obsXs = np.linspace(-obsWidth, obsWidth, sceneWidth)
+
+    returnArray = []
+
+    for sceneX in sceneXs:
+        returnArray.append([])
+        for obsX in obsXs:
+            sceneLoc = np.array([sceneX, sceneDepth])
+            obsLoc = np.array([obsX, -sqrt(obsWidth**2-obsX**2)])
+
+            x1 = sceneX
+            y1 = sceneDepth
+
+            x2 = obsX
+#            y2 = -sqrt(obsWidth**2-obsX**2)
+            y2 = -obsWidth
+
+            m = (y2 - y1)/(x2 - x1)
+            b = (y1*x2 - y2*x1)/(x2 - x1)
+
+#            print(y1, m * x1 + b)
+#            print(y2, m * x2 + b)
+
+            x0 = -b/m
+
+            occIndex = (x0 + obsWidth) / (2 * obsWidth) * (len(occ) - 1)
+
+            if occIndex < 0 or occIndex > len(occ) - 1:
+                occlusion = 1
+
+            else:
+                occlusion = fuzzyLookup(occ, occIndex)
+
+#            obsAngle = asin(obsX/obsWidth)
+            obsAngle = 0
+            angleFromScene = atan2(y1 - y2, x1 - x2) - pi/2
+
+#            print(obsAngle, angleFromScene)
+
+            cosineFactor = max(cos(obsAngle - angleFromScene), 0)
+#            print(sceneX, obsX, occlusion, cosineFactor)
+
+            distanceFactor = 1/sqrt((x1-x2)**2 + (y1-y2)**2)
+
+            returnArray[-1].append(cosineFactor * occlusion * distanceFactor)
+
+    return np.transpose(np.array(returnArray))
+
+def softLog(x):
+    if x <= 0:
+        return -1e10
+    else:
+        return log(x)
+
+def unitVec(phase):
+    return np.exp(phase*1j)
+
+def realValMaker(phases):
+    def realVal(l):
+        val = np.sum(np.vectorize(signedLog)( \
+            [projectComplex(i, p) for i, p in zip(np.fft.fft([unitVec(x) for x in l]), phases)]))
+
+        return val
+
+    return realVal
+
 
 if __name__ == "__main__":
 
@@ -2716,8 +3169,8 @@ if __name__ == "__main__":
     #    ax.grid(xdata=np.array(np.linspace(-0.5,11.5,12)))
     #    ax.grid(ydata=np.array(np.linspace(-0.5,11.5,12)))
 
-        first = False
-        second = True
+        first = True
+        second = False
 
         if first:
 
@@ -3727,17 +4180,17 @@ if __name__ == "__main__":
         BRENT_DECIMAL_SIZES = list(range(21, 48))
 
         brentBinaryList = [[int(j) for j in list(i)] for i in \
-            string.split(BRENT_BINARY_STRING, ",")]
+            BRENT_BINARY_STRING.split(",")]
 
         brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
-            enumerate(string.split(BRENT_DECIMAL_STRING, ","))]
+            enumerate(BRENT_DECIMAL_STRING.split(","))]
 
         greedySearchList = []
 
         def evalFunc(l):
             return sum([log(np.abs(i)+EPS) for i in np.fft.fft(l)]), 0
 
-        for j in range(1, 47):
+        for j in range(1, maxN):
             initList = [1*(random.random()>0.5) for _ in range(j)]
 
             opt = randomGreedySearch(initList, evalFunc, maxOrMin="max")
@@ -3746,26 +4199,70 @@ if __name__ == "__main__":
             print(j)
 
         overallList = brentBinaryList + brentDecimalList
-        randomList = [[1*(random.random()>0.5) for _ in range(j)] for j in range(maxN)]
+        randomList = [[1*(random.random()>0.5) for _ in range(j)] for j in range(1,maxN)]
+#        print(randomList)
+#        print(overallList)
+        uraList = [uraFancyWithPadding(j) for j in range(1,maxN)]
+
+        print(uraList)
     #    print randomList[2]
         j = 2
     #    print [log(np.abs(i)) for i in np.fft.fft(randomList[j])]
 
-        bestVals = [sum([log(np.abs(i)) for i in np.fft.fft(overallList[j])]) for j in range(1, maxN)]
-        randomVals = [sum([log(np.abs(i)+EPS) for i in np.fft.fft(randomList[j])]) for j in range(1, maxN)]
+        bestVals = [sum([log(np.abs(i)) for i in np.fft.fft(overallList[j])]) for j in range(maxN-1)]
+#        bestVals = [sum([log(np.abs(i)) for i in np.fft.fft(overallList[j])]) for j in range(1, maxN)]
+        randomVals = [sum([log(np.abs(i)+EPS) for i in np.fft.fft(randomList[j])]) for j in range(maxN-1)]
         searchedVals = [sum([log(np.abs(i)+EPS) for i in np.fft.fft(greedySearchList[j])]) for j in range(maxN-1)]
+        uraVals = [sum([log(np.abs(i)+EPS) for i in np.fft.fft(uraList[j])]) for j in range(maxN-1)]
+
+        def zeroOneHadamardBound(n):
+            return 2**(-n) * (n+1)**((n+1)/2)
+
+        def logZeroOneHadamardBound(n):
+            return -n*log(2) + ((n+1)/2)*log(n+1)
+#        def logZeroOneHadamardBound(n):
+#            return log(zeroOneHadamardBound(n))
 
 
-        p.plot(list(range(1, maxN)), bestVals)
-        p.plot(list(range(1, maxN)), randomVals)
-        p.plot(list(range(1, maxN)), searchedVals)
+        p.plot(list(range(1, maxN)), bestVals, label="best")
+        p.plot(list(range(1, maxN)), randomVals, label="random")
+        p.plot(list(range(1, maxN)), searchedVals, label="greedy search")
+        p.plot(list(range(1, maxN)), uraVals, label="uras")
+        p.plot(list(range(1, maxN)), [logZeroOneHadamardBound(i) for i in range(1, maxN)], label="upper bound")
+        p.legend()
         p.show()
+
+        p.plot(list(range(2, maxN)), [bestVals[i-1]/(i*log(i)/log(2)) for i in range(2,maxN)], label="best")
+        p.plot(list(range(2, maxN)), [randomVals[i-1]/(i*log(i)/log(2)) for i in range(2,maxN)], label="random")
+        p.plot(list(range(2, maxN)), [searchedVals[i-1]/(i*log(i)/log(2)) for i in range(2,maxN)], label="greedy search")
+        p.plot(list(range(2, maxN)), [uraVals[i-1]/(i*log(i)/log(2)) for i in range(2,maxN)], label="uras")
+        p.plot(list(range(2, maxN)), [logZeroOneHadamardBound(i)/(i*log(i)/log(2)) for i in range(2, maxN)], label="upper bound")
+        p.legend()
+        p.show()
+
+        p.plot(list(range(2, maxN)), [bestVals[i-1]/logZeroOneHadamardBound(i) for i in range(2,maxN)], label="best")
+        p.plot(list(range(2, maxN)), [randomVals[i-1]/logZeroOneHadamardBound(i) for i in range(2,maxN)], label="random")
+        p.plot(list(range(2, maxN)), [searchedVals[i-1]/logZeroOneHadamardBound(i) for i in range(2,maxN)], label="greedy search")
+        p.plot(list(range(2, maxN)), [uraVals[i-1]/logZeroOneHadamardBound(i) for i in range(2,maxN)], label="uras")
+        p.plot(list(range(2, maxN)), [1 for i in range(2, maxN)], label="upper bound")
+        p.legend()
+        p.show()
+
+        p.plot(list(range(2, maxN)), [bestVals[i-1]-logZeroOneHadamardBound(i) for i in range(2,maxN)], label="best")
+        p.plot(list(range(2, maxN)), [randomVals[i-1]-logZeroOneHadamardBound(i) for i in range(2,maxN)], label="random")
+        p.plot(list(range(2, maxN)), [searchedVals[i-1]-logZeroOneHadamardBound(i) for i in range(2,maxN)], label="greedy search")
+        p.plot(list(range(2, maxN)), [uraVals[i-1]-logZeroOneHadamardBound(i) for i in range(2,maxN)], label="uras")
+        p.plot(list(range(2, maxN)), [0 for i in range(2, maxN)], label="upper bound")
+        p.legend()
+        p.show()
+
+
 
         print(bestVals)
 
     if COMPARE_RANDOM_2:
         
-        n = 250
+        n = 47
 
 #        _, listOfPrimes = sieveOfEratosthenes(n)
         listOfPrimes = list(range(n))
@@ -3802,9 +4299,9 @@ if __name__ == "__main__":
         j = 2
     #    print [log(np.abs(i)) for i in np.fft.fft(randomList[j])]
 
-        pickle.dump(bestList, open("bestlist.p", "w"))
-        pickle.dump(randomList, open("randomlist.p", "w"))
-        pickle.dump(greedyList, open("greedylist.p", "w"))
+        pickle.dump(bestList, open("bestlist.p", "wb"))
+        pickle.dump(randomList, open("randomlist.p", "wb"))
+        pickle.dump(greedyList, open("greedylist.p", "wb"))
 
         bestVals = [sum([log(np.abs(i)) for i in np.fft.fft(j)]) for j in bestList]
         randomVals = [sum([log(np.abs(i)+EPS) for i in np.fft.fft(j)]) for j in randomList]
@@ -4520,17 +5017,17 @@ if __name__ == "__main__":
         BRENT_DECIMAL_SIZES = list(range(21, 48))
 
         brentBinaryList = [[int(j) for j in list(i)] for i in \
-            string.split(BRENT_BINARY_STRING, ",")]
+            BRENT_BINARY_STRING.split(",")]
 
         brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
-            enumerate(string.split(BRENT_DECIMAL_STRING, ","))]
+            enumerate(BRENT_DECIMAL_STRING.split(","))]
 
         overallList = brentBinaryList + brentDecimalList
 
     #        brentString = "000100110101111"
     #        brentString = "0010111"
 
-        brentString = overallList[44]
+        brentString = overallList[45]
 
         freqs = np.fft.fft(brentString)    
 
@@ -4573,5 +5070,1712 @@ if __name__ == "__main__":
 
             viewFrequencies(freqs, filename="freq_vid_2/frame_" + padIntegerWithZeros(i, \
                 3) + ".png")
+
+    if VIEW_LANDSCAPE:
+        n = 23
+        i = random.randint(0, n-1)
+#        i = 0
+        j = random.randint(0, n-1)
+
+        randomSpot = [1*(random.random()<0.5) for _ in range(n)]
+#        randomSpot = [1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1]
+
+
+#        delta = 0.025
+#        x = y = np.linspace(-10,10,granularity)
+#        X, Y = np.meshgrid(x, y)
+#        Z1 = np.exp(-X**2 - Y**2)
+#        Z2 = np.exp(-(X - 1)**2 - (Y - 1)**2)
+ #       Z = (Z1 - Z2) * 2
+
+#        def valFunc(iVal, jVal):
+#            randomSpot[i] = iVal
+#            randomSpot[j] = jVal
+
+#            val = logDetCircEfficient(randomSpot)
+#
+#            return val
+
+#        Z = np.vectorize(valFunc)(X, Y)
+
+
+#        fig, ax = plt.subplots()
+ #       im = ax.imshow(Z, interpolation='bilinear', cmap=cm.RdYlGn,
+ #                      origin='lower', extent=[-3, 3, -3, 3],
+ #                      vmax=abs(Z).max(), vmin=-abs(Z).max())
+
+
+        granularity = 100
+
+        valMatrix = []
+
+        for iVal in np.linspace(-10,10,granularity):
+            valMatrix.append([])
+            randomSpot[i] = iVal
+
+            for jVal in np.linspace(-10,10,granularity):
+                randomSpot[j] = jVal
+                val = logDetCircEfficient(randomSpot)
+                valMatrix[-1].append(val)
+
+        p.matshow(valMatrix)
+        p.colorbar()
+        p.show()
+
+    if VIEW_GRAMS:
+        BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
+            "000101111,0000110111,00010110111,000110110111,0010111110111," + \
+            "00001011101111,000100110101111,0000101101110111,00000101101110111," + \
+            "000010011010101111,0000101011110011011,00000110110101110111"
+
+        BRENT_DECIMAL_STRING = "45999,117623,340831,843119,638287,957175,1796839," + \
+            "5469423,6774063,37463883,77446231,47828907,196303815,95151003," + \
+            "1324935477,1822895095,430812063,2846677239,10313700815,6269629671," + \
+            "26764629467,22992859983,92035379515,162368181483,226394696439," + \
+            "631304341299,4626135339999"
+
+        BRENT_DECIMAL_SIZES = list(range(21, 48))
+
+        brentBinaryList = [[int(j) for j in list(i)] for i in \
+            BRENT_BINARY_STRING.split(",")]
+
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
+            enumerate(BRENT_DECIMAL_STRING.split(","))]
+
+        overallList = brentBinaryList + brentDecimalList
+
+        l = overallList[7]
+#        l[0] = 0.000001
+  #      l[1] = 0.1
+#        l[3] = 0.000001
+ #       l[4] = 1.
+ #       l[5] = 0.9
+  #      l[6] = 1.
+#        print(l)
+        p.plot(np.abs(np.fft.fft(l)))
+        p.show()
+
+        A = circulant(l)
+#        print(logDetCircEfficientIgnoreDC(l))
+
+        J = np.ones(len(l))
+        G = np.dot((2*A - J).transpose(), (2*A - J))
+
+        p.matshow(G)
+        p.colorbar()
+        p.show()
+
+        sys.exit()
+
+        for l in overallList:
+            print(l)
+            A = circulant(l)
+            J = np.ones(len(l))
+            G = np.dot((2*A - J).transpose(), (2*A - J))
+
+            p.matshow(G)
+            p.colorbar()
+            p.show()
+
+    if GRADIENT_DESCENT:
+        BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
+            "000101111,0000110111,00010110111,000110110111,0010111110111," + \
+            "00001011101111,000100110101111,0000101101110111,00000101101110111," + \
+            "000010011010101111,0000101011110011011,00000110110101110111"
+
+        BRENT_DECIMAL_STRING = "45999,117623,340831,843119,638287,957175,1796839," + \
+            "5469423,6774063,37463883,77446231,47828907,196303815,95151003," + \
+            "1324935477,1822895095,430812063,2846677239,10313700815,6269629671," + \
+            "26764629467,22992859983,92035379515,162368181483,226394696439," + \
+            "631304341299,4626135339999"
+
+        BRENT_DECIMAL_STRING_PLUSMINUS_ONE = "0,0,1,1,1,1,11,11,11,11,39,83,83,83,359,691," + \
+            "1643,2215,9895,6483,67863,21095,72519,144791,108199,355463,604381,1289739," + \
+            "1611219,1680711,6870231,12817083,18635419,55100887,149009085,160340631"
+
+        BRENT_DECIMAL_SIZES = list(range(21, 48))
+
+        brentBinaryList = [[int(j) for j in list(i)] for i in \
+            BRENT_BINARY_STRING.split(",")]
+
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
+            enumerate(BRENT_DECIMAL_STRING.split(","))]
+
+        overallList = brentBinaryList + brentDecimalList
+
+        n = 46
+
+#        x0 = np.array([2*(random.random()<0.5)-1 \
+#            for _ in range(n)])
+
+        x0 = np.array([1*(random.random()<0.5) \
+            for _ in range(n)])
+
+
+        print(x0)
+        print(logDetCircEfficient(overallList[n-1]))
+
+        print(fmin_bfgs(rewardForList, x0))
+
+    if BRUTE_FORCE_0_05_1:
+
+        maxN = 17
+
+        def evalFunc1(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[:]])
+
+        def evalFunc2(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+        EPS = 1e-5
+
+        print(np.linalg.det(circulant([1,0,1,0,1,1])))
+        print(exp(logDetCircEfficient([1,0,1,0,1,1])))
+
+        for n in range(1,maxN+1):
+            allLists = allListsOfSizeXFromGivenChoices(n, [0,1])
+
+            bestVal = -float("Inf")
+            bestList = None
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc1(l)
+                if val > bestVal:
+                    bestVal = val
+                    bestList = l
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc1(l)
+                if val >= bestVal:
+                    print(l, exp(logDetCircEfficient(l)))
+
+#            print(n, bestList, exp(logDetCircEfficient(bestList)))
+
+    if BRUTE_FORCE_0_05_1_2:
+
+        maxN = 17
+
+        def evalFunc1(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+#            return sum([log(np.abs(i)+1e-10) for i in np.fft.fft(l)[:]])
+            return sum([np.abs(i) for i in np.fft.fft(l)[:]])
+
+        def evalFunc2(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+        EPS = 1e-5
+
+#        print(np.linalg.det(circulant([1,0,1,0,1,1])))
+#        print(exp(logDetCircEfficient([1,0,1,0,1,1])))
+
+        for n in range(1,maxN+1):
+            allLists = allListsOfSizeXFromGivenChoices(n, [0,0.01,0.99,1])
+
+            bestVal = -float("Inf")
+            bestList = None
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc1(l)
+                if val > bestVal:
+                    bestVal = val
+                    bestList = l
+
+            print(bestList, bestVal)
+
+#            for l in allLists:
+#                val = logDetCircEfficient(l)
+#                val = evalFunc1(l)
+#                if val >= bestVal:
+#                    print(l, exp(logDetCircEfficient(l)))
+
+#            print(n, bestList, exp(logDetCircEfficient(bestList)))
+
+    if LINEAR_RELATIONSHIP:
+
+        maxN = 17
+
+        def evalFunc1(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[:]])
+
+        def evalFunc2(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i)**2 for i in np.fft.fft(l)[1:]])
+
+        def evalFunc3(l):
+
+            return sum([np.real(i) + np.imag(i) for i in np.fft.fft(l)[1:]])
+
+
+        def evalFunc4Maker(l, listOfCoeffs):
+
+            return sum([listOfCoeffs[i][0] * np.real(i) + \
+                listOfCoeffs[i][1] * np.imag(i) for i in np.fft.fft(l)[1:]])
+
+
+        EPS = 1e-5
+
+        print(np.linalg.det(circulant([1,0,1,0,1,1])))
+        print(exp(logDetCircEfficient([1,0,1,0,1,1])))
+
+        interestingList = []
+
+        for n in range(1,maxN+1):
+            allLists = allListsOfSizeXFromGivenChoices(n, [0,1])
+
+            bestVal = -float("Inf")
+            bestList = None
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc2(l)
+                if val > bestVal:
+                    bestVal = val
+                    bestList = l
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc2(l)
+                if val >= bestVal-EPS:
+                    interestingList.append(l)
+
+            bestVal = -float("Inf")
+            bestList = None
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc2(l)
+                if val > bestVal:
+                    bestVal = val
+                    bestList = l
+
+            for l in allLists:
+#                val = logDetCircEfficient(l)
+                val = evalFunc2(l)
+                if val >= bestVal-EPS:
+                    interestingList.append(l)
+
+            bestVal = -float("Inf")
+            bestList = None
+
+            for l in interestingList:
+                val = logDetCircEfficient(l)
+                if val > bestVal:
+                    bestVal = val
+                    bestList = l
+
+            print(n, bestList, exp(logDetCircEfficient(bestList)))
+
+    if SEGMENTED_SEARCH:
+        maxN = 250
+
+        n = 3 
+
+        ns = []
+        uras = []
+        standardGreedies = []
+        segmentedGreedies = []
+
+        def evalFunc1(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[1:]]), 0
+
+        def evalFunc2(l):
+            return sum([log(np.abs(i)+EPS) for i in np.fft.fft(l)]), 0
+
+        EPS = 1e-10
+
+
+        while n < maxN:
+            if isPrime(n):
+                print(n)
+                ns.append(n)
+                uras.append(logDetCircEfficient(ura(n)))
+
+
+                initPoint = [1*(random.random()<0.5) for _ in range(n)]
+                standardGreedyPoint = randomGreedySearch(initPoint, evalFunc2, \
+                    maxOrMin="max")
+                standardGreedies.append(logDetCircEfficient(standardGreedyPoint))
+
+                result = randomGreedySearch(initPoint, evalFunc1, \
+                    maxOrMin="max", verbose=False)
+                segmentedGreedyPoint = randomGreedySearch(result, evalFunc2, \
+                    maxOrMin="max", verbose=True)                
+
+                segmentedGreedies.append(logDetCircEfficient(segmentedGreedyPoint))
+
+            n += 4
+
+        p.plot(ns, uras, label="uras")
+        p.plot(ns, standardGreedies, label="std greedy")
+        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+        p.plot(ns, [j - i for i,j in zip(uras,standardGreedies)], label="std greedy")
+        p.plot(ns, [j - i for i,j in zip(uras,segmentedGreedies)], label="seg greedy")
+        p.legend()
+        p.show()
+
+    if LINEAR_COMPARE:
+        maxN = 200
+
+        n = 3 
+
+        ns = []
+        uras = []
+        stds = []
+        lins = []
+        nearlyQuads = []
+        quads = []
+
+        def linEval(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[1:]]), 0
+
+        def stdEval(l):
+            return sum([log(np.abs(i)+EPS) for i in np.fft.fft(l)]), 0
+
+        def evalFunc3(l):
+            return sum([np.abs(np.real(i)) + np.abs(np.imag(i)) for i in np.fft.fft(l)[:]]), 0
+
+        def oneNineNineNineEval(l):
+            return sum([np.abs(i)**1.999 for i in np.fft.fft(l)[1:]]), 0
+
+
+        def quadEval(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i)**2 for i in np.fft.fft(l)[1:]]), 0
+
+
+
+
+        EPS = 1e-10
+
+
+        while n < maxN:
+            if isPrime(n):
+                print(n)
+                ns.append(n)
+                uras.append(stdEval(ura(n))[0])
+
+
+                initPoint = [1*(random.random()<0.5) for _ in range(n)]
+                linPoint = randomGreedySearch(initPoint, linEval, \
+                    maxOrMin="max", verbose=False)
+#                print(standardGreedyPoint)
+                quadPoint = randomGreedySearch(initPoint, quadEval, \
+                    maxOrMin="max", verbose=False)
+
+                nearlyQuadPoint = randomGreedySearch(initPoint, oneNineNineNineEval, \
+                    maxOrMin="max", verbose=False)
+
+                stdPoint = randomGreedySearch(initPoint, stdEval, \
+                    maxOrMin="max", verbose=False)
+                lins.append(stdEval(linPoint)[0])
+                quads.append(stdEval(quadPoint)[0])
+                stds.append(stdEval(stdPoint)[0])
+                nearlyQuads.append(stdEval(nearlyQuadPoint)[0])
+
+            n += 4
+
+        p.plot(ns, uras, label="ura")
+        p.plot(ns, lins, label="optimizing |lambda|")
+        p.plot(ns, nearlyQuads, label="optimizing |lambda|^1.999")
+        p.plot(ns, quads, label="optimizing |lambda|^2")
+        p.plot(ns, stds, label="optimizing log(|lambda|)")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.xlabel("n")
+        p.ylabel("log(|lambda|)")
+        p.legend()
+        p.show()
+
+        p.plot(ns, [j - i for i,j in zip(uras,lins)], label="optimizing |lambda|")
+        p.plot(ns, [j - i for i,j in zip(uras,nearlyQuads)], label="optimizing |lambda|^1.999")
+        p.plot(ns, [j - i for i,j in zip(uras,quads)], label="optimizing |lambda|^2")
+        p.plot(ns, [j - i for i,j in zip(uras,stds)], label="optimizing log(|lambda|)")
+#        p.plot(ns, [j - i for i,j in zip(uras,segmentedGreedies)], label="seg greedy")
+        p.xlabel("n")
+        p.ylabel("log(|lambda|)")
+        p.legend()
+        p.show()
+
+    if VIEW_FREQ_HIST:
+        maxN = 500
+
+        n = 3 
+
+        ns = []
+        sqrts = []
+        mins = []
+        maxes = []
+        quads = []
+        plusOneStds = []
+        minusOneStds = []
+
+        def linEval(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[1:]]), 0
+
+        def stdEval(l):
+            return sum([log(np.abs(i)+EPS) for i in np.fft.fft(l)]), 0
+
+        def evalFunc3(l):
+            return sum([np.abs(np.real(i)) + np.abs(np.imag(i)) for i in np.fft.fft(l)[:]]), 0
+
+        def quadEval(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i)**1.999 for i in np.fft.fft(l)[1:]]), 0
+
+
+
+
+        EPS = 1e-10
+
+
+        while n < maxN:
+            if isPrime(n):
+                print(n)
+                ns.append(n)
+#                uras.append(stdEval(ura(n))[0])
+
+                initPoint = [1*(random.random()<0.5) for _ in range(n)]
+
+
+#                stdPoint = randomGreedySearch(initPoint, stdEval, \
+#                    maxOrMin="max", verbose=False)
+
+                fftStd = np.abs(np.fft.fft(initPoint)[1:])
+                maxVal = max(fftStd[1:])
+                minVal = min(fftStd[1:])
+
+                fftStdev = np.std(fftStd)
+                print(fftStdev)
+                print(sqrt(n+1)/2)
+                print(sqrt(n+1)/2 - fftStdev)
+
+                mins.append(minVal)
+                maxes.append(maxVal)
+                sqrts.append(sqrt(n+1)/2)
+                plusOneStds.append(sqrt(n+1)/2 + fftStdev)
+                minusOneStds.append(sqrt(n+1)/2 - fftStdev)
+
+            n += 4
+
+        p.plot(ns, mins, label="mins")
+        p.plot(ns, maxes, label="maxes")
+        p.plot(ns, sqrts, label="sqrts")
+        p.plot(ns, plusOneStds, label="plusOneStds")
+        p.plot(ns, minusOneStds, label="minusOneStds")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+
+        p.plot(ns, [i/j for i, j in zip(mins,sqrts)], label="mins")
+        p.plot(ns, [i/j for i, j in zip(maxes,sqrts)], label="maxes")
+        p.plot(ns, [i/j for i, j in zip(plusOneStds,sqrts)], label="plusOneStds")
+        p.plot(ns, [i/j for i, j in zip(minusOneStds,sqrts)], label="minusOneStds")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+
+    if VIEW_FREQ_HIST:
+        maxN = 500
+
+        n = 3 
+
+        ns = []
+        sqrts = []
+        mins = []
+        maxes = []
+        quads = []
+        plusOneStds = []
+        minusOneStds = []
+
+        def linEval(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i) for i in np.fft.fft(l)[1:]]), 0
+
+        def stdEval(l):
+            return sum([log(np.abs(i)+EPS) for i in np.fft.fft(l)]), 0
+
+        def evalFunc3(l):
+            return sum([np.abs(np.real(i)) + np.abs(np.imag(i)) for i in np.fft.fft(l)[:]]), 0
+
+        def quadEval(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i)**1.999 for i in np.fft.fft(l)[1:]]), 0
+
+
+
+
+        EPS = 1e-10
+
+
+        while n < maxN:
+            if isPrime(n):
+                print(n)
+                ns.append(n)
+#                uras.append(stdEval(ura(n))[0])
+
+                initPoint = [1*(random.random()<0.5) for _ in range(n)]
+
+
+#                stdPoint = randomGreedySearch(initPoint, stdEval, \
+#                    maxOrMin="max", verbose=False)
+
+                fftStd = np.abs(np.fft.fft(initPoint)[1:])
+                maxVal = max(fftStd[1:])
+                minVal = min(fftStd[1:])
+
+                fftStdev = np.std(fftStd)
+                print(fftStdev)
+                print(sqrt(n+1)/2)
+                print(sqrt(n+1)/2 - fftStdev)
+
+                mins.append(minVal)
+                maxes.append(maxVal)
+                sqrts.append(sqrt(n+1)/2)
+                plusOneStds.append(sqrt(n+1)/2 + fftStdev)
+                minusOneStds.append(sqrt(n+1)/2 - fftStdev)
+
+            n += 4
+
+        p.plot(ns, mins, label="mins")
+        p.plot(ns, maxes, label="maxes")
+        p.plot(ns, sqrts, label="sqrts")
+        p.plot(ns, plusOneStds, label="plusOneStds")
+        p.plot(ns, minusOneStds, label="minusOneStds")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+
+        p.plot(ns, [i/j for i, j in zip(mins,sqrts)], label="mins")
+        p.plot(ns, [i/j for i, j in zip(maxes,sqrts)], label="maxes")
+        p.plot(ns, [i/j for i, j in zip(plusOneStds,sqrts)], label="plusOneStds")
+        p.plot(ns, [i/j for i, j in zip(minusOneStds,sqrts)], label="minusOneStds")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+    if VIEW_FREQ_HIST_BRENT:
+
+        BRENT_BINARY_STRING = "1,01,011,0111,01111,001011,0010111,00101111," + \
+            "000101111,0000110111,00010110111,000110110111,0010111110111," + \
+            "00001011101111,000100110101111,0000101101110111,00000101101110111," + \
+            "000010011010101111,0000101011110011011,00000110110101110111"
+
+        BRENT_DECIMAL_STRING = "45999,117623,340831,843119,638287,957175,1796839," + \
+            "5469423,6774063,37463883,77446231,47828907,196303815,95151003," + \
+            "1324935477,1822895095,430812063,2846677239,10313700815,6269629671," + \
+            "26764629467,22992859983,92035379515,162368181483,226394696439," + \
+            "631304341299,4626135339999"
+
+        BRENT_DECIMAL_STRING_PLUSMINUS_ONE = "0,0,1,1,1,1,11,11,11,11,39,83,83,83,359,691," + \
+            "1643,2215,9895,6483,67863,21095,72519,144791,108199,355463,604381,1289739," + \
+            "1611219,1680711,6870231,12817083,18635419,55100887,149009085,160340631"
+
+        BRENT_DECIMAL_SIZES = list(range(21, 48))
+
+        brentBinaryList = [[int(j) for j in list(i)] for i in \
+            BRENT_BINARY_STRING.split(",")]
+
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i]) for i, s in \
+            enumerate(BRENT_DECIMAL_STRING.split(","))]
+
+        overallList = brentBinaryList + brentDecimalList
+
+        maxN = 47
+
+        n = 3 
+
+        ns = []
+        sqrts = []
+        mins = []
+        maxes = []
+        quads = []
+        plusOneStds = []
+        minusOneStds = []
+
+        EPS = 1e-10
+
+        for n in range(2, maxN+1):
+            print(n)
+            ns.append(n)
+#                uras.append(stdEval(ura(n))[0])
+
+#                initPoint = [1*(random.random()<0.5) for _ in range(n)]
+
+
+#                stdPoint = randomGreedySearch(initPoint, stdEval, \
+#                    maxOrMin="max", verbose=False)
+            stdPoint = overallList[n-1]
+
+            
+            fftStd = np.abs(np.fft.fft(stdPoint)[1:])
+            print(stdPoint)
+            maxVal = max(fftStd)
+            minVal = min(fftStd)
+
+            fftStdev = np.std(fftStd)
+            print(fftStdev)
+            print(sqrt(n+1)/2)
+            print(sqrt(n+1)/2 - fftStdev)
+
+            mins.append(minVal)
+            maxes.append(maxVal)
+            sqrts.append(sqrt(n+1)/2)
+            plusOneStds.append(sqrt(n+1)/2 + fftStdev)
+            minusOneStds.append(sqrt(n+1)/2 - fftStdev)
+
+        p.plot(ns, mins, label="mins")
+        p.plot(ns, maxes, label="maxes")
+        p.plot(ns, sqrts, label="sqrts")
+        p.plot(ns, plusOneStds, label="plusOneStds")
+        p.plot(ns, minusOneStds, label="minusOneStds")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+
+        p.plot(ns, [i/j for i, j in zip(mins,sqrts)], label="mins")
+        p.plot(ns, [i/j for i, j in zip(maxes,sqrts)], label="maxes")
+        p.plot(ns, [i/j for i, j in zip(plusOneStds,sqrts)], label="plusOneStds")
+        p.plot(ns, [i/j for i, j in zip(minusOneStds,sqrts)], label="minusOneStds")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+
+
+    if GREEDY_SQUARES:
+        maxN = 2000
+
+        n = 3 
+
+        ns = []
+        uras = []
+        standardGreedies = []
+        segmentedGreedies = []
+
+        def evalFunc1(l):
+#            print([np.abs(i) for i in np.fft.fft(l)[1:]])
+
+            return sum([np.abs(i)**2 for i in np.fft.fft(l)[1:]]), 0
+
+        def evalFunc2(l):
+            return sum([log(np.abs(i)+EPS) for i in np.fft.fft(l)]), 0
+
+        def evalFunc3(l):
+            return sum([np.abs(np.real(i)) + np.abs(np.imag(i)) for i in np.fft.fft(l)[:]]), 0
+
+
+        EPS = 1e-10
+
+
+        while n < maxN:
+            if isPrime(n):
+                print(n)
+                ns.append(n)
+                uras.append(logDetCircEfficient(ura(n)))
+
+
+                initPoint = [1*(random.random()<0.5) for _ in range(n)]
+                standardGreedyPoint = randomGreedySearch(initPoint, evalFunc1, \
+                    maxOrMin="max", verbose=True)
+#                print(standardGreedyPoint)
+                standardGreedies.append(logDetCircEfficient(standardGreedyPoint))
+            n += 4
+
+        p.plot(ns, uras, label="uras")
+        p.plot(ns, standardGreedies, label="std greedy")
+#        p.plot(ns, segmentedGreedies, label="seg greedy")
+        p.legend()
+        p.show()
+
+        p.plot(ns, [j - i for i,j in zip(uras,standardGreedies)], label="std greedy")
+#        p.plot(ns, [j - i for i,j in zip(uras,segmentedGreedies)], label="seg greedy")
+        p.legend()
+        p.show()        
+
+
+    if DEPTH_OPT:
+    #    ax.grid(xdata=np.array(np.linspace(-0.5,11.5,12)))
+    #    ax.grid(ydata=np.array(np.linspace(-0.5,11.5,12)))
+
+        occShape = (5, 9)
+
+        occ = np.ones(occShape)
+
+#        p.matshow(occ)
+#        p.show()
+
+        bestOcc = occ
+        bestVal = 0
+
+        for i in range(occShape[0]):
+            print(i)
+            for j in range(occShape[1]):
+                for k in range(occShape[0]):
+                    for l in range(occShape[1]):
+                        occ = np.ones(occShape)
+                        occ[i][j] = 0
+                        occ[k][l] = 0
+
+                        mat = getDepthPerceptionMatrix(occ, 1, 5)
+                        gramMat = gram(mat)
+
+                        val = np.linalg.slogdet(100*gramMat + np.identity(len(gramMat)))[1]
+
+                        if val > bestVal:
+#                            print(val)
+                            bestVal = val
+                            bestOcc = occ
+#                            viewFrame(imageify(bestOcc))
+
+
+
+
+#        occ = np.array([[1,1,1,1,1,1,1,1,1],
+ #                       [1,1,1,1,1,1,1,1,1],
+ #                       [1,1,1,1,0,0,1,1,1],
+ #                       [1,1,1,1,1,1,1,1,1],
+ #                       [1,1,1,1,1,1,1,1,1]])
+
+        mat = getDepthPerceptionMatrix(occ, 5, 5)
+
+#        gramMat = gram(mat)
+
+#        print(np.linalg.slogdet(100*gramMat + np.identity(len(gramMat))))
+    
+        viewFrame(imageify(bestOcc))
+
+        p.matshow(getDepthPerceptionMatrix(bestOcc, 5, 5))
+        p.colorbar()
+        p.show()
+    
+
+    if BEST_RECT_TOEP:
+        n = 11
+
+        listOfBestLs = []
+
+        for height in range(1, 2*n):
+            width = 2*n-height
+            print(height,width)
+
+            bestL = None
+            bestDet = -100000
+            for l in allListsOfSizeX(n):
+
+                vec = l + l[:-1]
+
+#                print(vec)
+
+                rectToep = rectangularToeplitz(vec, height, width)
+
+                gramMat = gram(rectToep)
+                det = np.linalg.slogdet(100*gramMat + np.identity(len(gramMat)))[1]
+                if det > bestDet:
+                    bestDet = det
+                    bestL = l
+
+#            print(bestL)
+
+            vec = bestL + bestL[:-1]
+
+#            print(vec)
+
+            rectToep = rectangularToeplitz(vec, height, width)
+        
+            listOfBestLs.append(findBestRotation(bestL))
+
+#        pickle.dump(listOfBestLs)
+        p.matshow(listOfBestLs)
+        p.show()
+
+
+    if SQUISH_TEST:
+
+        n = 23
+
+        listOfDets = []
+
+#        mat = circulant(ura(n))
+        mat = circulant([random.random() for _ in range(n)])
+
+        for height in range(1, 2*n):
+            width = 2*n-height
+#            print(height,width)
+
+            squishMat = squishMatrix(mat, (height,width))
+            mat = squishMatrix(squishMat, (n,n))
+            squishMat = squishMatrix(mat, (height,width))
+
+#            p.matshow(mat)
+#            p.show()
+#            print(np.linalg.slogdet(100*gram(mat) + np.identity(len(gram(mat)))))
+            listOfDets.append(np.linalg.slogdet(100*gram(squishMat) + np.identity(len(gram(squishMat))))[1])
+
+#        def func(x):
+ #           return -abs(n - x) + n
+
+        def func(width, height):
+            return height * log(width+1e-8)
+
+        p.plot([i*30 for i in listOfDets])
+        p.plot([func(x, 2*n-x) for x in range(1,2*n)])
+        p.show()
+
+    if SQUISH_TEST_2:
+
+        n = 23
+
+        listOfDets = []
+
+#        vec = ura(n)
+#        mat = circulant(ura(n))
+#        mat = np.identity(n)
+#        mat = rectangularToeplitz(vec, 15, 9)
+
+        mat = gaussianBlurMatrix(n, 3)
+#        mat = circulant(gaussianBlurVec(n, 3))
+        p.matshow(mat)
+        p.colorbar()
+        p.show()
+
+        for height in range(1, 2*n):
+            width = 2*n-height
+#            print(height,width)
+
+            squishMat = squishMatrix(mat, (height,width))
+#            mat = squishMatrix(squishMat, (n,n))
+#            squishMat = squishMatrix(mat, (height,width))
+
+#            p.matshow(mat)
+#            p.show()
+#            print(np.linalg.slogdet(100*gram(mat) + np.identity(len(gram(mat)))))
+            listOfDets.append(np.linalg.slogdet(1e10*gram(squishMat) + np.identity(len(gram(squishMat))))[1])
+
+#            p.matshow(squishMat)
+#            p.colorbar()
+ #           p.show()
+
+#            p.matshow(gram(squishMat))
+ #           p.colorbar()
+ #           p.show()
+
+
+#        def func(x):
+ #           return -abs(n - x) + n
+
+        def func(width, height):
+            return height * log(width+1e-8)
+
+        p.plot([i*30 for i in listOfDets])
+#        p.plot([func(x, 2*n-x) for x in range(1,2*n)])
+        p.show()
+
+#        p.matshow(mat)
+#        p.show()
+
+#        p.matshow(squishMat)
+#        p.show()        
+
+    if SINGULAR_VALUES:
+            n = 103
+            x = 50
+            vec = ura(n)
+            vec = vec + vec[:-1]
+
+
+            mat1 = rectangularToeplitz(vec, 103, 103)
+
+            u,s1,vh = np.linalg.svd(mat1)
+
+            p.plot(s1)
+
+            mat2 = rectangularToeplitz(vec, 103-x,103+x)
+
+            u,s2,vh = np.linalg.svd(mat2)
+
+            p.plot(s2)
+            p.show()
+
+    if CHARLIE_PRIOR:
+        n = 100
+
+        ones = np.ones((n,n))
+
+
+        for i in range(n):
+            v = np.array([1]*i + [0]*(n-i))
+    #        v = np.array([10] + [0]*(n-1))
+
+    #    v = np.array([1]*int(n/2)+[0]*int(n/2))
+
+    #    v = np.array([2/n]*int(n/2)+[0]*int(n/2))
+    #    v = np.array([1]+[0]*(n-1))
+    #    v = np.array([0.5,0.5]+[0]*(n-2))
+    #    v = np.array([1/n]*n)
+
+    #    print(np.dot(np.dot(np.transpose(v), ones - n*np.identity(n)), v))
+        print(np.dot(np.dot(np.transpose(v), ones - n*np.identity(n)), v)/n**2)
+
+        pass
+
+    if MAXIMIZE_RECT_MAT:
+        bestProd = -1
+
+        for x in np.linspace(0,1,10):
+            for y in np.linspace(0,1,10):
+                for z in np.linspace(0,1,10):
+                    for w in np.linspace(0,1,10):
+                        for v in np.linspace(0,1,10):
+                            mat = np.array([[x,1-x],[y,1-y],[z,1-z],[w,1-w],[v,1-v]])
+
+                            u, s, vh = np.linalg.svd(mat)
+
+                            prod = product(s)
+                            if prod > bestProd or (x,y,z,w,v) == (1,1,0,0,1):
+                                bestProd = prod
+                                bestXYZ = (x,y,z,w,v)
+                                print(x,y,z,w,v,product(s))
+
+    if MAXIMIZE_RECT_MAT_2:
+        bestProd = -1
+        bestL = None
+
+        for l in allListsOfSizeX(15):
+            mat = np.reshape(l, (3,5))
+            u, s, vh = np.linalg.svd(mat)
+
+            prod = product(s)
+
+            if prod > bestProd:
+                bestProd = prod
+                bestL = l
+
+        p.matshow(np.reshape(bestL, (3,5)))
+        p.show()
+
+    if MAXIMIZE_RECT_MAT_3:
+        bestProd = -1
+        bestMat = None
+
+        width = 8
+        height = 5
+
+
+        listOfVals = allListsOfSizeXFromGivenChoices(width, range(height))
+
+        for l in listOfVals:
+            mat = []
+    #        print(l)
+
+            for i in l:
+                mat.append([0]*height)
+                mat[-1][i] = 1
+
+            mat = np.transpose(np.array(mat))
+
+            u,s,vh = np.linalg.svd(mat)
+    #        print(product(s), s)
+            prod = product([i for i in s])
+    #        print(gram(np.transpose(mat)), np.linalg.det(gram(np.transpose(mat)) + 0.*np.identity(height)))
+    #        prod = np.linalg.det(gram(np.transpose(mat)) + 0.*np.identity(height))
+
+
+            if prod > bestProd:
+                bestProd = prod
+                bestMat = mat
+                print(prod)
+                p.matshow(bestMat)
+                p.show()
+
+    if SEMICIRCLE_OCC:
+        occ = [0,1,0,1,0,1,0]
+    #    occ = [1,1,0,1,0,1,1]
+    #    occ = [0,0,1,1,1,0,0]
+    #    occ = [1,1,1,1,1,1,1]
+        logSceneDepths = np.linspace(log(100), log(1000), 10)
+     
+    #    logSceneDepths = np.linspace(log(20), log(20), 1)
+
+        imDir = "alternate_distant_depths_deeper_obs_0101010/"
+
+        os.system("mkdir " + imDir)
+
+        mis = []
+
+        quadCoeffs = np.linspace(-4, 4, 101)
+
+        for i,quadCoeff in enumerate(quadCoeffs):
+
+
+            sceneDepths = [exp(x) for x in logSceneDepths]
+            sceneWidth = 20
+            obsWidth = 1
+
+    #        quadCoeff = 0.5
+
+            curveFunc = lambda x: quadCoeff*x**2 - obsWidth*20 - 0.5*quadCoeff
+            curveFuncPrime = lambda x: 2*quadCoeff*x
+
+
+            mat1 = curvedTransferMatrixMultiDepth(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth)
+    #        mat2 = flatTransferMatrixMultiDepth(occ, sceneDepths, sceneWidth, obsWidth)
+    #        mat3 = semicircleTransferMatrixMultiDepth(occ, sceneDepths, sceneWidth, obsWidth)
+
+
+    #        makeCurveSetupPicture(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth)
+        #    makeFlatSetupPicture(occ, sceneDepths, sceneWidth, obsWidth)
+
+            mis.append(np.linalg.slogdet(1000*gram(mat1) + np.identity(mat1.shape[1]))[1])
+
+    #        print(np.linalg.slogdet(1000*gram(mat1) + np.identity(mat1.shape[1]))[1])
+    #        print(np.linalg.slogdet(1000*gram(mat2) + np.identity(mat2.shape[1]))[1])
+    #        print(np.linalg.slogdet(1000*gram(mat3) + np.identity(mat3.shape[1]))[1])
+
+    #    p.plot(quadCoeffs, mis)
+    #    p.show()
+
+        for i,quadCoeff in enumerate(quadCoeffs):
+
+            if i % 12.5 == 0 or i % 12.5 == 0.5:
+
+                sceneDepths = [exp(x) for x in logSceneDepths]
+                sceneWidth = 20
+                obsWidth = 1
+
+        #        quadCoeff = 0.5
+
+                curveFunc = lambda x: quadCoeff*x**2 - obsWidth*20 - 0.5*quadCoeff
+                curveFuncPrime = lambda x: 2*quadCoeff*x
+
+
+                mat1 = curvedTransferMatrixMultiDepth(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth)
+        #        mat2 = flatTransferMatrixMultiDepth(occ, sceneDepths, sceneWidth, obsWidth)
+        #        mat3 = semicircleTransferMatrixMultiDepth(occ, sceneDepths, sceneWidth, obsWidth)
+
+
+        #        makeCurveSetupPicture(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth)
+            #    makeFlatSetupPicture(occ, sceneDepths, sceneWidth, obsWidth)
+
+    #            mis.append(np.linalg.slogdet(1000*gram(mat1) + np.identity(mat1.shape[1]))[1])            
+
+                p.close()
+    #            p.subplot(121)
+                p.plot(quadCoeffs, mis)
+                p.axvline(x=quadCoeffs[i], color="black")
+                p.tight_layout()
+                p.savefig(imDir + "quadcoeff_" + str(i) + ".png")
+
+    #            p.subplot(122)
+                p.close()
+                p.matshow(mat1)
+                p.tight_layout()
+                p.savefig(imDir + "transfermat_" + str(i) + ".png")
+
+                p.close()
+                p.subplot(211)
+                sceneXs = np.linspace(-sceneWidth, sceneWidth, sceneWidth)
+                makeSceneSetupPicture(sceneXs, sceneDepths)
+                makeOccSetupPicture(occ, obsWidth)
+                makeObsSetupPicture(curveFunc, obsWidth, sceneWidth)
+
+                p.subplot(212)
+                makeOccSetupPicture(occ, obsWidth)
+                makeObsSetupPicture(curveFunc, obsWidth, sceneWidth)
+                p.tight_layout()
+                p.savefig(imDir + "setup_" + str(i) + ".png")
+
+    if GANESH_POWER_OF_2:
+
+        BRENT_DECIMAL_SIZES = range(1, 53)
+
+        BRENT_DECIMAL_STRING_PLUSMINUS_ONE = "0,0,1,1,1,1,11,11,11,11,39,83,83,83,359,691," + \
+            "1643,2215,9895,6483,67863,21095,72519,144791,108199,355463,604381,1289739," + \
+            "1611219,1680711,6870231,12817083,18635419,55100887,149009085,160340631,415804239," + \
+            "829121815,4737823097,1446278811,3001209959,19153917469,52222437727,20159598251," + \
+            "166482220965,90422521191,115099593371,242235026743,1416138805685,2380679727935," + \
+            "2716242515341,1758408815375"
+
+        print(len(BRENT_DECIMAL_STRING_PLUSMINUS_ONE.split(",")))
+        print(len(BRENT_DECIMAL_SIZES))
+
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i], zeroOne=False) for i, s in \
+            enumerate(BRENT_DECIMAL_STRING_PLUSMINUS_ONE.split(","))]
+
+        print(brentDecimalList)
+
+        x8 = [1, -1, -1, -1, 1, 1, -1, -1]
+        x16 = [1, -1, -1, 1, 1, 1, 1, 1, 1, -1, 1, -1, 1, -1, -1, 1]
+        x32 = [-1, 1, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, 1, 1, 1, -1, 1, -1, 1,
+        1, -1, -1, 1, -1, 1, -1, 1, 1, 1, -1, -1, -1]
+        x64 = [-1, 1, -1, -1, -1, 1, 1, 1, 1, -1, 1, 1, -1, -1, 1, 1, 1, -1, -1,
+    -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1,
+    -1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1, -1, 1, 1, 1, 1, 1, -1, 1, 1, -1, 1]
+
+
+        print(sum(np.log(np.abs(np.fft.fft([1, -1, -1, -1, 1, 1, -1, -1])[1:]))))
+        print(sum(np.log(np.abs(np.fft.fft([1, -1, -1, -1, -1, 1, 1, -1])[1:]))))
+
+        print(min(np.abs(np.fft.fft([1, -1, -1, -1, 1, 1, -1, -1])[1:])))
+        print(min(np.abs(np.fft.fft([1, -1, -1, -1, -1, 1, 1, -1])[1:])))
+
+        print(min(np.abs(np.fft.fft([1, -1, -1, 1, 1, 1, 1, 1, 1, -1, 1, -1, 1, -1, -1, 1]))))
+        print(min(np.abs(np.fft.fft(brentDecimalList[31]))))
+
+        p.plot(BRENT_DECIMAL_SIZES, [min(np.abs(np.fft.fft(brentDecimalList[i-1]))) \
+            for i in BRENT_DECIMAL_SIZES])
+        p.plot(BRENT_DECIMAL_SIZES, [average(np.abs(np.fft.fft(brentDecimalList[i-1]))) \
+            for i in BRENT_DECIMAL_SIZES])
+        p.plot(BRENT_DECIMAL_SIZES, [sqrt(i/2) for i in BRENT_DECIMAL_SIZES])
+
+        for i in BRENT_DECIMAL_SIZES:
+            if i % 4 == 3 and isPrime(i):
+                p.axvline(x=i, color="black")
+            if i % 4 == 1 and isPrime(i):
+                p.axvline(x=i, color="red")
+
+            print(i)
+            print(log(i)/log(2), (log(i)/log(2)+1e-8)%1)
+            print(abs(log(i)/log(2) - int(log(i)/log(2)+1e-8))%1)
+
+            if abs(log(i)/log(2) - int(log(i)/log(2)+1e-8))%1 < 1e-7:
+                p.axvline(x=i, color="cyan")
+
+        p.show()
+
+        print(sqrt(32/2))
+
+
+
+
+    #    p.show()    
+    #    print(sqrt(8/2))
+
+    #    p.plot(x64)
+    #    p.show()
+
+    #    p.plot(np.abs(np.fft.fft(x16)))
+    #    p.show()
+
+    #    p.matshow(mat1)
+    #    p.colorbar()
+    #    p.show()
+
+    #    p.matshow(mat2)
+    #    p.colorbar()
+    #    p.show()    
+
+    #    p.matshow(mat3)
+    #    p.colorbar()
+     #   p.show()        
+
+    if LOOK_AT_PRIMES:
+    #    for i in range(1000):
+    #        if i % 4 == 3 and isPrime(i):
+    #            p.axvline(x=i, color="black")
+    #        if i % 4 == 1 and isPrime(i):
+    #            p.axvline(x=i, color="red")
+
+    #    p.show()
+
+        for i in range(10000, 20000):
+            if i % 8 == 1 and isPrime(i):
+                p.axvline(x=i, color="red")
+            if i % 8 == 3 and isPrime(i):
+                p.axvline(x=i, color="black")
+            if i % 8 == 5 and isPrime(i):
+                p.axvline(x=i, color="blue")
+            if i % 8 == 7 and isPrime(i):
+                p.axvline(x=i, color="green")
+
+    #        k = 6
+     
+        p.show()
+
+    #        if i % 8 == 1 and isPrime(i) and isPrime(i+6):
+    #            p.axvline(x=i, color="red")
+
+    #        if i % 8 == 3 and isPrime(i) and isPrime(i+6):
+    #            p.axvline(x=i, color="black")
+
+    #        if i % 8 == 5 and isPrime(i) and isPrime(i+6):
+    #            p.axvline(x=i, color="blue")
+
+    #        if i % 8 == 7 and isPrime(i) and isPrime(i+6):
+    #            p.axvline(x=i, color="green")
+
+
+    if PRIME_PREDICTION_0:
+
+        listOfPreviousPrimalities = []
+
+
+        startNumber = 1000001
+        trainingSize = 10000
+        memoryLength = 1000
+
+        numPrimes = 0
+        numTotal = 0
+
+        for i in range(startNumber, startNumber + trainingSize, 2):
+
+    #        print(memories)
+    #        print(listOfPreviousPrimalities)
+
+            if isPrime(i):
+                numPrimes += 1
+            numTotal += 1
+
+        print(numPrimes, numTotal)
+
+
+    if PRIME_PREDICTION_1:
+
+        listOfPreviousPrimalities = []
+
+
+        startNumber = 1000001
+        trainingSize = 10000
+        testSize = 1000
+        memoryLength = 1000
+
+        memories = [[[0,0],[0,0]] for _ in range(memoryLength)]
+
+        for i in range(startNumber, startNumber + trainingSize, 2):
+
+    #        print(memories)
+    #        print(listOfPreviousPrimalities)
+
+            if len(listOfPreviousPrimalities) < memoryLength:
+                listOfPreviousPrimalities.append(isPrime(i))
+
+            else:
+                for j, primality in enumerate(listOfPreviousPrimalities):
+                    if isPrime(i):
+                        if primality:
+                            memories[j][0][0] += 1
+                            memories[j][0][1] += 1
+
+                        else:
+                            memories[j][0][1] += 1
+                    else:
+                        if primality:
+                            memories[j][1][0] += 1
+                            memories[j][1][1] += 1
+
+                        else:
+                            memories[j][1][1] += 1                    
+
+                listOfPreviousPrimalities.append(isPrime(i))
+                del listOfPreviousPrimalities[0]
+
+        print(memories)
+
+        for i in range(startNumber + trainingSize, startNumber + trainingSize + testSize, 2):
+            logProbPrime = 0
+            logProbNotPrime = 0        
+            for j, primality in enumerate(listOfPreviousPrimalities):
+                if primality:
+                    logProbPrime += log((memories[j][0][0] + 1)/(memories[j][0][1] + 2))
+                    logProbNotPrime += log((memories[j][1][0] + 1)/(memories[j][1][1] + 2))
+
+                else:
+                    logProbPrime += log(1 - (memories[j][0][0] + 1)/(memories[j][0][1] + 2))
+                    logProbNotPrime += log(1 - (memories[j][1][0] + 1)/(memories[j][1][1] + 2))                
+
+    #        normalizationAmount = np.logaddexp(logProbPrime/memoryLength, logProbNotPrime/memoryLength)
+            normalizationAmount = np.logaddexp(logProbPrime, logProbNotPrime)
+
+            if isPrime(i):
+                p.plot(logProbPrime - logProbNotPrime, numDistinctPrimeFactors(i), "ro")
+            else:
+                p.plot(logProbPrime - logProbNotPrime, numDistinctPrimeFactors(i), "bo")
+            
+
+    #        print(isPrime(i), exp((logProbPrime/memoryLength - normalizationAmount)))
+
+            listOfPreviousPrimalities.append(isPrime(i))
+            del listOfPreviousPrimalities[0]
+
+        p.show()
+
+    #    print(memories)
+
+
+    if PRIME_PREDICTION_2:
+
+        listOfPreviousPrimalities = []
+
+
+        startNumber = 1000001
+        trainingSize = 4000
+        memoryLength = 1000
+        testSize = 1000    
+        maxUpletSize = 20
+
+        memories = [[[[0,0],[0,0]] for _ in range(int(maxUpletSize/2))] for _ in range(memoryLength)]
+
+        for i in range(startNumber, startNumber + trainingSize, 2):
+
+            if i % 100 == 1:
+                print(i)
+    #        print(memories)
+    #        print(listOfPreviousPrimalities)
+
+            if len(listOfPreviousPrimalities) < memoryLength:
+                listOfPreviousPrimalities.append(isPrime(i))
+
+            else:
+                for j, primality in enumerate(listOfPreviousPrimalities):
+                    if isPrime(i):
+                        if primality:
+                            for k in range(0, maxUpletSize, 2):
+                                if j+k < memoryLength:
+                                    upletComplete = listOfPreviousPrimalities[j+k]
+
+                                    if upletComplete:
+                                        memories[j][int(k/2)][0][0] += 1
+                                        memories[j][int(k/2)][0][1] += 1
+
+                                    else:
+                                        memories[j][int(k/2)][0][1] += 1                            
+                                else:
+                                    memories[j][int(k/2)][0][1] += 1                            
+
+                        else:
+                            for k in range(0, maxUpletSize, 2):
+                                memories[j][int(k/2)][0][1] += 1                            
+
+                    else:
+                        if primality:
+                            for k in range(0, maxUpletSize, 2):
+                                if j+k < memoryLength:
+
+                                    upletComplete = listOfPreviousPrimalities[j+k]
+
+                                    if upletComplete:
+                                        memories[j][int(k/2)][1][0] += 1
+                                        memories[j][int(k/2)][1][1] += 1
+
+                                    else:
+                                        memories[j][int(k/2)][1][1] += 1                            
+                                else:
+                                    memories[j][int(k/2)][1][1] += 1       
+                        else:
+                            for k in range(0, maxUpletSize, 2):
+                                memories[j][int(k/2)][1][1] += 1                             
+
+
+                listOfPreviousPrimalities.append(isPrime(i))
+                del listOfPreviousPrimalities[0]
+
+        for i in memories:
+            for j in i:
+                for k in j:
+                    print(j)
+                print("")
+            print("-------------")
+            print("")
+
+
+        for i in range(startNumber + trainingSize, startNumber + trainingSize + testSize, 2):
+            logProbPrime = 0
+            logProbNotPrime = 0        
+            for j, primality in enumerate(listOfPreviousPrimalities):
+                if primality:
+                    for k in range(0, maxUpletSize, 2):
+                        if j+k < memoryLength:
+                            upletComplete = listOfPreviousPrimalities[j+k]
+
+                            if upletComplete: 
+                                logProbPrime += softLog((memories[j][int(k/2)][0][0])/(memories[j][int(k/2)][0][1]))
+                                logProbNotPrime += softLog((memories[j][int(k/2)][1][0])/(memories[j][int(k/2)][1][1]))
+
+                            else:
+                                logProbPrime += log(1 - (memories[j][int(k/2)][0][0])/(memories[j][int(k/2)][0][1]))
+                                logProbNotPrime += log(1 - (memories[j][int(k/2)][1][0])/(memories[j][int(k/2)][1][1]))                             
+                        else:
+                            logProbPrime += log(1 - (memories[j][int(k/2)][0][0])/(memories[j][int(k/2)][0][1]))
+                            logProbNotPrime += log(1 - (memories[j][int(k/2)][1][0])/(memories[j][int(k/2)][1][1]))                             
+
+                else:
+                    for k in range(0, maxUpletSize, 2):
+                        logProbPrime += log(1 - (memories[j][int(k/2)][0][0])/(memories[j][int(k/2)][0][1]))
+                        logProbNotPrime += log(1 - (memories[j][int(k/2)][1][0])/(memories[j][int(k/2)][1][1]))                             
+
+
+    #        normalizationAmount = np.logaddexp(logProbPrime/memoryLength, logProbNotPrime/memoryLength)
+            normalizationAmount = np.logaddexp(logProbPrime, logProbNotPrime)
+
+            if isPrime(i):
+                p.plot(logProbPrime - logProbNotPrime, numDistinctPrimeFactors(i), "ro")
+            else:
+                p.plot(logProbPrime - logProbNotPrime, numDistinctPrimeFactors(i), "bo")
+            
+
+    #        print(isPrime(i), exp((logProbPrime/memoryLength - normalizationAmount)))
+
+            listOfPreviousPrimalities.append(isPrime(i))
+            del listOfPreviousPrimalities[0]
+
+        p.show()
+
+    if PRIME_PREDICTION_3:
+        listOfPreviousPrimalities = []
+
+
+        startNumber = 1000001
+        trainingSize = 20000
+        memoryLength = 1000
+        testSize = 4000    
+        maxUpletSize = 20
+
+        xTrain = []
+        yTrain = []
+
+        for i in range(startNumber, startNumber + trainingSize, 2):
+            if len(listOfPreviousPrimalities) < memoryLength:
+                listOfPreviousPrimalities.append(1*isPrime(i))
+
+            else:
+                xTrain.append(listOfPreviousPrimalities[:])
+                yTrain.append(1*isPrime(i))
+
+                listOfPreviousPrimalities.append(1*isPrime(i))
+                del listOfPreviousPrimalities[0]
+
+    #    print(xTrain)
+    #    print(yTrain)
+
+        xTrain = np.array(xTrain)
+        yTrain = np.array(yTrain)
+
+    #    print([(i, j) for i, j in zip(xTrain, yTrain)])
+
+        classifier = RandomForestClassifier(n_estimators=2000)  
+    #    classifier = svm.SVC()
+        classifier.fit(xTrain, yTrain)
+
+    #    print(classifier.feature_importances_)
+        
+
+    #    print(clf.predict([[0, 0, 0, 0]]))
+
+
+        xTest = []
+        yTest = []
+        valsTest = []
+
+        for i in range(startNumber + trainingSize, startNumber + trainingSize + testSize, 2):
+            xTest.append(listOfPreviousPrimalities[:])
+            yTest.append(1*isPrime(i))       
+            valsTest.append(i) 
+
+            listOfPreviousPrimalities.append(1*isPrime(i))
+            del listOfPreviousPrimalities[0]
+
+        print([(i, j, k) for i, j, k in zip(classifier.predict_proba(xTest), yTest, valsTest)])
+
+        primes = []
+        composites = []
+
+        for i, j, k in zip(classifier.predict_proba(xTest), yTest, valsTest):
+            if j == 0:
+    #            p.plot(i[1], smallestPrimeFactor(k), "bo")
+                p.plot(i[1], random.random(), "bo")
+                composites.append(i[1])
+            if j == 1:
+    #            p.plot(i[1], -random.random(), "ro")
+                p.plot(i[1], random.random(), "ro")
+                primes.append(i[1])
+
+        p.show()
+
+        p.hist(composites, range=(0.23, 0.40))
+    #    p.show()
+
+        p.hist(primes)
+        p.show()
+
+        p.show()
+
+    if COMPLEX_OPT:
+        maxSteps = 1000000
+
+
+        cap = 15
+
+        for cardinality in range(7,8):
+    #    for cardinality in range(2,11):
+            listOfVals = []
+
+            topX = min(int(log(maxSteps)/log(cardinality)), cap)
+
+            mat = [] 
+
+            for x in range(7,8):
+    #        for x in range(cardinality, cardinality+1):
+    #        for x in range(1, topX+1):
+                print(cardinality, x)
+                bestList = None
+                bestVal = -float("inf")
+
+                for l in allListsOfSizeXFromGivenChoices(x, [np.exp(2*pi*i*1j/cardinality) for i in range(cardinality)]):
+                    val = logDetCircEfficient(l)
+                    if val > bestVal - 1e-8:
+                        bestVal = val
+                        bestList = l
+                        print(bestVal)
+                        print([int(cis(i)*cardinality/(2*pi)+1e-6) for i in bestList])
+                        print([cis(i)*cardinality/(2*pi) for i in np.fft.fft(bestList)])
+
+
+    #            if x == 2:
+     #               print(bestVal)
+      #              print(log(fac(x)))
+                mat.append([int(cis(i)*cardinality/(2*pi)+1e-6) for i in bestList])
+                print([int(cis(i)*cardinality/(2*pi)+1e-6) for i in bestList])
+                print(np.fft.fft(bestList))
+                print(np.abs(np.fft.fft(bestList)))
+                print([cis(i)*cardinality/(2*pi) for i in np.fft.fft(bestList)])
+
+                listOfVals.append(max(0, bestVal)/max(log(fac(x)), 1e-6))
+        #        print(bestList)
+    #            print([int(cis(i)*cardinality/(2*pi)+1e-6) for i in bestList])
+    #            print(bestVal)
+     #           print(log(fac(x)))
+
+    #        print(mat)
+
+    #        p.matshow(np.array(mat))
+     #       p.colorbar()
+     #       p.show()
+
+    #        p.plot(range(1, topX+1), listOfVals, label=str(cardinality))
+    #    p.plot(range(1, cap), [1 for _ in range(1,cap)], label="upper bound")
+     #   p.legend()
+     #   p.show()
+
+    if COMPLEX_OPT_2:
+        n = 2
+
+        phases = [0, pi/2]
+
+        realValFunc = realValMaker(phases)
+
+    #    x0 = [2*pi*random.random() for _ in range(2)]
+        x0 = [pi/4, 3*pi/4]
+        print(fmin_bfgs(realValFunc, x0))
+
+    if COMPLEX_OPT_3:
+        
+        cardinality = 6
+
+        rotation = 0
+        shift = 2
+
+        bestListIndices = [i+shift for i in [2.5, 4, 4.5, 4, 2.5, 0]]
+        bestListIndices = rotate(bestListIndices, rotation)
+
+        bestList = [np.exp(2*pi*i*1j/cardinality) for i in bestListIndices]
+
+        print(bestListIndices)
+        print([cis(i)*cardinality/(2*pi) for i in np.fft.fft(bestList)])    
+
+    if COMPLEX_OPT_4:
+
+        BRENT_DECIMAL_SIZES = range(1, 53)
+
+
+        BRENT_DECIMAL_STRING_PLUSMINUS_ONE = "0,0,1,1,1,1,11,11,11,11,39,83,83,83,359,691," + \
+            "1643,2215,9895,6483,67863,21095,72519,144791,108199,355463,604381,1289739," + \
+            "1611219,1680711,6870231,12817083,18635419,55100887,149009085,160340631,415804239," + \
+            "829121815,4737823097,1446278811,3001209959,19153917469,52222437727,20159598251," + \
+            "166482220965,90422521191,115099593371,242235026743,1416138805685,2380679727935," + \
+            "2716242515341,1758408815375"
+
+        print(len(BRENT_DECIMAL_STRING_PLUSMINUS_ONE.split(",")))
+        print(len(BRENT_DECIMAL_SIZES))
+
+        brentDecimalList = [decToBin(int(s), BRENT_DECIMAL_SIZES[i], zeroOne=False) for i, s in \
+            enumerate(BRENT_DECIMAL_STRING_PLUSMINUS_ONE.split(","))]
+
+
+        logdets = []
+        randomLogDets = []
+
+        cardinality = 42
+
+        for j in range(cardinality):
+            result = [j]
+
+            if cardinality % 2 == 0:
+                deriv = 0.5
+            else:
+                deriv = 0
+
+            for i in range(cardinality-1):
+                result.append((result[-1] + deriv) % cardinality)
+                deriv += 1
+
+    #        print(result)
+
+            assert((result[-1] + deriv) % cardinality == result[0])
+
+            bestList = [np.exp(2*pi*i*1j/cardinality) for i in result]
+            bestList = [np.sign(np.real(i)) for i in bestList]
+
+    #        print([(1*(random.random() > 0.5) - 0.5)*2 for _ in range(cardinality)])
+
+            randList = [(1*(random.random() > 0.5) - 0.5)*2 for _ in range(cardinality)]
+
+            print(bestList)
+            print(np.linalg.det(circulant(bestList)))
+            print(np.linalg.det(circulant(randList)))
+            print(np.linalg.det(circulant(brentDecimalList[cardinality-1])))
+
+            logdets.append(np.linalg.slogdet(circulant(bestList))[1])
+            randomLogDets.append(np.linalg.slogdet(circulant(randList))[1])
+
+            print(np.abs(np.fft.fft(bestList)))
+            print([cis(i)*cardinality/(2*pi) for i in np.fft.fft(bestList)])
+
+
+        p.plot(logdets)
+        p.plot([np.linalg.slogdet(circulant(brentDecimalList[cardinality-1]))[1] for _ in range(cardinality)])
+        p.plot(randomLogDets)
+        p.show()
+
+    #        for i in np.abs(np.fft.fft(bestList)):
+     #           assert abs(i - sqrt(cardinality)) < 1e-6
+
 
 

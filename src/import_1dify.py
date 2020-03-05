@@ -36,6 +36,7 @@ getOutMovie = False
 readMovie = False
 displaySimpleOccluder = False
 polynomialApproach = False
+DIFF_DEPTHS = True
 
 
 REAL_OCCLUDER_ARRAY = [1]*44 +[0]*26 + [1]*113 + [0]*58 + [1]*5 + [0]*110 + \
@@ -356,568 +357,572 @@ def getDiffFromFrameNum(frameNum):
 
 #def getDifferenceImage(frame1, frame2):
 
-if derivativeOfMovie:
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+if __name__ == "__main__":
 
-    flatFrameLength = len(listOfFlatFrames[0])
+    if derivativeOfMovie:
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
+        flatFrameLength = len(listOfFlatFrames[0])
 
-    transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
-    transferMatrixShort = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
+        occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
 
+        transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
+        transferMatrixShort = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
 
-#    randomFrameIndex = random.randint(0, len(listOfFlatFrames)-2)
-    randomFrameIndex = 153
 
-    diffScene = getDiffFromFrameNum(randomFrameIndex)
-    diffSceneObs1 = getDiffObsFromFrameNum(transferMatrix, randomFrameIndex)
-    occluderPattern = getFlatFrameOccluderPattern(diffSceneObs1)
-    occluderPatternFirst1Index = occluderPattern.tolist().index(1)
+    #    randomFrameIndex = random.randint(0, len(listOfFlatFrames)-2)
+        randomFrameIndex = 153
 
-    diffSceneObsShort = getDiffObsFromFrameNum(transferMatrixShort, randomFrameIndex)
+        diffScene = getDiffFromFrameNum(randomFrameIndex)
+        diffSceneObs1 = getDiffObsFromFrameNum(transferMatrix, randomFrameIndex)
+        occluderPattern = getFlatFrameOccluderPattern(diffSceneObs1)
+        occluderPatternFirst1Index = occluderPattern.tolist().index(1)
 
-    prunedOccluderPattern = occluderPattern[occluderPatternFirst1Index: \
-        occluderPatternFirst1Index + 2*flatFrameLength-1]
+        diffSceneObsShort = getDiffObsFromFrameNum(transferMatrixShort, randomFrameIndex)
 
+        prunedOccluderPattern = occluderPattern[occluderPatternFirst1Index: \
+            occluderPatternFirst1Index + 2*flatFrameLength-1]
 
-    recoveredTransferMatrixShort = getTransferMatrixFromOccluder(prunedOccluderPattern, flatFrameLength)
-#    recoveredTransferMatrixShort = getTransferMatrixFromOccluder(stretchOccluderArray(occluderPattern, \
-#        2*flatFrameLength-1), flatFrameLength)
-#    recoveredTransferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
 
+        recoveredTransferMatrixShort = getTransferMatrixFromOccluder(prunedOccluderPattern, flatFrameLength)
+    #    recoveredTransferMatrixShort = getTransferMatrixFromOccluder(stretchOccluderArray(occluderPattern, \
+    #        2*flatFrameLength-1), flatFrameLength)
+    #    recoveredTransferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
 
-    recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(recoveredTransferMatrixShort, \
-        diffSceneObsShort, alpha=10.), 0,1)
 
-#    print recoveredSceneWithIncorrectOccluder
+        recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(recoveredTransferMatrixShort, \
+            diffSceneObsShort, alpha=10.), 0,1)
 
-    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True)
+    #    print recoveredSceneWithIncorrectOccluder
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200,\
-        magnification=255, differenceImage=False)
+        displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True)
 
-    displayFlattenedFrame(diffSceneObs1, 200, magnification=1, differenceImage=True)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200,\
+            magnification=255, differenceImage=False)
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(np.array(prunedOccluderPattern)), 200,\
-        magnification=255, differenceImage=False)
+        displayFlattenedFrame(diffSceneObs1, 200, magnification=1, differenceImage=True)
 
-    displayFlattenedFrame(recoveredSceneWithIncorrectOccluder, 100, magnification=10, \
-        differenceImage=True)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(np.array(prunedOccluderPattern)), 200,\
+            magnification=255, differenceImage=False)
 
-#    transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
+        displayFlattenedFrame(recoveredSceneWithIncorrectOccluder, 100, magnification=10, \
+            differenceImage=True)
 
-#    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
-#        filename="diff_scene.png")
+    #    transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
 
+    #    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
+    #        filename="diff_scene.png")
 
 
-if fourierApproach:
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    flatFrameLength = len(listOfFlatFrames[0])
+    if fourierApproach:
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)]
+        flatFrameLength = len(listOfFlatFrames[0])
 
-#    print listOfFlatDifferenceFrames[0].shape
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)]
 
-    concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
+    #    print listOfFlatDifferenceFrames[0].shape
 
-#    print concatenatedDifferenceFrames.shape
+        concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
 
-#    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=10, \
-#        differenceImage=True)
+    #    print concatenatedDifferenceFrames.shape
 
-#    smallOccluderArray = np.array([0,0,1,0,1,0,0,0,0])
-#    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
+    #    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=10, \
+    #        differenceImage=True)
 
-    oldFlatFrame = listOfFlatFrames[0]
-    flatFrameLength = len(oldFlatFrame)
+    #    smallOccluderArray = np.array([0,0,1,0,1,0,0,0,0])
+    #    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
 
-    flatFrame2 = listOfFlatFrames[100]
-    flatFrame1 = listOfFlatFrames[99]
+        oldFlatFrame = listOfFlatFrames[0]
+        flatFrameLength = len(oldFlatFrame)
 
-    diffScene = flatFrame2 - flatFrame1
+        flatFrame2 = listOfFlatFrames[100]
+        flatFrame1 = listOfFlatFrames[99]
 
-#    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
-#        filename="diff_scene.png")
+        diffScene = flatFrame2 - flatFrame1
 
-    occluderArray = [0]*int(2*flatFrameLength) + \
-        generateRandomOccluderList(int(2*flatFrameLength), 0.005)
-    occluderArray = occluderArray + [0]*((6*flatFrameLength-1) - len(occluderArray))
-    # Good lord that is gross
+    #    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
+    #        filename="diff_scene.png")
 
+        occluderArray = [0]*int(2*flatFrameLength) + \
+            generateRandomOccluderList(int(2*flatFrameLength), 0.005)
+        occluderArray = occluderArray + [0]*((6*flatFrameLength-1) - len(occluderArray))
+        # Good lord that is gross
 
-#    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
 
+    #    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
 
-    transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
 
-    distortedFlatFrame1 = np.dot(transferMatrix, diffScene)
+        transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
 
-#    displayFlattenedFrame(diffScene, 200,\
-#        magnification=10, differenceImage=True)
+        distortedFlatFrame1 = np.dot(transferMatrix, diffScene)
 
-    diffSceneFT = np.fft.fft(diffScene, axis=0)
-    occluderArrayFT = np.fft.fft(occluderArray)
-    distortedFlatFrameFT = np.fft.fft(distortedFlatFrame1, axis=0)
+    #    displayFlattenedFrame(diffScene, 200,\
+    #        magnification=10, differenceImage=True)
 
-#    displayFlattenedFrame(diffSceneFT, 200,\
-#        magnification=10, differenceImage=True)
+        diffSceneFT = np.fft.fft(diffScene, axis=0)
+        occluderArrayFT = np.fft.fft(occluderArray)
+        distortedFlatFrameFT = np.fft.fft(distortedFlatFrame1, axis=0)
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200,\
-        magnification=255, differenceImage=False)
+    #    displayFlattenedFrame(diffSceneFT, 200,\
+    #        magnification=10, differenceImage=True)
 
-#    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArrayFT), 200,\
-#        magnification=255, differenceImage=False)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200,\
+            magnification=255, differenceImage=False)
 
-#    displayFlattenedFrame(distortedFlatFrameFT, 200,\
-#        magnification=10, differenceImage=False)
+    #    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArrayFT), 200,\
+    #        magnification=255, differenceImage=False)
 
-#    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200, \
-#        magnification=255, differenceImage=False)
+    #    displayFlattenedFrame(distortedFlatFrameFT, 200,\
+    #        magnification=10, differenceImage=False)
 
-#    displayFlattenedFrame(np.fft.ifft(np.divide(distortedFlatFrameFT, \
-#        diffSceneFT)), 200, magnification=10, differenceImage=False)
+    #    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200, \
+    #        magnification=255, differenceImage=False)
 
-#    displayFlattenedFrame(blackAndWhiteifyFlatFrame(np.fft.fft(occluderArray).real),
-#        200, magnification=255, differenceImage=False)
+    #    displayFlattenedFrame(np.fft.ifft(np.divide(distortedFlatFrameFT, \
+    #        diffSceneFT)), 200, magnification=10, differenceImage=False)
 
-#    displayFlattenedFrame(blackAndWhiteifyFlatFrame(np.fft.fft(occluderArray).imag),
-#        200, magnification=255, differenceImage=False)
+    #    displayFlattenedFrame(blackAndWhiteifyFlatFrame(np.fft.fft(occluderArray).real),
+    #        200, magnification=255, differenceImage=False)
 
-if getOutMovie:
+    #    displayFlattenedFrame(blackAndWhiteifyFlatFrame(np.fft.fft(occluderArray).imag),
+    #        200, magnification=255, differenceImage=False)
 
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar_obs.p", "r")), 20)
-#    listOfFlatFrames = batchList(pickle.load(open("real_flat_frames.p", "r")), 20)
+    if getOutMovie:
 
-    print listOfFlatFrames[0].shape
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar_obs.p", "r")), 20)
+    #    listOfFlatFrames = batchList(pickle.load(open("real_flat_frames.p", "r")), 20)
 
-    flatFrameLength = len(listOfFlatFrames[0])
+        print listOfFlatFrames[0].shape
 
-    print dVideoDT(listOfFlatFrames).shape
+        flatFrameLength = len(listOfFlatFrames[0])
 
-    diffObs = np.concatenate(dVideoDT(listOfFlatFrames), 1)
+        print dVideoDT(listOfFlatFrames).shape
 
-    print diffObs.shape
+        diffObs = np.concatenate(dVideoDT(listOfFlatFrames), 1)
 
-    occluderArray = stretchOccluderArray(REAL_OCCLUDER_ARRAY, 2*flatFrameLength-1)
+        print diffObs.shape
 
-    displayConcatenatedArray(diffObs, magnification=10, \
-        differenceImage=True)
+        occluderArray = stretchOccluderArray(REAL_OCCLUDER_ARRAY, 2*flatFrameLength-1)
 
-    transferMatrix = getTransferMatrixFromOccluder(occluderArray, \
-        flatFrameLength)
+        displayConcatenatedArray(diffObs, magnification=10, \
+            differenceImage=True)
 
-    recoveredScene = recoverScene(transferMatrix, \
-        diffObs, alpha=0.01)
+        transferMatrix = getTransferMatrixFromOccluder(occluderArray, \
+            flatFrameLength)
 
-    pickle.dump(recoveredScene, open("recov.p","w"))
+        recoveredScene = recoverScene(transferMatrix, \
+            diffObs, alpha=0.01)
 
-    displayConcatenatedArray(np.transpose(recoveredScene), magnification=10, \
-        differenceImage=True)
+        pickle.dump(recoveredScene, open("recov.p","w"))
 
-if readMovie:
-    movie = pickle.load(open("recov.p", "r"))
+        displayConcatenatedArray(np.transpose(recoveredScene), magnification=10, \
+            differenceImage=True)
 
-    print movie.shape
+    if readMovie:
+        movie = pickle.load(open("recov.p", "r"))
 
-    displayConcatenatedArray(movie, magnification=1000, differenceImage=True)
+        print movie.shape
 
+        displayConcatenatedArray(movie, magnification=1000, differenceImage=True)
 
-if findOccluderWithSparsityEntireHistory:
-    FILE_NAME = "smaller_movie.mov"
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    flatFrameLength = len(listOfFlatFrames[0])
+    if findOccluderWithSparsityEntireHistory:
+        FILE_NAME = "smaller_movie.mov"
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)]
+        flatFrameLength = len(listOfFlatFrames[0])
 
-#    print listOfFlatDifferenceFrames[0].shape
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)]
 
-    concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
+    #    print listOfFlatDifferenceFrames[0].shape
 
-#    print concatenatedDifferenceFrames.shape
+        concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
 
-    print concatenatedDifferenceFrames.shape
+    #    print concatenatedDifferenceFrames.shape
 
-    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=10, \
-        differenceImage=True)
+        print concatenatedDifferenceFrames.shape
 
-    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
+        displayConcatenatedArray(concatenatedDifferenceFrames, magnification=10, \
+            differenceImage=True)
 
-    np.fft.fft(smallOccluderArray)
+        smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+        occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
 
-    otherSmallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    otherRandomOccluder = stretchOccluderArray(otherSmallOccluderArray, 2*flatFrameLength-1)
+        np.fft.fft(smallOccluderArray)
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(otherRandomOccluder), 200, magnification=255, differenceImage=False,\
-        filename="occluder.png")
+        otherSmallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+        otherRandomOccluder = stretchOccluderArray(otherSmallOccluderArray, 2*flatFrameLength-1)
 
-    transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
-    otherTransferMatrix = getTransferMatrixFromOccluder(otherRandomOccluder, \
-        flatFrameLength)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(otherRandomOccluder), 200, magnification=255, differenceImage=False,\
+            filename="occluder.png")
 
-    print transferMatrix.shape
+        transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
+        otherTransferMatrix = getTransferMatrixFromOccluder(otherRandomOccluder, \
+            flatFrameLength)
 
-    diffObs = np.dot(transferMatrix, concatenatedDifferenceFrames)
-    displayConcatenatedArray(diffObs, magnification=10, \
-        differenceImage=True)
+        print transferMatrix.shape
 
-    recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(otherTransferMatrix, \
-        diffObs, alpha=0.01), 0,1)
+        diffObs = np.dot(transferMatrix, concatenatedDifferenceFrames)
+        displayConcatenatedArray(diffObs, magnification=10, \
+            differenceImage=True)
 
-    print "done with inversion"
+        recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(otherTransferMatrix, \
+            diffObs, alpha=0.01), 0,1)
 
-    displayConcatenatedArray(recoveredSceneWithIncorrectOccluder, magnification=10, \
-        differenceImage=True)
+        print "done with inversion"
 
-    pickle.dump(recoveredSceneWithIncorrectOccluder, open("correct.p", "w"))
+        displayConcatenatedArray(recoveredSceneWithIncorrectOccluder, magnification=10, \
+            differenceImage=True)
 
-#    scoreOfCorrectOccluder = np.linalg.norm(np.dot(transferMatrix, \
-#        recoveredSceneWithIncorrectOccluder) - diffObs) + \
-#        0.01*np.linalg.norm(recoveredSceneWithIncorrectOccluder, 1)
+        pickle.dump(recoveredSceneWithIncorrectOccluder, open("correct.p", "w"))
 
-#    scoreOfIncorrectOccluder = np.linalg.norm(np.dot(otherTransferMatrix, \
-#        recoveredSceneWithCorrectOccluder) - diffObs) + \
-#        0.01*np.linalg.norm(recoveredSceneWithCorrectOccluder, 1)
+    #    scoreOfCorrectOccluder = np.linalg.norm(np.dot(transferMatrix, \
+    #        recoveredSceneWithIncorrectOccluder) - diffObs) + \
+    #        0.01*np.linalg.norm(recoveredSceneWithIncorrectOccluder, 1)
 
-    print "score of correct",
+    #    scoreOfIncorrectOccluder = np.linalg.norm(np.dot(otherTransferMatrix, \
+    #        recoveredSceneWithCorrectOccluder) - diffObs) + \
+    #        0.01*np.linalg.norm(recoveredSceneWithCorrectOccluder, 1)
 
-if findOccluderWithSparsity:
-    FILE_NAME = "smaller_movie.mov"
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+        print "score of correct",
 
-    oldFlatFrame = listOfFlatFrames[0]
-    flatFrameLength = len(oldFlatFrame)
+    if findOccluderWithSparsity:
+        FILE_NAME = "smaller_movie.mov"
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
 
-    flatFrame2 = listOfFlatFrames[100]
-    flatFrame1 = listOfFlatFrames[99]
+        oldFlatFrame = listOfFlatFrames[0]
+        flatFrameLength = len(oldFlatFrame)
 
-    diffScene = flatFrame2 - flatFrame1
+        flatFrame2 = listOfFlatFrames[100]
+        flatFrame1 = listOfFlatFrames[99]
 
-    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
-        filename="diff_scene.png")
+        diffScene = flatFrame2 - flatFrame1
 
-    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
+        displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
+            filename="diff_scene.png")
 
-#    smallOccluderArray = generateRandomOccluder(9, 0.5)
-    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
+        occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
 
-    otherSmallOccluderArray = np.array([0,0,0,0,1,0,1,0,0])
-    otherRandomOccluder = stretchOccluderArray(otherSmallOccluderArray, 2*flatFrameLength-1)
+    #    smallOccluderArray = generateRandomOccluder(9, 0.5)
+        smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+        occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
 
-    transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
+        otherSmallOccluderArray = np.array([0,0,0,0,1,0,1,0,0])
+        otherRandomOccluder = stretchOccluderArray(otherSmallOccluderArray, 2*flatFrameLength-1)
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200, magnification=255, differenceImage=False,\
-        filename="occluder.png")
+        transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
 
-    diffObs = np.dot(transferMatrix, diffScene)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200, magnification=255, differenceImage=False,\
+            filename="occluder.png")
 
-    displayFlattenedFrame(diffObs, 100, magnification=1, differenceImage=True,\
-        filename="diff_obs.png")
+        diffObs = np.dot(transferMatrix, diffScene)
 
-#    otherRandomOccluder = generateRandomOccluder(2*flatFrameLength-1, 0.005)
+        displayFlattenedFrame(diffObs, 100, magnification=1, differenceImage=True,\
+            filename="diff_obs.png")
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(otherRandomOccluder), 200, magnification=255, differenceImage=False,\
-        filename="other_occluder.png")
+    #    otherRandomOccluder = generateRandomOccluder(2*flatFrameLength-1, 0.005)
 
-    otherTransferMatrix = getTransferMatrixFromOccluder(otherRandomOccluder, \
-        flatFrameLength)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(otherRandomOccluder), 200, magnification=255, differenceImage=False,\
+            filename="other_occluder.png")
 
-    recoveredSceneWithCorrectOccluder = np.swapaxes(recoverScene(transferMatrix, \
-        diffObs, alpha=0.01), 0,1)
+        otherTransferMatrix = getTransferMatrixFromOccluder(otherRandomOccluder, \
+            flatFrameLength)
 
-    displayFlattenedFrame(recoveredSceneWithCorrectOccluder, 100, magnification=10,\
-        differenceImage=True, filename="recovered_scene_correct.png")
+        recoveredSceneWithCorrectOccluder = np.swapaxes(recoverScene(transferMatrix, \
+            diffObs, alpha=0.01), 0,1)
 
-    scoreOfCorrectOccluder = np.linalg.norm(np.dot(transferMatrix, \
-        recoveredSceneWithCorrectOccluder) - diffObs) + \
-        0.01*np.linalg.norm(recoveredSceneWithCorrectOccluder, 1)
+        displayFlattenedFrame(recoveredSceneWithCorrectOccluder, 100, magnification=10,\
+            differenceImage=True, filename="recovered_scene_correct.png")
 
-    print scoreOfCorrectOccluder
+        scoreOfCorrectOccluder = np.linalg.norm(np.dot(transferMatrix, \
+            recoveredSceneWithCorrectOccluder) - diffObs) + \
+            0.01*np.linalg.norm(recoveredSceneWithCorrectOccluder, 1)
 
-    recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(otherTransferMatrix, \
-        diffObs, alpha=0.01), 0,1)
-    scoreOfIncorrectOccluder = np.linalg.norm(np.dot(otherTransferMatrix, \
-        recoveredSceneWithIncorrectOccluder) - diffObs) + \
-        0.01*np.linalg.norm(recoveredSceneWithIncorrectOccluder, 1)
+        print scoreOfCorrectOccluder
 
-#    print scoreOfIncorrectOccluder
-
-
-
-    recoveredScene = recoverScene(otherTransferMatrix, diffObs, alpha=0.01)
-    displayFlattenedFrame(np.swapaxes(recoveredScene,0,1), 100, magnification=10,\
-        differenceImage=True, filename="recovered_scene_incorrect.png")
-
-if exportFlatVideo:
-#    trueOccluder = generateRandomOccluder(9)
-
-#    FILE_NAME = "smaller_movie.mov"
-    FILE_NAME = "grey_bar_movie.mpeg"
-    vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
-
-    listOfFlattenedFrames = turnVideoIntoListOfFlattenedFrames(vid)
-
-    flatFrameLength = len(listOfFlattenedFrames[0])
-
-    occluderArray = stretchOccluderArray(REAL_OCCLUDER_ARRAY, 2*flatFrameLength-1)
-
-    transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
-
-#    firstFlatFrame = listOfFlatFrames[0]
-#    flatFrameLength = len(oldFlatFrame)
-
-    listOfFlatFramesObs = [np.dot(transferMatrix, frame) for frame in \
-        listOfFlattenedFrames]
-
-    pickle.dump(listOfFlattenedFrames, open("flat_frames_grey_bar.p", "w"))
-
-    pickle.dump(listOfFlatFramesObs, open("flat_frames_grey_bar_obs.p", "w"))
-
-
-#listOfFrames = turnVideoIntoListOfFrames(vid)
-
-if displayFrameOfVideo:
-    FILE_NAME = "smaller_movie.mov"
-
-    vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
-
-    frameNum1 = 200
-    im = vid.get_data(frameNum1)
-    frame1 = np.array(im).astype(float)
-
-    frameNum2 = frameNum1 + 1
-    im = vid.get_data(frameNum2)
-    frame2 = np.array(im).astype(float)
-
-    viewFrame(frame2 - frame1, magnification=10, differenceImage=True)
-
-if displayFlatFrameOfVideo:
-    FILE_NAME = "smaller_movie.mov"
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
-
-    oldFlatFrame = listOfFlatFrames[0]
-    flatFrameLength = len(oldFlatFrame)
-
-    flatFrame2 = listOfFlatFrames[100]
-    flatFrame1 = listOfFlatFrames[99]
-
-    diffScene = flatFrame2 - flatFrame1
-
-#    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
-#        filename="diff_scene.png")
-
-    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
-    transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
-
-    distortedFlatFrame1 = np.dot(transferMatrix, flatFrame1)
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 1000, magnification=255,  differenceImage=False, \
-        filename="occluder.png")
-
-    displayFlattenedFrame(distortedFlatFrame1, 1000, magnification=1e-3, differenceImage=False,\
-            filename="distorted_frame.png")
-
-if buildVideos:
-
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
-#    listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar.p", "r")), 4)
-#    listOfFlatFrames = batchList(pickle.load(open("real_flat_frames.p", "r")), 20)
-
-
-    oldFlatFrame = listOfFlatFrames[0]
-    flatFrameLength = len(oldFlatFrame)
-
-#    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
-    occluderArray = np.array(REAL_OCCLUDER_ARRAY)
-#    smallOccluderArray = generateRandomOccluder(9, 0.5)
-#    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-#    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
-
-    print len(occluderArray), 2*flatFrameLength-1
-
-#    transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
-    transferMatrix = differentDepthsTransferMatrix(flatFrameLength)
-
-    print "shape", transferMatrix.shape
-#    print "det", np.linalg.det(transferMatrix)
-
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200, magnification=255,
-        differenceImage=False, filename="occluder.png")
-
-    frameCounter = 0
-
-    sceneMovie = []
-    differenceSceneMovie = []
-    differenceObsMovie = []
-    obsMovie = []
-
-    ROWS_PER_FRAME = 10
-
-    while frameCounter < len(listOfFlatFrames):
-        print frameCounter
-        newFlatFrame = listOfFlatFrames[frameCounter]
-        differenceFrame = newFlatFrame - oldFlatFrame
-        obsFrame = np.dot(transferMatrix, newFlatFrame)
-
-    #    p.matshow(transferMatrix)
-    #    p.show()
-        garbledDifferenceFrame = np.dot(transferMatrix, differenceFrame)
-    #    print garbledDifferenceFrame
-#        displayFlattenedFrame(newFlatFrame, height=100, magnification=1, \
-#            differenceImage=False, filename="flat_frames/flat_frame_truth_" + \
-#            str(frameCounter) + ".png")
-#        displayFlattenedFrame(differenceFrame, height=100, magnification=10, \
-#            differenceImage=True, filename="flat_frames/flat_frame_diff_" + str(frameCounter) + \
-#            ".png")
-#        displayFlattenedFrame(garbledDifferenceFrame, 100, 1, True, \
-#            filename="flat_frames/flat_frame_conv_" + str(frameCounter) + \
-#            ".png")
-
-
-
-        for _ in range(ROWS_PER_FRAME):
-            sceneMovie.append(newFlatFrame)
-            differenceSceneMovie.append(differenceFrame)
-            obsMovie.append(obsFrame)
-#            print garbledDifferenceFrame, np.average(garbledDifferenceFrame)
-
-            differenceObsMovie.append(garbledDifferenceFrame - \
-                [average(garbledDifferenceFrame)]*len(garbledDifferenceFrame))
-
-        oldFlatFrame = newFlatFrame
-
-        frameCounter += 1
-
-#    recoveredScene = recoverScene(transferMatrix, np.array(differenceSceneMovie), alpha=0.01)
-
-#    viewFrame(recoveredScene, differenceImage=False, magnification=1, \
-#        filename="recovered_scene_movie.png")
-
-
-    viewFrame(np.array(sceneMovie), differenceImage=False, magnification=1, \
-        filename="scene_movie.png")
-    viewFrame(np.array(differenceSceneMovie), differenceImage=True, magnification=10, \
-        filename="diff_scene_movie.png")
-    viewFrame(np.array(obsMovie), differenceImage=False, magnification=1e-3, \
-        filename="obs_movie.png")
-    viewFrame(np.array(differenceObsMovie), differenceImage=True, magnification=1, \
-        filename="diff_obs_movie.png")
-
-    #imRaw = Image.open("adam_h.jpeg").convert("RGB")
-    #frame = np.array(imRaw).astype(float)
-
-    #print displayFlattenedFrame(flattenFrame(frame), 100)
-
-if exportFlatRealVideo:
-    MOVIE_NAME = "grey_bar_obs_movie_real.MOV"
-    vid = imageio.get_reader(MOVIE_NAME)
-
-    print len(vid)
-
-    im = vid.get_data(0)
-    frame = np.array(im).astype(float)
-
-    frameShape = frame.shape
-    frameHeight = frameShape[0]
-
-#    viewFrame(frame)
-
-
-    LEFT_BOTTOM_PIXEL = 61
-    RIGHT_BOTTOM_PIXEL = 1179
-
-#    flatFrame = turnRealFrameIntoFlatFrame(frame, LEFT_BOTTOM_PIXEL, \
-#        RIGHT_BOTTOM_PIXEL)
-
-    listOfFlatFrames = []
-
-    for i in range(2500, 4500):
-        print i-2500, "/", 2000
-        im = vid.get_data(i)
-        frame = np.array(im).astype(float)
-        flatFrame = turnRealFrameIntoFlatFrame(frame, LEFT_BOTTOM_PIXEL, \
-                RIGHT_BOTTOM_PIXEL)
-
-        listOfFlatFrames.append(flatFrame)
-
-    pickle.dump(listOfFlatFrames, open("real_flat_frames_2500_4500.p", "w"))
-
-#    displayFlattenedFrame(flatFrame, 200)
-
-if showArtificialOccluder:
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(REAL_OCCLUDER_ARRAY), 200,\
-        magnification=255, differenceImage=False)
-
-    transferMatrix = getTransferMatrixFromOccluder(REAL_OCCLUDER_ARRAY, flatFrameLength)
-
-    scoreOfCorrectOccluder = np.linalg.norm(np.dot(transferMatrix, \
+        recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(otherTransferMatrix, \
+            diffObs, alpha=0.01), 0,1)
+        scoreOfIncorrectOccluder = np.linalg.norm(np.dot(otherTransferMatrix, \
             recoveredSceneWithIncorrectOccluder) - diffObs) + \
             0.01*np.linalg.norm(recoveredSceneWithIncorrectOccluder, 1)
 
-if testDifferentDepthsOccluder:
-    n = 100
-#    p.matshow(verticalTransferMatrix(n))
-    p.matshow(np.minimum(verticalTransferMatrix(n),horizontalTransferMatrix(n)))
-    p.show()
+    #    print scoreOfIncorrectOccluder
 
-if displaySimpleOccluder:
-#    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    smallOccluderArray = REAL_OCCLUDER_ARRAY
 
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(smallOccluderArray), 300, magnification=255)
 
-if polynomialApproach:
-    FILE_NAME = "smaller_movie.mov"
-    listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+        recoveredScene = recoverScene(otherTransferMatrix, diffObs, alpha=0.01)
+        displayFlattenedFrame(np.swapaxes(recoveredScene,0,1), 100, magnification=10,\
+            differenceImage=True, filename="recovered_scene_incorrect.png")
 
-    flatFrameLength = len(listOfFlatFrames[0])
+    if exportFlatVideo:
+    #    trueOccluder = generateRandomOccluder(9)
 
-    listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
-        for i in range(len(listOfFlatFrames) - 1)]
+    #    FILE_NAME = "smaller_movie.mov"
+        FILE_NAME = "grey_bar_movie.mpeg"
+        vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
 
-#    print listOfFlatDifferenceFrames[0].shape
+        listOfFlattenedFrames = turnVideoIntoListOfFlattenedFrames(vid)
 
-    concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
+        flatFrameLength = len(listOfFlattenedFrames[0])
 
-#    print concatenatedDifferenceFrames.shape
+        occluderArray = stretchOccluderArray(REAL_OCCLUDER_ARRAY, 2*flatFrameLength-1)
 
-    print concatenatedDifferenceFrames.shape
+        transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
 
-    displayConcatenatedArray(concatenatedDifferenceFrames, magnification=10, \
-        differenceImage=True)
+    #    firstFlatFrame = listOfFlatFrames[0]
+    #    flatFrameLength = len(oldFlatFrame)
+
+        listOfFlatFramesObs = [np.dot(transferMatrix, frame) for frame in \
+            listOfFlattenedFrames]
+
+        pickle.dump(listOfFlattenedFrames, open("flat_frames_grey_bar.p", "w"))
+
+        pickle.dump(listOfFlatFramesObs, open("flat_frames_grey_bar_obs.p", "w"))
+
+
+    #listOfFrames = turnVideoIntoListOfFrames(vid)
+
+    if displayFrameOfVideo:
+        FILE_NAME = "smaller_movie.mov"
+
+        vid = imageio.get_reader(FILE_NAME,  'ffmpeg')
+
+        frameNum1 = 200
+        im = vid.get_data(frameNum1)
+        frame1 = np.array(im).astype(float)
+
+        frameNum2 = frameNum1 + 1
+        im = vid.get_data(frameNum2)
+        frame2 = np.array(im).astype(float)
+
+        viewFrame(frame2 - frame1, magnification=10, differenceImage=True)
+
+    if displayFlatFrameOfVideo:
+        FILE_NAME = "smaller_movie.mov"
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+
+        oldFlatFrame = listOfFlatFrames[0]
+        flatFrameLength = len(oldFlatFrame)
+
+        flatFrame2 = listOfFlatFrames[100]
+        flatFrame1 = listOfFlatFrames[99]
+
+        diffScene = flatFrame2 - flatFrame1
+
+    #    displayFlattenedFrame(diffScene, 100, magnification=10, differenceImage=True,\
+    #        filename="diff_scene.png")
+
+        occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
+        transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
+
+        distortedFlatFrame1 = np.dot(transferMatrix, flatFrame1)
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 1000, magnification=255,  differenceImage=False, \
+            filename="occluder.png")
+
+        displayFlattenedFrame(distortedFlatFrame1, 1000, magnification=1e-3, differenceImage=False,\
+                filename="distorted_frame.png")
+
+    if buildVideos:
+
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+    #    listOfFlatFrames = batchList(pickle.load(open("flat_frames_grey_bar.p", "r")), 4)
+    #    listOfFlatFrames = batchList(pickle.load(open("real_flat_frames.p", "r")), 20)
+
+
+        oldFlatFrame = listOfFlatFrames[0]
+        flatFrameLength = len(oldFlatFrame)
+
+    #    occluderArray = generateRandomOccluder(2*flatFrameLength-1, 0.005)
+        occluderArray = np.array(REAL_OCCLUDER_ARRAY)
+    #    smallOccluderArray = generateRandomOccluder(9, 0.5)
+    #    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+    #    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
+
+        print len(occluderArray), 2*flatFrameLength-1
+
+    #    transferMatrix = getTransferMatrixFromOccluderLong(occluderArray, flatFrameLength)
+        transferMatrix = differentDepthsTransferMatrix(flatFrameLength)
+
+        print "shape", transferMatrix.shape
+    #    print "det", np.linalg.det(transferMatrix)
+
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(occluderArray), 200, magnification=255,
+            differenceImage=False, filename="occluder.png")
+
+        frameCounter = 0
+
+        sceneMovie = []
+        differenceSceneMovie = []
+        differenceObsMovie = []
+        obsMovie = []
+
+        ROWS_PER_FRAME = 10
+
+        while frameCounter < len(listOfFlatFrames):
+            print frameCounter
+            newFlatFrame = listOfFlatFrames[frameCounter]
+            differenceFrame = newFlatFrame - oldFlatFrame
+            obsFrame = np.dot(transferMatrix, newFlatFrame)
+
+        #    p.matshow(transferMatrix)
+        #    p.show()
+            garbledDifferenceFrame = np.dot(transferMatrix, differenceFrame)
+        #    print garbledDifferenceFrame
+    #        displayFlattenedFrame(newFlatFrame, height=100, magnification=1, \
+    #            differenceImage=False, filename="flat_frames/flat_frame_truth_" + \
+    #            str(frameCounter) + ".png")
+    #        displayFlattenedFrame(differenceFrame, height=100, magnification=10, \
+    #            differenceImage=True, filename="flat_frames/flat_frame_diff_" + str(frameCounter) + \
+    #            ".png")
+    #        displayFlattenedFrame(garbledDifferenceFrame, 100, 1, True, \
+    #            filename="flat_frames/flat_frame_conv_" + str(frameCounter) + \
+    #            ".png")
+
+
+
+            for _ in range(ROWS_PER_FRAME):
+                sceneMovie.append(newFlatFrame)
+                differenceSceneMovie.append(differenceFrame)
+                obsMovie.append(obsFrame)
+    #            print garbledDifferenceFrame, np.average(garbledDifferenceFrame)
+
+                differenceObsMovie.append(garbledDifferenceFrame - \
+                    [average(garbledDifferenceFrame)]*len(garbledDifferenceFrame))
+
+            oldFlatFrame = newFlatFrame
+
+            frameCounter += 1
+
+    #    recoveredScene = recoverScene(transferMatrix, np.array(differenceSceneMovie), alpha=0.01)
+
+    #    viewFrame(recoveredScene, differenceImage=False, magnification=1, \
+    #        filename="recovered_scene_movie.png")
+
+
+        viewFrame(np.array(sceneMovie), differenceImage=False, magnification=1, \
+            filename="scene_movie.png")
+        viewFrame(np.array(differenceSceneMovie), differenceImage=True, magnification=10, \
+            filename="diff_scene_movie.png")
+        viewFrame(np.array(obsMovie), differenceImage=False, magnification=1e-3, \
+            filename="obs_movie.png")
+        viewFrame(np.array(differenceObsMovie), differenceImage=True, magnification=1, \
+            filename="diff_obs_movie.png")
+
+        #imRaw = Image.open("adam_h.jpeg").convert("RGB")
+        #frame = np.array(imRaw).astype(float)
+
+        #print displayFlattenedFrame(flattenFrame(frame), 100)
+
+    if exportFlatRealVideo:
+        MOVIE_NAME = "grey_bar_obs_movie_real.MOV"
+        vid = imageio.get_reader(MOVIE_NAME)
+
+        print len(vid)
+
+        im = vid.get_data(0)
+        frame = np.array(im).astype(float)
+
+        frameShape = frame.shape
+        frameHeight = frameShape[0]
+
+    #    viewFrame(frame)
+
+
+        LEFT_BOTTOM_PIXEL = 61
+        RIGHT_BOTTOM_PIXEL = 1179
+
+    #    flatFrame = turnRealFrameIntoFlatFrame(frame, LEFT_BOTTOM_PIXEL, \
+    #        RIGHT_BOTTOM_PIXEL)
+
+        listOfFlatFrames = []
+
+        for i in range(2500, 4500):
+            print i-2500, "/", 2000
+            im = vid.get_data(i)
+            frame = np.array(im).astype(float)
+            flatFrame = turnRealFrameIntoFlatFrame(frame, LEFT_BOTTOM_PIXEL, \
+                    RIGHT_BOTTOM_PIXEL)
+
+            listOfFlatFrames.append(flatFrame)
+
+        pickle.dump(listOfFlatFrames, open("real_flat_frames_2500_4500.p", "w"))
+
+    #    displayFlattenedFrame(flatFrame, 200)
+
+    if showArtificialOccluder:
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(REAL_OCCLUDER_ARRAY), 200,\
+            magnification=255, differenceImage=False)
+
+        transferMatrix = getTransferMatrixFromOccluder(REAL_OCCLUDER_ARRAY, flatFrameLength)
+
+        scoreOfCorrectOccluder = np.linalg.norm(np.dot(transferMatrix, \
+                recoveredSceneWithIncorrectOccluder) - diffObs) + \
+                0.01*np.linalg.norm(recoveredSceneWithIncorrectOccluder, 1)
+
+    if testDifferentDepthsOccluder:
+        n = 100
+    #    p.matshow(verticalTransferMatrix(n))
+        p.matshow(np.minimum(verticalTransferMatrix(n),horizontalTransferMatrix(n)))
+        p.show()
+
+    if displaySimpleOccluder:
+    #    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+        smallOccluderArray = REAL_OCCLUDER_ARRAY
+
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(smallOccluderArray), 300, magnification=255)
+
+    if polynomialApproach:
+        FILE_NAME = "smaller_movie.mov"
+        listOfFlatFrames = batchList(pickle.load(open("flat_frames.p", "r")), 2)
+
+        flatFrameLength = len(listOfFlatFrames[0])
+
+        listOfFlatDifferenceFrames = [listOfFlatFrames[i+1] - listOfFlatFrames[i] \
+            for i in range(len(listOfFlatFrames) - 1)]
+
+    #    print listOfFlatDifferenceFrames[0].shape
+
+        concatenatedDifferenceFrames = np.concatenate(listOfFlatDifferenceFrames, 1)
+
+    #    print concatenatedDifferenceFrames.shape
+
+        print concatenatedDifferenceFrames.shape
+
+        displayConcatenatedArray(concatenatedDifferenceFrames, magnification=10, \
+            differenceImage=True)
+            
+        smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+        occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
+
+        np.fft.fft(smallOccluderArray)
+
+        otherSmallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
+        otherRandomOccluder = stretchOccluderArray(otherSmallOccluderArray, 2*flatFrameLength-1)
+
+        displayFlattenedFrame(blackAndWhiteifyFlatFrame(otherRandomOccluder), 200, magnification=255, 
+            differenceImage=False, filename="occluder.png")
+
+        transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
+        otherTransferMatrix = getTransferMatrixFromOccluder(otherRandomOccluder, \
+            flatFrameLength)
+
+        print transferMatrix.shape
+
+        diffObs = np.dot(transferMatrix, concatenatedDifferenceFrames)
+        displayConcatenatedArray(diffObs, magnification=10, \
+            differenceImage=True)
+
+        recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(otherTransferMatrix, \
+            diffObs, alpha=0.01), 0,1)
+
+        print "done with inversion"
+
+        displayConcatenatedArray(recoveredSceneWithIncorrectOccluder, magnification=10, \
+            differenceImage=True)
         
-    smallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    occluderArray = stretchOccluderArray(smallOccluderArray, 2*flatFrameLength-1)
-
-    np.fft.fft(smallOccluderArray)
-
-    otherSmallOccluderArray = np.array([0,0,0,0,1,0,0,0,0])
-    otherRandomOccluder = stretchOccluderArray(otherSmallOccluderArray, 2*flatFrameLength-1)
-
-    displayFlattenedFrame(blackAndWhiteifyFlatFrame(otherRandomOccluder), 200, magnification=255, 
-        differenceImage=False, filename="occluder.png")
-
-    transferMatrix = getTransferMatrixFromOccluder(occluderArray, flatFrameLength)
-    otherTransferMatrix = getTransferMatrixFromOccluder(otherRandomOccluder, \
-        flatFrameLength)
-
-    print transferMatrix.shape
-
-    diffObs = np.dot(transferMatrix, concatenatedDifferenceFrames)
-    displayConcatenatedArray(diffObs, magnification=10, \
-        differenceImage=True)
-
-    recoveredSceneWithIncorrectOccluder = np.swapaxes(recoverScene(otherTransferMatrix, \
-        diffObs, alpha=0.01), 0,1)
-
-    print "done with inversion"
-
-    displayConcatenatedArray(recoveredSceneWithIncorrectOccluder, magnification=10, \
-        differenceImage=True)
-    
+    if DIFF_DEPTHS:
+        print(differentDepthsTransferMatrix(20))

@@ -142,6 +142,28 @@ def batchAndDifferentiate(arr, listOfResponses):
 
     return arr
 
+def batch(arr, batchAmount):
+    dim  = len(arr.shape)
+
+#    assert dim == len(listOfResponses)
+
+    # batch things
+#    print "Batching..."
+    for i in range(dim-1):
+        arr = batchArrayAlongAxis(arr, i, batchAmount)
+
+#    viewFrame(arr, 1e0, False)
+
+    # take gradients
+#    print "Differentiating..."
+
+#            viewFrame(arr, 3e2, True)
+
+#    arr = blur2DImage(arr, 5)
+
+#    viewFrame(arr, 3e2, True)
+
+    return arr
 
 def makeCornerTransferMatrix(vector1, vector2, imShape, vertRadius, horizRadius):
 
@@ -784,6 +806,11 @@ def separate(rgbIm):
     
     return rearrangedIm
 
+def reassemble(rearrangedIm):
+    rgbIm = np.swapaxes(np.swapaxes(rearrangedIm, 1, 2), 0, 2) 
+
+    return rgbIm
+
 def doFuncToEachChannelSeparated(func, rgbIm):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbIm, 0, 2), 1, 2)
     rIm = rearrangedIm[0]
@@ -911,6 +938,29 @@ def doFuncToEachChannelVec(func, rgbVec):
         funkyB]), 0, 1)
 
     return resultVec
+
+def doFuncToEachChannelTwoInputsVec(func, rgbVec1, rgbVec2):
+    rearrangedVec1 = np.swapaxes(rgbVec1, 0, 1)
+    rearrangedVec2 = np.swapaxes(rgbVec2, 0, 1)
+
+
+    rVec1 = rearrangedVec1[0]
+    gVec1 = rearrangedVec1[1]
+    bVec1 = rearrangedVec1[2]
+
+    rVec2 = rearrangedVec2[0]
+    gVec2 = rearrangedVec2[1]
+    bVec2 = rearrangedVec2[2]
+
+    funkyR = func(rVec1, rVec2)
+    funkyG = func(gVec1, gVec2)
+    funkyB = func(bVec1, bVec2)
+
+    resultVec = np.swapaxes(np.array([funkyR, funkyG, \
+        funkyB]), 0, 1)
+
+    return resultVec
+
 
 def makeImpulseImage(imShape, location="center"):
     returnArray = np.zeros((imShape[0], imShape[1], 3))
@@ -1764,6 +1814,15 @@ def horizontalTransferMatrix(sceneDimensions):
  #   p.show()
 
     return np.array(returnMat)     
+
+def build2dTo1dTransferMatrix(sceneDepth, sceneWidth, occ):
+    occDepth = occ.shape[0]
+    occWidth = sceneWidth
+
+#    for i in range(occDepth, occDepth+sceneDepth):
+#        for j in range(sceneWidth)
+
+
 
 if __name__ == "__main__":
 

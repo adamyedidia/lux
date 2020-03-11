@@ -23,6 +23,7 @@ import random
 import time
 from image_distortion_simulator import doFuncToEachChannel, imageify
 from import_1dify import fuzzyLookup2D
+from sklearn.neighbors import BallTree
 
 test = False
 flag = False
@@ -71,6 +72,7 @@ sidewalk = False
 lion_king_bottle = False
 lion_king_bottle_sparsified = False
 lion_king_bottle_build_array = True
+colorStackTest = False
 
 def actOnRGB(rgbArray, func):
     rearrangedIm = np.swapaxes(np.swapaxes(rgbArray, 0, 2), 1, 2)
@@ -433,16 +435,25 @@ def processVideoCheapWithPixels(vid, listOfPixels, vidLength, listOfResponses, f
     for i in range(firstFrame, lastFrame):
         print(i-firstFrame, "/", lastFrame - firstFrame)
 
+
+
 #        try:
         im = vid.get_data(i)
 #        except:
 #            im = vid[i]
         frame = np.array(im).astype(float)
 
+#        for pixel in listOfPixels[:10000]:
+
+#            if random.random() < 0.01:
+#                p.plot(pixel[1]+minX, pixel[0]+minY, "bo")
+#        viewFrame(frame, relax=True)
+
         trueFrame = []
-        for pixel in listOfPixels[:10000]:
+        for pixel in listOfPixels:
 #            print(pixel)
-            trueFrame.append(frame[pixel[0]][pixel[1]])
+#            print(frame.shape, (pixel[0]+minY, pixel[1]+minX))
+            trueFrame.append(frame[pixel[0]+minY][pixel[1]+minX])
 
         if minY == None and minX == None:
             batchedFrame = batchAndDifferentiate(frame, listOfResponses[1:])
@@ -1041,6 +1052,14 @@ def average(x):
 def distanceBetween(x, y):
     return sqrt((x[0]-y[0])**2 + (x[1]-y[1])**2)
 
+def colorStack(vid):
+    colorStackedVid = np.swapaxes(np.reshape(np.swapaxes(vid, 1, 3), \
+        (vid.shape[0]*3, vid.shape[2], vid.shape[1])), 1, 2)
+
+    print(colorStackedVid.shape)
+
+    return colorStackedVid
+
 def pixelAngle(arr, pixel1, pixel2):
     history1 = arr[pixel1[0]][pixel1[1]]
     history2 = arr[pixel2[0]][pixel2[1]]
@@ -1119,6 +1138,101 @@ def extractUniquePixels(arr):
 #    p.show()   
 
     return listOfUniquePixels
+
+def extractUniquePixelsWithTree(arr):
+    colorStackedArr = colorStack(arr)
+
+    reshapedArr = np.reshape(colorStackedArr, (colorStackedArr.shape[0], 
+        colorStackedArr.shape[1]*colorStackedArr.shape[2]))
+
+    swappedReshapedArr = np.swapaxes(reshapedArr, 0, 1)
+
+#    print(np.sum(colorStackedArr[0]))
+#    print(np.sum(reshapedArr[0]))
+
+#    assert sum(colorStackedArr[0]) == sum(reshapedArr[0])
+
+
+    swappedArr = np.swapaxes(np.swapaxes(colorStackedArr, 0, 1), 1, 2)
+
+    listOfGoodPixels = []
+
+    for i in range(swappedArr.shape[0]):
+        for j in range(swappedArr.shape[1]):
+            pixel = swappedArr[i][j]
+
+            pixelStdev = np.std(pixel, axis=0)
+
+            if pixelStdev > 30:
+                listOfGoodPixels.append((i, j))        
+
+    tree = BallTree(swappedReshapedArr)
+
+    TYPICAL_NEIGHBOR_COUNT = 5
+    NUM_SAMPLES = 1000
+
+    listOfDistances = []
+
+    for _ in range(NUM_SAMPLES):
+        randomIndex = random.choice(listOfGoodPixels)
+        randomPixel = swappedArr[randomIndex[0]][randomIndex[1]]
+        nClosestNeighbors = tree.query([randomPixel], k=TYPICAL_NEIGHBOR_COUNT+1, \
+            sort_results=True, return_distance=True)
+#        print(nClosestNeighbors)
+#        print(nClosestNeighbors[0])
+        nthClosestNeighborDistance = nClosestNeighbors[0][0][TYPICAL_NEIGHBOR_COUNT] 
+
+        listOfDistances.append(nthClosestNeighborDistance)
+
+#    print(listOfDistances, "listOfDistances")
+
+    typicalDistance = np.median(listOfDistances)
+
+    indicesToKeep = []
+
+#    sys.exit()
+
+    print(typicalDistance)
+
+
+    for k, i in enumerate(listOfGoodPixels):
+        if k % 100 == 0:
+            print(k, "/", len(listOfGoodPixels), len(indicesToKeep))
+
+        pixel = np.array([swappedArr[i[0]][i[1]]])
+        neighbors = tree.query_radius(pixel, typicalDistance)[0]
+
+        numNeighbors = len(neighbors)
+#        print(neighbors)
+
+#        if numNeighbors > 1:
+#            print(numNeighbors)
+
+#        print(numNeighbors)
+
+
+        if numNeighbors >= 3:
+            if numNeighbors <= TYPICAL_NEIGHBOR_COUNT*2:
+
+                closeDistance = typicalDistance/5
+
+                numCloseNeighbors = tree.query_radius(pixel, closeDistance, count_only=True) 
+
+                probStay = 1/(1+numCloseNeighbors)
+
+                if random.random() < probStay:
+                    indicesToKeep.append(i)
+
+    print(swappedArr.shape[0])
+    print(len(indicesToKeep))
+
+    goodPixelsOnlyArr = []
+
+    for index in indicesToKeep:
+        goodPixelsOnlyArr.append(swappedArr[index[0]][index[1]])
+
+    return np.array(goodPixelsOnlyArr), indicesToKeep
+
 
 if __name__ == "__main__":
 
@@ -2292,44 +2406,57 @@ if __name__ == "__main__":
             toVideo=False, minX=20, maxX=87, minY=42, maxY=191)             
 
     if lion_king_bottle_sparsified:
-        path = "/Users/adamyedidia/walls/src/python3_files/lion_king.m4v"
+        generateSample = True
+        if generateSample:
+            path = "/Users/adamyedidia/walls/src/python3_files/lion_king.m4v"
 
-        vid = imageio.get_reader(path, 'ffmpeg')
-        
-        VIDEO_TIME = "4:08"
-        START_TIME = "0:05"        
-        END_TIME = "4:00"
+            vid = imageio.get_reader(path, 'ffmpeg')
+            
+            VIDEO_TIME = "4:08"
+            START_TIME = "0:05"        
+            END_TIME = "4:00"
 
-        sampleStart = "0:15"
-        sampleEnd = "0:30"
+            sampleStart = "0:15"
+            sampleEnd = "0:30"
 
-        numFrames = len(vid)
+            numFrames = len(vid)
 
-        firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
-        lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
+            firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
+            lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
-        firstFrameSample = getFrameAtTime(sampleStart, VIDEO_TIME, numFrames)
-        lastFrameSample = getFrameAtTime(sampleEnd, VIDEO_TIME, numFrames)
+            firstFrameSample = getFrameAtTime(sampleStart, VIDEO_TIME, numFrames)
+            lastFrameSample = getFrameAtTime(sampleEnd, VIDEO_TIME, numFrames)
 
-        multiple = 1
+            multiple = 1
 
-#        print(firstFrame.shape)
+    #        print(firstFrame.shape)
 
-        arr = processVideoCheap(vid, VIDEO_TIME, \
-            [(3, False), (multiple, False), (multiple, False), (1, False)], \
-            "lion_king", magnification=1, firstFrame=firstFrameSample, lastFrame=lastFrameSample, 
-            toVideo=False, minX=int(200/multiple), maxX=int(870/multiple), minY=int(420/multiple), maxY=int(1910/multiple), returnSomething=True)             
+            arr = processVideoCheap(vid, VIDEO_TIME, \
+                [(3, False), (multiple, False), (multiple, False), (1, False)], \
+                "lion_king", magnification=1, firstFrame=firstFrameSample, lastFrame=lastFrameSample, 
+                toVideo=False, minX=int(200/multiple), maxX=int(870/multiple), minY=int(420/multiple), maxY=int(1910/multiple), returnSomething=True)             
+        else:
+            arr = pickle.load(open("lion_king.p", "rb"))
 
-        pixelLocs = extractUniquePixels(arr)
 
-        pickle.dump(pixelLocs, open("unique_pixels_lion_king.p", "wb"))
+        pixelMovie, pixelLocs = extractUniquePixelsWithTree(arr)
+
+        pickle.dump(pixelLocs, open("unique_pixels_lion_king_new.p", "wb"))
+        pickle.dump(pixelMovie, open("unique_pixels_lion_king_movie.p", "wb"))
+
+        for i in pixelLocs:
+            p.plot(i[1], i[0], "bo")
+        viewFrame(arr[100], relax=True)
+
 
     if lion_king_bottle_build_array:
         path = "/Users/adamyedidia/walls/src/python3_files/lion_king.m4v"
         vid = imageio.get_reader(path, 'ffmpeg')
 
-        listOfPixels = pickle.load(open("unique_pixels_lion_king.p", "rb"))
+        listOfPixels = random.sample(pickle.load(open("unique_pixels_lion_king_new.p", "rb"))[:60000], 10000)
         numFrames = len(vid)
+
+        pickle.dump(listOfPixels, open("selected_pixels_lion_king_10k.p", "wb"))
 
 #        for i,pixel in enumerate(listOfPixels[:3000]):
 #            print(i)
@@ -2339,15 +2466,29 @@ if __name__ == "__main__":
         vid = imageio.get_reader(path, 'ffmpeg')
         
         VIDEO_TIME = "4:08"
-        START_TIME = "0:20"        
-        END_TIME = "0:22"
+        START_TIME = "0:05"        
+        END_TIME = "4:00"
 
         firstFrame = getFrameAtTime(START_TIME, VIDEO_TIME, numFrames)
         lastFrame = getFrameAtTime(END_TIME, VIDEO_TIME, numFrames)
 
         processVideoCheapWithPixels(vid, listOfPixels, VIDEO_TIME, \
-            [(3, False), (1, False), (1, False), (1, False)], \
-            "lion_king_1", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
+            [(10, False), (1, False), (1, False), (1, False)], \
+            "lion_king_10k", magnification=1, firstFrame=firstFrame, lastFrame=lastFrame, 
             toVideo=False, minX=200, maxX=870, minY=420, maxY=1910, returnSomething=False)             
+
+
+    if colorStackTest:
+        vid = pickle.load(open("particle_vid.p", "rb"))
+
+        print(vid.shape)
+
+        viewFrame(vid[100])
+
+        colorStackedVid = colorStack(vid)
+
+        print(colorStackedVid.shape)
+
+        viewFrame(imageify(colorStackedVid[300]), adaptiveScaling=True)
 
 

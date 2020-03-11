@@ -332,15 +332,49 @@ def getGaussianKernel(squareDiameter, pixelsPerSigma):
 
 def getGaussianKernelVariableLocation(arrShape, centerPoint, pixelsPerSigma):
 
-    returnArray = []
+#    returnArray = []
 
-    for i in range(arrShape[0]):
-        returnArray.append([])
-        for j in range(arrShape[1]):
-            returnArray[-1].append(exp(-(((i-centerPoint[0])/pixelsPerSigma)**2 + \
-                                        ((j-centerPoint[1])/pixelsPerSigma)**2)))
+#    for i in range(arrShape[0]):
+#        returnArray.append([])
+ #       for j in range(arrShape[1]):
+#            returnArray[-1].append(exp(-(((i-centerPoint[0])/pixelsPerSigma)**2 + \
+ #                                       ((j-centerPoint[1])/pixelsPerSigma)**2)))
 
-    return np.array(returnArray)    
+    x = [((i-centerPoint[0])/pixelsPerSigma)**2 for i in range(arrShape[0])]
+    y = [((j-centerPoint[1])/pixelsPerSigma)**2 for j in range(arrShape[1])]
+
+
+    xv, yv = np.meshgrid(x, y)
+
+#    print(x)
+#    print(y)
+ #   print(xv)
+ #   print(yv)
+
+#    p.plot(x)
+#    p.show()
+
+
+#    print(arrShape)
+
+#    print(len(x))
+#    print(len(y))
+
+#    p.matshow(xv)
+#    p.show()
+
+#    print(xv.shape)
+
+#    print(xv.shape)
+
+    return np.exp(-(xv + yv))
+
+
+#    def gaussianFunc(centerPoint):
+#        return exp(-(((i-centerPoint[0])/pixelsPerSigma)**2 + \
+#            ((j-centerPoint[1])/pixelsPerSigma)**2))        
+
+#    return np.array(returnArray)    
 
 def makeMultipleImpulseFrame(shape, numImpulses):
     returnArray = np.zeros(shape)

@@ -1,4 +1,3 @@
-
 from PIL import Image
 import numpy as np
 import pickle 
@@ -18,13 +17,13 @@ from sklearn.datasets import load_digits
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as p
 from matplotlib.colors import LinearSegmentedColormap
-from math import floor, log
+from math import floor, log, exp, sqrt
 import sys
 from custom_plot import createCMapDictHelix
 from best_matrix import padIntegerWithZeros, allListsOfSizeX
 from scipy.optimize import minimize
 from scipy.signal import fftconvolve
-
+from scipy.spatial import KDTree
 
 MAKE_GAUSS_VID = False
 MAKE_IMPULSE_VID = False
@@ -51,6 +50,7 @@ ANAT_METHOD = False
 ANAT_ANALYSIS = False
 ANAT_METHOD_REAL = False
 PRAFULL_LOAD = False
+TREE_TEST = False
 
 def turnVidToMatrix(vid):
 	returnArray = []
@@ -132,6 +132,25 @@ def downsizePixelMapping(pixelMapping, newShape, xRange=None, yRange=None):
 
 	return makeListOfXYInRange(pixelMapping, minX, maxX, minY, maxY, newShape)
 
+def getGaussianKernelsCheap(pixelMapping, gaussSD, recoveredFrameShape):
+	listOfGaussianKernels = []
+
+	tree = KDTree(pixelMapping)
+
+	compensationFactor = np.zeros(recoveredFrameShape)
+
+	for point in pixelMapping:
+		gaussianKernel = getGaussianKernelVariableLocationCheap(recoveredFrameShape, point, gaussSD)
+
+		print(gaussianKernel.shape)
+
+		listOfGaussianKernels.append(gaussianKernel)
+
+		compensationFactor += gaussianKernel
+
+	return listOfGaussianKernels, compensationFactor
+
+
 def getGaussianKernels(pixelMapping, gaussSD, recoveredFrameShape):
 	listOfGaussianKernels = []
 
@@ -139,6 +158,8 @@ def getGaussianKernels(pixelMapping, gaussSD, recoveredFrameShape):
 
 	for point in pixelMapping:
 		gaussianKernel = getGaussianKernelVariableLocation(recoveredFrameShape, point, gaussSD)
+
+#		print(gaussianKernel.shape)
 
 		listOfGaussianKernels.append(gaussianKernel)
 
@@ -216,6 +237,99 @@ def recoverFrameFromEmbedding(jumbledFrame, gaussianKernels, compensationFactor,
 
 	return resultFrame
 
+def distanceBetween(x, y):
+    return sqrt((x[0]-y[0])**2 + (x[1]-y[1])**2)
+
+def recoverFrameFromEmbeddingCheap(jumbledFrame, tree, pointDict, \
+	recoveredFrameShape, gaussSD):
+
+	returnFrame = []
+	treeData = tree.data
+
+	for i in range(recoveredFrameShape[0]):
+		print(i)
+		returnFrame.append([])
+		for j in range(recoveredFrameShape[1]):
+			indexList = tree.query_ball_point((i,j), gaussSD)
+
+#			print(len(indexList))
+
+			if len(indexList) == 0:
+				nearestPixelIndex = tree.query((i,j))[1]
+				nearbyContributor = treeData[nearestPixelIndex]
+				appropriatePixel = pointDict[(nearbyContributor[0], nearbyContributor[1])]
+
+#				returnFrame[-1].append([0,0,0])				
+
+				returnFrame[-1].append(jumbledFrame[appropriatePixel[0]][appropriatePixel[1]])
+			
+			else:
+				contributionSum = 0
+				pixelSum = [0,0,0]
+
+				for index in indexList:
+					nearbyContributor = treeData[index]
+					appropriatePixel = pointDict[(nearbyContributor[0], nearbyContributor[1])]
+
+					distanceAttenuation = exp(distanceBetween((i, j), nearbyContributor)**2/(2*gaussSD))
+
+					contributionSum += distanceAttenuation
+					pixelSum += distanceAttenuation * jumbledFrame[appropriatePixel[0]][appropriatePixel[1]]
+
+				returnFrame[-1].append(pixelSum/contributionSum)
+
+	return np.array(returnFrame)
+
+def getPointDictFromPixelMapping(pixelMapping, jumbledFrameShape):
+	returnDict = {}
+
+	counter = 0
+
+	for i in range(jumbledFrameShape[0]):
+		for j in range(jumbledFrameShape[1]):
+			returnDict[(pixelMapping[counter][0], pixelMapping[counter][1])] = (i, j)
+			counter += 1
+
+	return returnDict
+
+
+def recoverVideoFromEmbeddingCheap(jumbledVid, pixelMapping, gaussSD, recoveredFrameShape,
+	xBounds=None, yBounds=None):
+
+	pointDict = getPointDictFromPixelMapping(pixelMapping, jumbledVid[0].shape)
+
+	tree = KDTree(pixelMapping)
+
+	returnVid = []
+
+	print("recovering video...")
+
+	for i, jumbledFrame in enumerate(jumbledVid):
+		print(i)
+
+		recoveredFrame = recoverFrameFromEmbeddingCheap(jumbledFrame, tree, pointDict, \
+			recoveredFrameShape, gaussSD)
+
+		if xBounds == None:
+			truncatedFrame = recoveredFrame
+
+		else:
+			truncatedFrame = recoveredFrame[xBounds[0]:xBounds[1],yBounds[0]:yBounds[1]]
+
+#		if i > 5:	
+#			viewFrame(truncatedFrame, adaptiveScaling=True)
+
+#		if i % 100 == 0:
+#			viewFrame(truncatedFrame, adaptiveScaling=True)
+
+		viewFrame(truncatedFrame, filename="inversion_video_trash/frame_" + padIntegerWithZeros(i, 4) + ".png")
+
+#		returnVid.append(truncatedFrame)
+
+#		viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1)
+
+	return returnVid
+
 def recoverVideoFromEmbedding(jumbledVid, pixelMapping, gaussSD, recoveredFrameShape,
 	xBounds=None, yBounds=None):
 	print("computing Gaussian kernels...")
@@ -226,7 +340,9 @@ def recoverVideoFromEmbedding(jumbledVid, pixelMapping, gaussSD, recoveredFrameS
 
 	print("recovering video...")
 
-	for i, jumbledFrame in enumerate(jumbledVid):
+	startFrame = 100
+
+	for i, jumbledFrame in enumerate(jumbledVid[startFrame:]):
 		print(i)
 
 		recoveredFrame = recoverFrameFromEmbedding(jumbledFrame, gaussianKernels, \
@@ -244,7 +360,10 @@ def recoverVideoFromEmbedding(jumbledVid, pixelMapping, gaussSD, recoveredFrameS
 #		if i % 100 == 0:
 #			viewFrame(truncatedFrame, adaptiveScaling=True)
 
-		returnVid.append(truncatedFrame)
+		viewFrame(truncatedFrame, filename="inversion_video_trash/frame_" + padIntegerWithZeros(i, 4) + ".png", \
+			figsize=800)
+
+#		returnVid.append(truncatedFrame)
 
 #		viewFrame(recoveredFrame, adaptiveScaling=True, magnification=1)
 
@@ -879,7 +998,7 @@ if __name__ == "__main__":
 
 	if TSNE_JUMBLED:
 
-#		originalVid = pickle.load(open("steven_batched_coarse.p", "rb"))
+	#	originalVid = pickle.load(open("steven_batched_coarse.p", "rb"))
 	#	originalVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
 	#	originalVid = pickle.load(open("circle_batched_ds.p", "r"))
 	#	originalVid = np.array(pickle.load(open("glass_rose.p", "r")))
@@ -888,9 +1007,9 @@ if __name__ == "__main__":
 	#	originalVid = pickle.load(open("circle_square_vid.p", "r"))
 	#	originalVid = pickle.load(open("circle_carlsen_vid.p", "r"))
 	#	originalVid = pickle.load(open("obama_long.p", "r"))
-		originalVid = pickle.load(open("lion_king_1.p", "rb"))
-		jumbledVid = pickle.load(open("lion_king_1.p", "rb"))
-#		jumbledVid = pickle.load(open("steven_batched_coarse_jumbled.p", "rb"))
+		originalVid = pickle.load(open("lion_king_10k.p", "rb"))
+		jumbledVid = pickle.load(open("lion_king_10k.p", "rb"))
+	#	jumbledVid = pickle.load(open("steven_batched_coarse_jumbled.p", "rb"))
 	#	jumbledVid = pickle.load(open("steven_batched_coarse.p", "r"))
 	#	jumbledVid = pickle.load(open("prafull_ball_ds_meansub_avgdiv.p", "r"))
 	#	jumbledVid = pickle.load(open("circle_batched_ds.p", "r"))
@@ -912,6 +1031,17 @@ if __name__ == "__main__":
 
 	#	print jumbledVid.shape
 
+		PRIOR_STRENGTH = 10
+
+		pixelLocs = pickle.load(open("selected_pixels_lion_king_10k.p", "rb"))
+
+#		pixelArr = random.choice(np.transpose(np.array([[PRIOR_STRENGTH*pixel[0], PRIOR_STRENGTH*pixel[1]] for pixel in pixelLocs])), 100)
+#		pixelArrUntransposed = np.array(random.sample([[PRIOR_STRENGTH*pixel[0], PRIOR_STRENGTH*pixel[1]] for pixel in pixelLocs], 100))
+		pixelArrUntransposed = np.array([[PRIOR_STRENGTH*pixel[0], PRIOR_STRENGTH*pixel[1]] for pixel in pixelLocs])
+		pixelArr = np.transpose(pixelArrUntransposed)
+
+		print(pixelArr.shape)
+
 		originalVid = np.array(originalVid)
 		jumbledVid = np.array(jumbledVid)
 
@@ -919,7 +1049,7 @@ if __name__ == "__main__":
 
 		print(vidShape)
 
-		recoveryShape = (100, 100)
+		recoveryShape = (500, 500)
 
 		numFrames = vidShape[0]
 		frameDims = vidShape[1:3]
@@ -927,6 +1057,14 @@ if __name__ == "__main__":
 		flatVid = np.reshape(jumbledVid, (numFrames, frameDims[0]*frameDims[1], 3))
 
 		colorStackedVid = np.reshape(np.swapaxes(jumbledVid, 1, 3), (numFrames*3, frameDims[0]*frameDims[1]))
+		print(colorStackedVid.shape)
+		colorStackedVid = np.concatenate([colorStackedVid, pixelArr], axis=0)
+
+		print(colorStackedVid.shape)
+
+#		for pixel in pixelArrUntransposed:
+#			p.plot(pixel[0], pixel[1], "bo")
+#		p.show()
 
 #		colorStackedVid = np.reshape(np.swapaxes(originalVid, 1, 3), (numFrames*3, frameDims[0]*frameDims[1]))
 
@@ -949,12 +1087,12 @@ if __name__ == "__main__":
 	#	X = np.array([[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 1]])
 		print(X.shape)
 
-		embedding = Isomap(n_components=2, n_neighbors=5)
+	#	embedding = Isomap(n_components=2, n_neighbors=10, p=1)
 	#	embedding = MDS(n_components=2, metric=False, verbose=True) # careful this one takes forever
 	#	embedding = PCA(n_components=2)
 	#	embedding = LocallyLinearEmbedding(n_components=2, reg=1e-3, n_neighbors=5)
-	#	embedding = TSNE(n_components=2, verbose=2, learning_rate=1000, early_exaggeration=1, \
-	#		perplexity=1000)
+		embedding = TSNE(n_components=2, verbose=2, learning_rate=1000, early_exaggeration=1, \
+			perplexity=1000, init="pca", n_iter=250)
 
 		correctEmbedding = []
 
@@ -964,13 +1102,15 @@ if __name__ == "__main__":
 
 		X_transformed = embedding.fit_transform(X)
 	#	print X_transformed.shape	
-	#	print X_transformed
+	#	print(X_transformed)
 		X_downsized = downsizePixelMapping(X_transformed, recoveryShape)
+
+		print(X_downsized)
 
 		if True:
 
 			plotEmbedding(X_downsized, frameDims)
-			plotEmbedding(correctEmbedding, frameDims)
+	#		plotEmbedding(correctEmbedding, frameDims)
 
 	#		for point in X_transformed:
 	#			print "point", point
@@ -983,7 +1123,7 @@ if __name__ == "__main__":
 	#		p.show()
 
 	#	recoveredVid = recoverVideoFromEmbedding(originalVid[3:], X_downsized, 2, recoveryShape)
-		recoveredVid = recoverVideoFromEmbedding(jumbledVid[3:], X_downsized, 2, recoveryShape)
+		recoveredVid = recoverVideoFromEmbedding(jumbledVid[3:], X_downsized, 6, recoveryShape)
 	#		xBounds=[110,170], yBounds=[0,160])
 	#		xBounds=[0,80], yBounds=[55,85])
 
@@ -1486,4 +1626,23 @@ if __name__ == "__main__":
 #		viewFrame(imageify(scene[2][600]), adaptiveScaling=True, differenceImage=False)
 
 		pickle.dump(scene[2], open("dots_scene_gt.p", "w"))
+
+	if TREE_TEST:
+
+		data = []
+
+		for i in range(10):
+			for j in range(10):
+				data.append([i, j])
+
+		tree = KDTree(np.array(data))
+
+		for point in tree.data:
+			p.plot(point[0], point[1], "bo")
+
+		for index in tree.query_ball_point((3,3), 3):
+			point = tree.data[index]
+			p.plot(point[0], point[1], "ro")
+
+		p.show()
 

@@ -80,7 +80,7 @@ def batchIntoBigFrames(listOfFrames, batchSize):
 
 def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
     absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,
-    adaptiveScaling=False, secondBiggest=False, colorbar=False):
+    adaptiveScaling=False, secondBiggest=False, colorbar=False, figsize=None):
 
     frameShape = frame.shape
 
@@ -158,7 +158,10 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
     elif filename == "pass":
         pass
     else:
-        p.savefig(filename)
+        if figsize == None:
+            p.savefig(filename)
+        else:
+            p.savefig(filename, dpi=figsize)
 
 def CV2ViewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
     absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,

@@ -1,0 +1,213 @@
+%% This is an example first chapter.  You should put chapter/appendix that you
+%% write into a separate file, and add a line \include{yourfilename} to
+%% main.tex, where `yourfilename.tex' is the name of the chapter/appendix file.
+%% You can process specific files by typing their names in at the 
+%% \files=
+%% prompt when you run the file main.tex through LaTeX.
+\chapter{Introduction}
+
+In this thesis, I will provide a complete treatment of occluder-based imaging. The thesis is split into two main sections. The first section will be focus on the question of designing \emph{optimal} occluders. The natural application of this kind of research is generally within context of designer mask-based cameras. The second section will be about methods for exploiting \emph{accidental cameras}, which means using occlusion provided by objects that happen to be in the world to image hidden scenes. 
+
+Although there is obviously a close relationship between these two areas of research, and I will use a common framework for analyzing both they are nevertheless distinct, and which one the reader is interested in will depend on the application they are interested in.
+
+I will begin my thesis by describing in detail the analytic framework that I use for both, and introducing the assumptions I use and the optical model that underlies them. My hope is that even without much or any background in optics, all my readers will have no trouble understanding the model and assumptions I use, and my mathematically-savvy readers will have no trouble understanding the conclusions that follow from them. 
+
+I highly recommend that \emph{any} reader begins by reading the chapter that follows before proceeding to either of the two main sections (on optimal occluders and on accidental cameras). Without this background, I expect that it will be difficult to understand what I'm saying.
+
+\chapter{The Model and Assumptions}
+
+\section{Ray Optics and BRDFs}
+
+Throughout my thesis, unless I say otherwise, I'll be using the \emph{ray optics model} of light. This means that, as a convenient abstraction, I'll be assuming that light moves in a straight line through the air, can be bent when it hits a different light-propagating medium (like a lens), and may be absorbed or reflected by the materials it hits (like a wall). Moreover, I'll be generally assuming that light intensity is additive, meaning that two rays of light hitting the same point will generate an intensity equal to the intensity that would be generated the sum of each individual ray. This corresponds to assuming that the light we care about is incoherent and as such won't interfere with itself---a reasonable assumption when the light in question is coming from the sun or from a commercial electric light. Finally, using the ray optics model means that I'll be ignoring the effects of diffraction, which is reasonable when modeling the behavior of visible-wavelength incoherent light hitting macroscopic structures. If this paragraph was hard to understand, don't worry---just take it to mean that light travels in straight lines, bounces off stuff it hits, and generally does what you intuitively think it should.
+
+What happens when the light hits an opaque surface, according to this model? Some of it will be absorbed, and some reflected. How much of it is reflected, and in what directions, is described by the \emph{bidirectional reflectance distribution function}, or \emph{BRDF}, of the surface. The BRDF is a function from \emph{incident}, or incoming, angle of the light to the outgoing angle of the light. It's best explained with two example BRDFs, which happen to describe the many of the surfaces we care about.
+
+The first example BRDF is called the \emph{specular} BRDF, and surfaces that have this BRDF are called specular surfaces. The typical example of a specular surface is a mirror. The specular BRDF takes the incident light and flips it across the surface normal. How can we describe this mathematically? We can describe it using a function of two arguments, the first being the angle of the incident light, $\theta_{\textrm{in}}$ and the second being the angle of the outgoing light, $\theta_{\textrm{out}}$. Each angle is given from the surface normal. \footnotemark Here, the specular BRDF we want is:
+
+%\begin{align}
+%$$f_{\textrm{specular}}(\theta_{\textrm{in}}, \theta_{\textrm{out}}) = 1, $$
+\[
+  f_{\textrm{specular}}(\theta_{\textrm{in}}, \theta_{\textrm{out}}) =
+  \begin{cases}
+                                   \rho & \text{if} \theta_{\textrm{in}} = \pi - \theta_{\textrm{out}} \\
+                                   0 & \text{otherwise} \\
+  \end{cases}
+\]
+%\end{align}
+
+The $\rho$ here is a constant that determines the overall brightness of the surface in question---how much of the light is actually reflected rather than absorbed or transmitted. For example, for a mirror, $\rho$ might be almost 1, meaning that almost all the light is reflected, but for a window where most of the light is transmitted rather than reflected, $\rho$ might be much smaller, like $0.01$ or $0.001$.
+
+\footnotetext{If you're already familiar with the concept of BRDFs, you might be confused by this, since BRDFs are often described as functions of four real values. This confusion comes from the fact that for a 2D surface that lives in three dimensions, the angle of a light-ray from that surface is given by a 2D angle, which requires two real numbers to describe (one for the azimuth angle and one for the zenith angle). This is a detail that becomes unimportant if you treat each of the two arguments I'm describing as 2D angles, with equality between 2D angles achieved when both their azimuth angle and their zenith angle match. Here, to keep things simple, I'm implicitly assuming a 1D surface that lives in a 2D world, so angles are described by a single real number.}
+
+The second example BRDF is called the \emph{Lambertian} BRDF, after the 18th-century physicist Johann Heinrich Lambert. Surfaces that have this BRDF are often called \emph{Lambertian}, \emph{matte}, or \emph{diffuse} surfaces, and I will use these terms interchangeably in this thesis. Intuitively, this BRDF takes the incoming light and scatters it ``equally in all directions.'' Formally, here is the BRDF in question:
+
+\[    
+    f_{\textrm{Lambertian}}(\theta_{\textrm{in}}, \theta_{\textrm{out}}) = \rho \cos(\theta_{\textrm{out}})
+\]    
+
+Once again $\rho$ is a constant that determines the overall surface brightess. Note that the Lambertian BRDF is completely independent of the angle of the incident light---it scatters the light it reflects in exactly the same way no matter where the light came from.\footnotemark 
+
+\footnotetext{For a 2D surface living in a 3D world, the Lambertian surface BRDF is exactly the same, but the cosine is of the outgoing zenith angle, and the outgoing azimuth angle doesn't matter.}
+
+Now at this point, a careful reader may object: why did I claim that Lambertian surfaces scatter light ``equally in all directions,'' when in reality, they scatter light in directions proportionally to that direction's cosine? Indeed, this is a major source of confusion when it comes to Lambertian surfaces. Google ``Lambertian surface'' or ``Lambertian BRDF'' and you will find about half your results defining it as I do, and half of them defining it instead as a perfectly constant function, depending neither on $\theta_{\textrm{in}}$ nor $\theta_{\textrm{out}}$. This is an important confusion to resolve; I hope now to convince you beyond a doubt that my definition is the right one, and that the alternate definition of a Lambertian surface, while the objects it describes might exist in principle, in practice I've never seen one---whereas the objects my definition describes are all over the place. The walls and ceiling of the room you're sitting in, the paper you may be reading these words on, the clothes you're reading: all of these are nearly perfectly described by the Lambertian BRDF as I have defined it.
+
+Here's where the confusion comes from. Find a sheet of paper. Lay it flat against a desk, then look at it from a few different angles. No matter what angle you look at it from, it looks equally bright.
+
+At first, this seems it argues for the alternate definition of a Lambertian surface. After all, if you see the same amount of light coming from the sheet of paper no matter what direction you observe it from, doesn't that it mean that the amount of light it transmits is equal in all directions---that is, it doesn't depend on $\theta_{\textrm{out}}$? In fact, no. Consider: depending on what angle you are looking at the sheet of paper from, the paper will take up a larger or smaller part of your field of vision. Look at the paper head-on, and it takes up a relatively large part of your field of vision; look at the paper from a very glancing angle, however, and it takes up just a sliver. And yet, no matter what the angle you observe it from is, you can still see the entire sheet of paper. 
+
+    What's the upshot of this? What this means is that when you are looking at the sheet of paper from a very glancing angle, you are actually getting less total light from the paper, since the amount of light per amount-of-your-field-of-vision (sometimes called a ``steradian'') remains fixed, but the amount of your field of vision filled by the paper has decreased. And in fact, it has decreased by a factor of $\cos(\theta)$, where $\theta$ is your angle from the paper's normal. This is where the factor of $\cos(\theta)$ in the definition of the Lambertian BRDF comes from. Indeed, if the Lambertian BRDF sent light truly equally in all directions, as you looked at the paper from an increasingly glancing angle, the paper would appear to get \emph{brighter}, in order to keep the total amount of light you were receiving from the paper constant. Some objects behave the opposite way, like backlit LCD screens; if you tilt them away from you, their apparent brightness will usually decrease (depending on the screen), which means that their BRDF is attenuated \emph{faster} than $\cos(\theta_{\textrm{out}})$. But no object I've ever seen has a BRDF that is attenuated \emph{slower} than $\cos(\theta_{\textrm{out}})$.
+
+    Most real-world surfaces lie on a spectrum somewhere between Lambertian and specular. This isn't to say that most real-world BRDFs are a linear combination of the Lambertian and specular BRDFs; an example of an object that \emph{does} behave that way is a dirty or smudged mirror. But most objects aren't like that; they may look ``shiny'' or ``glossy,'' but they don't give you a sharp-but-faint reflection, like a dirty mirror might. Rather, many glossy objects have BRDFs that send some light in all directions, but more light in directions where the outgoing angle be relatively close to the incident angle reflected across the surface normal. These BRDFs are often modeled using the ``Phong'' model, after the model described by Bui Tuong Phong in his PhD thesis. According to the Phong model, the extra light in the reflected directions (also called the ``specular highlights'') fall off polynomially with the the dot product of the outgoing angle with the reflected incident angle. The degree of that polynomial depends on the how shiny or dull the surfaces, with higher-degree polynomials yielding a smaller and more focused specular highlight.
+    
+    In this thesis, the main focus will be on Lambertian surfaces. When I do consider the possibility of specular of Phong surfaces, I'll go into more detail about what exactly the BRDF model I'm using is at that time. So for the time being, let's consider what can happen using the simplest model that nevertheless describes much of reality very well: a 2D world of Lambertian surfaces.
+    
+\section{The Far-Field Assumption}
+
+\subsection{A point light source and a nearby surface}
+
+    Let's suppose we live in a 2D world of Lambertian surfaces and diffuse light sources. (When I say a ``diffuse'' light source, I mean that the light source scatters light equally in all directions. Confusingly, this isn't quite the same thing as a ``diffuse'' surface---which is another way of saying a Lambertian surface, which actually doesn't quite scatter light equally in all directions, as I explained in the previous section---but that's how these terms are used.) Consider a point light source suspended at $(0, y_p)$, with a Lambertian surface at $y=0$ (see Figure~\ref{fig:pointline}). What pattern of illumination can we expect to see on the surface?
+    
+    The way we proceed with this analysis is to discretize the surface into many small chunks, and then to consider what fraction of the light radiating out of the point light source is hitting any single given small chunk of the surface. We assume each chunk is small enough that its luminance is constant across the chunk. Asking what fraction of light radiating out of the point light source hitting any given  chunk is equivalent to asking what angle over the light source is subtended by that chunk, and then dividing that angle by $2\pi$. 
+    
+    Supposing that the chunk extends from $(x_c, 0)$ to $(x_c + dx, 0)$, trigonometry tells us that $\theta_c$, the angle subtended by the chunk, is given by:
+    
+$$\theta_c = \tan^{-1}(\frac{x_c+dx}{y_p}) - \tan^{-1}(\frac{x_c}{y_p})$$
+
+    What happens as we consider increasingly smaller and smaller chunks $dx$? The definition of the derivative tells us that $\lim_{dx \rightarrow 0} \theta_c = dx \cdot \frac{d}{dx_c}(\tan^{-1}(\frac{x_c+dx}{y_p})) = dx (y_p/(x^2 + y_p^2))$. Thus the luminance of a chunk on the surface, assuming that the point source had a luminance of 1, would be $dx (y_p/(2\pi(x^2 + y_p^2)))$.\footnotemark We can say that the continuous illumination function of the surface $I(x)$ is the following:
+    
+    $$I(x) = \frac{y_p}{2\pi(x^2 + y_p^2)}$$
+    
+    This simple formula captures a lot of interesting phenomena. Consider for instance that we take $x = 0$, meaning we consider the illumination only of the closest point on the surface to the point source. The formula tells us then that the illumination of that point goes as $1/y_p$, meaning that it scales inversely with that point's distance from the point source. Now consider fixing $y_p = 1$ and varying $x$. This gives us a illumination pattern that scales with $1/(1+x^2)$, a nice ``hump'' pattern. The closer the surface is to the point source (meaning a smaller $y$), the narrower the hump will be. (See Fig.~\ref{fig:differenthumps}) Also note that no matter what $y_p$ is, we have:
+    
+\footnotetext{Readers who are unfamiliar with terms like ``luminance'' may be confused by a subtle distinction between what I mean by ``luminance'' versus ``illumination pattern'' or ``brightness.'' When I talk about the ``luminance'' of something, I'm referring to the absolute amount of light that thing emits. In contrast, when I use the term ``brightness'' or ``illumination pattern,'' I'm referring to the light emission \emph{density} of that thing. When you look at a surface, that surface's apparent brightness is proportional to how much light it emits per area of your vision it occupies. So whereas the \emph{luminance} of a small surface chunk in the example given above would be $dx (y/(2\pi(x^2 + y^2)))$, to get the \emph{brightness} of that same surface chunk we'd want to divide by its area; hence its brightness would be $y/(2\pi(x^2 + y^2))$. This makes sense: the apparent brightness of a surface shouldn't depend on how finely you choose to discretize it!}    
+    
+$$\int_{-\infty}^\infty (y_p/(2\pi(x^2 + y_p^2))) dx = 1/2$$
+
+It stands to reason that this is true, because no matter how far the surface is from the point source, if the surface is infinitely broad, exactly half the light from the point source will hit the surface. Additionally, for reference, I'll provide here the illumination function for the equivalent situation in three dimensions: a point source of luminance 1 suspended at $(0, 0, z_p)$, and a plane at $z=0$. Then, the illumination function $I(x, y)$ can be derived in much the same way as in the two-dimensional case. This function is given by:
+
+$$I(x, y) = \frac{z_p}{(x^2 + y^2 + z_p^2)^{3/2}}$$
+
+In any case, the important thing to note at this point is that, as shown in Figure~\ref{fig:differenthumps}, the illumination pattern becomes flatter and broader the further the point source is from the surface. This phemonenon gives rise to what we call the ``far-field assumption.''
+
+
+    
+    
+    
+    
+    
+    
+    
+
+    Before I explain what the far-field assumption or 
+    
+    
+    
+    
+
+
+
+
+
+
+%\end{align}    
+    
+
+
+
+
+
+The Lambertian BRDF is an excellent approximation for the reflectance properties of most objects.
+
+
+
+
+
+
+
+
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam quis sollicitudin metus. Quisque quam ex, tincidunt et porttitor quis, tincidunt faucibus quam. Nulla facilisi. Nam a libero posuere, mattis leo ac, ultrices est. Nullam auctor lacus eu metus venenatis, gravida consectetur felis laoreet. Nam non ante felis. Maecenas id dignissim turpis, eget pulvinar nisl. Cras nec mauris feugiat, aliquam elit ac, blandit ex \cite{article-full}.
+
+Nunc vehicula velit nibh, ut facilisis magna blandit semper. Fusce varius odio in velit mattis porttitor. Vivamus aliquam vulputate quam, non auctor augue ornare ut. Vivamus ac pretium sapien, sed gravida elit. Etiam facilisis risus libero, sed vulputate velit lobortis sed. Aliquam erat volutpat. Sed est orci, dignissim nec varius et, auctor non purus \cite{proceedings-minimal,phdthesis-full}. Morbi feugiat gravida ipsum. Sed maximus nibh eget feugiat tempor. Pellentesque nec urna varius, volutpat dolor at, mattis leo. Vivamus elit eros, pretium sed magna nec, faucibus egestas enim. Vivamus ipsum ex, condimentum eu felis ac, tempus feugiat metus discussed in section~\ref{ch1:sec}.
+
+\section{Section sample 1}
+
+Ut hendrerit risus egestas, sollicitudin mauris sit amet, fermentum ipsum. Donec vulputate enim in justo pellentesque rhoncus. Nunc a dui condimentum, egestas ipsum eu, fermentum enim. Duis condimentum iaculis luctus. Nam sodales pellentesque luctus. Aenean tristique ante mattis tellus tincidunt, vitae mattis nunc tristique. Ut nec mattis ante, eu sodales ex.
+
+Praesent pulvinar risus in diam mollis tincidunt. Nam aliquam lacus sed eleifend mattis. Ut at blandit ex, eget molestie massa. Morbi fermentum sit amet mauris ut placerat. Ut in eros pretium, congue felis sit amet, gravida justo. Suspendisse purus leo, posuere sed odio vel, mollis tempus nisi. Aenean est tortor, tincidunt et rhoncus ut, fermentum semper leo \cite{book-crossref}. Integer id viverra metus, a blandit neque. In in enim eu ipsum euismod hendrerit.
+
+Cras et pellentesque sapien. Maecenas vitae sollicitudin sapien. Sed elementum feugiat ligula, eu maximus nunc porttitor in. Etiam porttitor nisi ante, vel fermentum arcu pulvinar et. Sed bibendum diam nisl, vitae dapibus elit convallis congue. Ut vehicula lectus et enim consectetur cursus. Praesent non viverra augue, id bibendum risus. Maecenas lorem massa, dignissim ac purus in, tincidunt sodales nisi. Praesent condimentum tempus mauris. Etiam vitae sem maximus, auctor orci at, rhoncus diam. Donec pretium sodales sodales. Donec sodales ultrices metus ac pharetra. Mauris non ullamcorper urna. Mauris ac faucibus tortor, eu lobortis leo are described in detail in section~\ref{ch1:sec}.
+
+\section{Section sample 2}\label{ch1:sec}
+
+Phasellus sed elit vehicula, gravida odio in, vulputate quam. Quisque in elit enim. Vivamus finibus justo elit, sed semper turpis aliquam porttitor. Nulla posuere bibendum nunc sit amet consequat. Vivamus commodo lorem sed metus fermentum rhoncus. Etiam porta sodales purus, vel aliquet lacus facilisis et. Etiam ornare velit non dui auctor fermentum. In elit augue, fringilla at lacinia at, facilisis sit amet lectus. Sed et hendrerit ex. Morbi tristique felis a augue egestas commodo. Nulla porttitor ut urna nec dignissim. Fusce ac pharetra risus, id rhoncus ligula. Pellentesque euismod viverra sem, vel porttitor libero blandit quis. Phasellus orci augue, mattis nec dolor ut, cursus mattis quam. Sed tincidunt eu metus sed pulvinar. Ut a nulla at leo semper accumsan efficitur eget leo.
+
+Sed vel lectus ut dui tempor molestie. Suspendisse blandit sapien posuere quam tempor lobortis. Duis sollicitudin tincidunt dui, at aliquam lorem dictum sit amet. Aenean congue nibh lectus, ut faucibus turpis facilisis quis. Ut aliquet magna at placerat ultricies. Mauris convallis, risus efficitur gravida dapibus, lacus lorem malesuada ligula, eget porta diam felis non turpis. Nulla sed sem finibus, vehicula quam at, vulputate tellus\footnote{Here is a sample footnote referencing figures~\ref{arm:fig1}
+and~\ref{arm:fig2}.}  
+
+Quisque elit enim, molestie ac metus ut, condimentum convallis nibh:
+
+\subsection{Subsection sample}
+
+In tempus ex nibh, non eleifend risus iaculis ac. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Nullam in nisi eu arcu laoreet sollicitudin. Mauris consectetur venenatis arcu id finibus. Aenean pellentesque consectetur erat lacinia vulputate. Praesent tempus tempus lorem at dignissim. Proin at odio vitae tortor sollicitudin pretium. Quisque ac purus eu sem rutrum bibendum.
+
+% This is an example of how you would use tgrind to include an example
+% of source code; it is commented out in this template since the code
+% example file does not exist. To use it, you need to remove the '%' on the
+% beginning of the line, and insert your own information in the call.
+%
+%\tagrind[htbp]{code/pmn.s.tex}{Code sample}{opt:pmn}
+
+Pellentesque ac leo eget lorem vulputate mattis eu a nisl. Duis elit erat, consectetur vulputate ullamcorper a, finibus quis turpis. Vivamus tincidunt dui id purus bibendum malesuada. Fusce accumsan, ipsum quis feugiat sodales, enim est aliquet leo, ut ornare justo mauris quis ex. Sed eros magna, suscipit et blandit non, pretium id felis. Praesent a vehicula tortor. Donec blandit dolor a ipsum sodales, eget aliquet nisl fermentum.
+
+\subsection{Subsection with list}
+
+Ut sollicitudin, lectus eget posuere porttitor, risus dui facilisis risus, a pharetra lacus elit vel eros. Proin fermentum accumsan mauris, quis posuere nisi pharetra scelerisque. 
+\begin{enumerate}
+  \item Item 1.
+  \item Item 2.
+  \item Item 3.
+\end{enumerate}
+
+Cras nec ullamcorper mauris. Aliquam erat volutpat. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Suspendisse sed dui ac mi auctor scelerisque. Etiam at semper nisi. Cras nec dolor ac purus feugiat auctor. Nunc eget pulvinar massa.
+
+% This is an example of how you would use tgrind to include an example
+% of source code; it is commented out in this template since the code
+% example file does not exist.  To use it, you need to remove the '%' on the
+% beginning of the line, and insert your own information in the call.
+%
+%\tgrind[htbp]{code/be.s.tex}{Block Exponent}{opt:be}
+
+\section{Section sample 3}
+
+Quisque sed ultrices leo. Donec vestibulum auctor nibh, at faucibus libero mollis in. Quisque massa lorem, feugiat a lectus in, lobortis volutpat lectus. Donec accumsan dui erat, eu tempor tortor facilisis sed. Nulla ullamcorper augue et sapien dapibus, quis bibendum velit porta. Nullam mattis vehicula tortor porttitor porta. Interdum et malesuada fames ac ante ipsum primis in faucibus. Praesent suscipit, lorem vel viverra rhoncus, turpis orci dignissim dui, bibendum pulvinar justo sem vel lorem. Nam porttitor mollis tristique. Aliquam rhoncus magna quis nisl varius mattis. Sed rhoncus, diam in gravida iaculis, mauris tellus imperdiet turpis, at porttitor est leo vel velit. Praesent faucibus ornare sodales. Sed eu lorem purus.  
+
+\subsection{Another subsection sample}
+
+Nullam rhoncus posuere lacus, id volutpat nisi pulvinar viverra. Quisque quis ultricies ante. Duis sollicitudin sapien nec consequat vehicula. Vestibulum convallis erat in arcu aliquam eleifend. Nunc scelerisque lorem non luctus sodales. Curabitur eleifend odio et sagittis semper. Praesent sodales, diam nec vulputate iaculis, neque leo consectetur nunc, a luctus lacus purus et dui. Sed sit amet tortor ullamcorper, malesuada libero quis, imperdiet tortor. Cras tempor blandit massa, sit amet molestie sapien tincidunt quis. Nullam hendrerit venenatis massa, sed lacinia ligula tincidunt vitae.
+
+Nam efficitur et lacus sed eleifend. Aenean quis ipsum eget leo ultrices ornare. Nullam rhoncus ante odio, at dignissim neque posuere eu. Pellentesque sodales tortor est, nec egestas sapien mollis quis. In lectus sapien, pellentesque congue erat consequat, hendrerit aliquet elit. Pellentesque eleifend purus ac diam bibendum, ac auctor ipsum posuere. Cras suscipit leo nec velit fermentum, id varius erat eleifend. Proin sagittis purus id ante lacinia, et congue eros tincidunt. Pellentesque at cursus tellus. Quisque id semper nunc. Quisque viverra a ex at ullamcorper. Morbi mollis erat at ex viverra fringilla. Proin ante dolor, dignissim sodales nisl ac, finibus egestas urna.
+
+Nulla porta urna at pulvinar consectetur. Pellentesque suscipit, neque vitae ultricies rutrum, eros tellus iaculis dui, nec pulvinar justo nibh eu urna. Ut euismod massa nisi, et bibendum risus placerat quis. Integer pretium nulla id risus lobortis laoreet. Aenean quis quam fringilla, elementum odio non, lacinia purus. Vestibulum dui sapien, mollis sit amet massa vel, egestas faucibus velit. Phasellus non justo ut ante vestibulum dictum. Nam in nibh et libero malesuada aliquet. Donec in ex in magna luctus volutpat.
+
+Sed quis dapibus libero. Curabitur id finibus nulla, sed semper felis. Proin dapibus nulla interdum, bibendum tortor et, blandit sapien. Etiam pretium tristique tortor non lacinia. Aliquam dapibus turpis lorem, sit amet porta ex dignissim vitae. In neque felis, sagittis sed ullamcorper lacinia, lobortis ut turpis. Nam quis aliquet justo. Nam eros mi, aliquam vel massa ac, ornare dignissim erat.  This is done by using some combination of
+\begin{eqnarray*}
+a_i & = & a_j + a_k \\
+a_i & = & 2a_j + a_k \\
+a_i & = & 4a_j + a_k \\
+a_i & = & 8a_j + a_k \\
+a_i & = & a_j - a_k \\
+a_i & = & a_j \ll m \mbox{shift}
+\end{eqnarray*}
+instead of the multiplication.  For example, you could use:
+\begin{eqnarray*}
+r & = & 4s + s\\
+r & = & r + r
+\end{eqnarray*}
+Or by xx:
+\begin{eqnarray*}
+t & = & 2s + s \\
+r & = & 2t + s \\
+r & = & 8r + t
+\end{eqnarray*}
+Cras pharetra ligula nec lectus bibendum, euismod mattis purus cursus. Nullam ut mi molestie purus ultricies lacinia. Phasellus sed orci ac lacus convallis vestibulum. Quisque id nulla ut ipsum finibus vehicula. Curabitur scelerisque erat lobortis, dapibus purus eget, faucibus sapien. Nam enim leo, faucibus id ante sed, fringilla luctus eros. Morbi vulputate, purus at commodo aliquet, turpis dolor sollicitudin libero, id vehicula risus dui sit amet nulla. Sed auctor efficitur urna. Praesent sagittis tellus ac velit vestibulum dignissim. Vivamus justo enim, pellentesque eu posuere id, mattis vitae felis. Aliquam id tincidunt diam. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.

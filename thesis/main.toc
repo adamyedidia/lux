@@ -1,0 +1,17 @@
+\contentsline {chapter}{\numberline {1}Introduction}{13}
+\contentsline {chapter}{\numberline {2}The Model and Assumptions}{15}
+\contentsline {section}{\numberline {2.1}Ray Optics and BRDFs}{15}
+\contentsline {section}{\numberline {2.2}The Far-Field Assumption}{19}
+\contentsline {subsection}{\numberline {2.2.1}A point light source and a nearby surface}{19}
+\contentsline {section}{\numberline {2.3}Section sample 1}{21}
+\contentsline {section}{\numberline {2.4}Section sample 2}{22}
+\contentsline {subsection}{\numberline {2.4.1}Subsection sample}{23}
+\contentsline {subsection}{\numberline {2.4.2}Subsection with list}{23}
+\contentsline {section}{\numberline {2.5}Section sample 3}{24}
+\contentsline {subsection}{\numberline {2.5.1}Another subsection sample}{24}
+\contentsline {chapter}{\numberline {3}Optimal Occluders}{27}
+\contentsline {section}{\numberline {3.1}The Mutual Information Model of IF Optimality}{27}
+\contentsline {subsection}{\numberline {3.1.1}The Scene Model}{27}
+\contentsline {subsection}{\numberline {3.1.2}The Noise Model}{27}
+\contentsline {chapter}{\numberline {A}Tables}{29}
+\contentsline {chapter}{\numberline {B}Figures}{31}

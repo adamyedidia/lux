@@ -16,7 +16,7 @@ I highly recommend that \emph{any} reader begins by reading the chapter that fol
 
 \chapter{The Model and Assumptions}
 
-\section{Ray Optics and BRDFs}
+\section{Ray Optics and BRDFs \label{sec:rayoptics}}
 
 Throughout my thesis, unless I say otherwise, I'll be using the \emph{ray optics model} of light. This means that, as a convenient abstraction, I'll be assuming that light moves in a straight line through the air, can be bent when it hits a different light-propagating medium (like a lens), and may be absorbed or reflected by the materials it hits (like a wall). Moreover, I'll be generally assuming that light intensity is additive, meaning that two rays of light hitting the same point will generate an intensity equal to the intensity that would be generated the sum of each individual ray. This corresponds to assuming that the light we care about is incoherent and as such won't interfere with itself---a reasonable assumption when the light in question is coming from the sun or from a commercial electric light. Finally, using the ray optics model means that I'll be ignoring the effects of diffraction, which is reasonable when modeling the behavior of visible-wavelength incoherent light hitting macroscopic structures. If this paragraph was hard to understand, don't worry---just take it to mean that light travels in straight lines, bounces off stuff it hits, and generally does what you intuitively think it should.
 
@@ -71,7 +71,7 @@ At first, this seems it argues for the alternate definition of a Lambertian surf
     
     Supposing that the chunk extends from $(x_c, 0)$ to $(x_c + dx, 0)$, trigonometry tells us that $\theta_c$, the angle subtended by the chunk, is given by:
     
-$$\theta_c = \tan^{-1}(\frac{x_c+dx}{y_p}) - \tan^{-1}(\frac{x_c}{y_p})$$
+$$\theta_c = \tan^{-1}\left(\frac{x_c+dx}{y_p}\right) - \tan^{-1}\left(\frac{x_c}{y_p}\right)$$
 
     What happens as we consider increasingly smaller and smaller chunks $dx$? The definition of the derivative tells us that $\lim_{dx \rightarrow 0} \theta_c = dx \cdot \frac{d}{dx_c}(\tan^{-1}(\frac{x_c+dx}{y_p})) = dx (y_p/(x^2 + y_p^2))$. Thus the luminance of a chunk on the surface, assuming that the point source had a luminance of 1, would be $dx (y_p/(2\pi(x^2 + y_p^2)))$.\footnotemark We can say that the continuous illumination function of the surface $I(x)$ is the following:
     
@@ -81,22 +81,71 @@ $$\theta_c = \tan^{-1}(\frac{x_c+dx}{y_p}) - \tan^{-1}(\frac{x_c}{y_p})$$
     
 \footnotetext{Readers who are unfamiliar with terms like ``luminance'' may be confused by a subtle distinction between what I mean by ``luminance'' versus ``illumination pattern'' or ``brightness.'' When I talk about the ``luminance'' of something, I'm referring to the absolute amount of light that thing emits. In contrast, when I use the term ``brightness'' or ``illumination pattern,'' I'm referring to the light emission \emph{density} of that thing. When you look at a surface, that surface's apparent brightness is proportional to how much light it emits per area of your vision it occupies. So whereas the \emph{luminance} of a small surface chunk in the example given above would be $dx (y/(2\pi(x^2 + y^2)))$, to get the \emph{brightness} of that same surface chunk we'd want to divide by its area; hence its brightness would be $y/(2\pi(x^2 + y^2))$. This makes sense: the apparent brightness of a surface shouldn't depend on how finely you choose to discretize it!}    
     
-$$\int_{-\infty}^\infty (y_p/(2\pi(x^2 + y_p^2))) dx = 1/2$$
+$$\int_{-\infty}^\infty \frac{y_p}{2\pi(x^2 + y_p^2)} dx = 1/2$$
 
 It stands to reason that this is true, because no matter how far the surface is from the point source, if the surface is infinitely broad, exactly half the light from the point source will hit the surface. Additionally, for reference, I'll provide here the illumination function for the equivalent situation in three dimensions: a point source of luminance 1 suspended at $(0, 0, z_p)$, and a plane at $z=0$. Then, the illumination function $I(x, y)$ can be derived in much the same way as in the two-dimensional case. This function is given by:
 
-$$I(x, y) = \frac{z_p}{(x^2 + y^2 + z_p^2)^{3/2}}$$
+$$I(x, y) = \frac{z_p}{4\pi(x^2 + y^2 + z_p^2)^{3/2}}$$
 
-In any case, the important thing to note at this point is that, as shown in Figure~\ref{fig:differenthumps}, the illumination pattern becomes flatter and broader the further the point source is from the surface. This phemonenon gives rise to what we call the ``far-field assumption.''
+In any case, the important thing to note at this point is that, as shown in Figure~\ref{fig:differenthumps}, the illumination pattern becomes flatter and broader the further the point source is from the surface. This phemonenon is what we rely on when we make the ``far-field assumption.'' The far-field assumption is that the assumption that the contribution of a point light source to a faraway surface is approximately constant across that surface. As you can see, this assumption holds as long as the size of the surface in question is much smaller than the distance of the point source to the surface; that is, if, for all relevant values of $x$, $x^2 \ll y_p^2$, then it follows that $I(x)$ holds a constant value of approximately $1/(2\pi y_p)$ ($1/(4\pi z_p^2)$ in three dimensions), assuming the point source has a luminance of 1. 
+
+Because of the quadratic dependence on $x$ and $y_p$ in Eq.~\ref{eq:2dformula}, the far-field assumption yields a reasonable approximation even when the difference between $x$ and $y_p$ isn't enormous; for example, if you hold a diffuse light source three meters away from the center of a flat surface two meters in diameter, the brightness of that surface won't vary by more than about $16\%$ (compare $1/9^{3/2}$ to $1/10^{3/2}$). The far-field assumption gets relied on very heavily, both in my research and in work by others, and admittedly the reason for that isn't that it's always a hugely robust assumption to real-world situations (after all, depending on the application, sometimes $16\%$ can matter a lot!). The reason, rather, is that it's an extremely \emph{convenient} assumption. For the time being I'll leave it at that, but in later sections we will see that tolerating the far-field assumption allows us to solve quite a few different optics problems in closed form, or reduce them to easy rather than difficult problems of linear algebra. When I can I will extend my analysis to cases where the far-field assumption cannot be made.
+
+\section{The Standard Setup}
+
+In this section, I will briefly describe what I call ``the standard setup,'' and introduce some terminology that I will use throughout the dissertation. The simplest version of the standard setup is shown in Fig~\ref{fig:standardsetup}: three parallel frames in flatland, with the ``intermediate frame'' halfway in between the scene and the observation plane. The presumption is that the observation is a known quantity, and we'd like to infer what's in the scene. Depending on the details of the problem, the intermediate frame may also be a known quantity, or its form may be unknown. In any case, we'd like to see how much we're able to infer about the scene from the observation thanks to (or despite!) the presence of the intermediate frame.
+
+The term ``intermediate frame'' is left deliberately vague. In an ordinary camera, the intermediate frame would be a lens. In most of this dissertation, I'll be considering intermediate frames that don't directly focus the light from the scene like a lens would, but partially occlude the scene. In principle, there are any number of other realistic intermediate frames.
+
+Of course, there are many other ways to relax the standard setup to make it richer or more realistic. The intermediate frame need not be halfway in between the observation plane; the three frames need not be parallel to each other; the scene need not be planar. And, of course, the real world isn't flatland! But the standard setup is a great starting point for any optical analysis. Colloquially, the form that analysis might take is that an intermediate frame is better for imaging with if, given its presence, the observation tells us more about the scene.
+
+\subsection{The Transfer Matrix} 
+
+Another critical concept in my dissertation is the \emph{transfer matrix.} The transfer matrix is a matrix that describes the action of an intermediate frame on the scene to create the observation. To be more precise, suppose we approximate the scene by a vector $\vec{x}$, where each entry of that vector gives the illumination of a single chunk of the scene. Suppose that we approximate the observation plane in the same way with a vector $\vec{y}$. Then, the transfer matrix, $A$, will be whichever matrix satisfies $\vec{y} = A \vec{x}$ for all possible pairs $(\vec{x}, \vec{y})$. 
+
+How do we know that such a matrix even exists for all intermediate frames? Well, if we accept the assumptions implicit the ray-optics model described in Sec.~\ref{sec:rayoptics}---that is, we ignore the effects of diffraction and assume that light is incoherent---then what you observe should be a linear function of the presence or absence of light sources. That means that we call what you see if light $a$ is on $f(a)$, and what you see if light $b$ is on $f(b)$, then what you see when both lights are on, $f(a+b)$, should be the sum of what you saw in either case, $f(a) + f(b)$. You can try this at home! If you have a room which is perfectly dark when the lightswitch is off, see what the room looks like when you turn the lights are on versus when you turn on a lamp or flashlight. The brightness of every part of your room when both the lightswitch and lamp are on should roughly correspond to the sum of how bright there were when each were on individually.\footnotemark The fact that this works in most real-world settings tells us that the assumptions of the ray-optics model aren't leading us too far astray.
+
+\footnotetext{If you do this, what you see may not ``feel'' like it actually correspond to the sum of the two room brightnesses. For example, if you have two lights that both illuminate your room equally well, turning both on may not once may not feel like it's giving you a room that's ``twice as bright.'' Make no mistake, though---that's not the fault of the ray optics model, that's the fault of your lying eyes! ``Perceived brightness'' is a bit of a slippery concept, but it isn't linear in the actual amount of light hitting your retina. In the same way that a 70 dB sound (vacuum cleaner) doesn't sound like it's ``half as loud'' as an 80 dB sound (garbage disposal), 100 lumens doesn't look ``half as bright'' as 200 lumens.}
+
+Because we're assuming that combining light sources behaves linearly, most real-world objects we can put in between a scene and an observation plane should be representable by a transfer matrix $A$. But what do matrices like these actually look like? Well, they can look like a variety of different things; Figure~\ref{fig:transfermatexample} shows the action of a variety of example intermediate frames, with an example transfer matrix corresponding to one of them.
+
+So suppose we have a scene $x$, an observation $y$, and a transfer matrix $A$ that represents how the intermediate frame distorts the scene to produce the observation. If $y = Ax$, and we know $A$ and $y$, what transfer matrices $A$ are best? In the absence of noise, any full-rank transfer matrix $A$ should allow us in principle to perfectly reconstruct $x = A^{-1}y$. That makes the question of which transfer matrix not very interesting---it's a multi-way tie between all full-rank transfer matrices, which make up the vast majority of possible transfer matrices.
+
+\subsection{Noise}
+
+Of course, it's unrealistic to expect no noise. Every real-world imaging setting will have at least some noise, and in any case it's the presence of noise that makes the problem interesting, and lets us distinguish between better and worse transfer matrices, even if both matrices have the same rank.
+
+Adding noise, our new equation becomes:
+
+$$y = Ax + \eta$$
+
+where $\eta$ is another vector representing random noise. Now that we have introduced a random variable into our equation, we will need to provide a probability distribution not only for $\eta$ (to describe how the noise is distributed) but also for $x$.
+
+Let's start by discussing the probability distribution of the scene vector, $x$. The simplest model to begin with is to have each entry of the scene be independent and identically distributed (IID), and drawn from a Gaussian. For example, suppose that each entry of the scene vector $x$ was independently drawn from a Gaussian with a mean of $\mu$ and a standard deviation of $\sigma$. To describe this situation, we can write:
+
+$$x \sim \mathcal{N}(\mu I, \sigma^2)$$
+
+Before we can proceed with this model, there are a few problems for us to worry about. The first is possible negative entries. Real scenes don't cast negative light! To solve this problem, we take $\mu \gg \sigma$. That way, the probability of negative entries will be vanishingly small. A vanishingly small chance of a negative entry is good enough for us; it means that our model's distance from the real world due to this issue (where negative entries are impossible) is also vanishingly small.
+
+The next problem is subtler: recall that $x$ is a discrete vector, but it is meant to represent a continuous scene of fixed size. We haven't yet talked about the number of entries in $x$, which we'll call $n$. The variable $n$ controls how finely we discretize the scene $x$. Ideally, choosing $n$ to be larger will mean that our discrete representation of the true continuous scene will be more faithful (though perhaps at a computational cost). And we might also hope that once $n$ gets large enough, that's a close enough to the real scene that increasing it further won't make the model noticeably better. That's not such an unrealistic expectation; after all, if you're reading these words on a laptop screen, you're probably looking at a discrete array of a couple thousand by a thousand pixels, and that's plenty enough to give you the impression of a ``continuous image'' on your screen. Tripling the number of pixels on your laptop without increasing the size of your screen probably won't improve your impression of how ``continuous'' your screen looks by much, unless you're very good at noticing this kind of thing.
+
+We'll talk more about exactly what we mean by this concept later (i.e, how finely we need to discretize the scene before we consider that to be ``good enough''). For the time being, though, we have a more serious problem. The problem is this: varying $n$ should give us representations of the true, continuous scene that are varyingly faithful. However, choosing a different value of $n$ shouldn't qualitatively change what the scene looks like. It should always give us the closest discrete approximation possible to the true, continuous scene.
+
+So first, we need to make sure that the total luminance of the scene (in other words, the total amount of light the scene emits) doesn't depend on $n$. But we said earlier that each entry of $x$ was IID with a mean of $\mu$, so at the moment the total luminance of the scene is $n \mu$. This means that $\mu$ is going to have to depend on $n$; in particular, we'll say that $\mu = J/n$, where $J$ is a constant that represents the total luminance of the scene.
+
+Our difficulties don't stop there, though. If each entry of $x$ is IID and drawn from a Gaussian, then if we want the scene to be qualitatively the same independent of $n$, $\sigma$ must also depend on $n$. In this case, what we mean by ``qualitatively the same'' is a little bit fuzzy, but we might make it formal by asking that scenes with $n=k$ be drawn from the same distribution as scenes with $n=2k$ that are then ``pixelated'' by a factor of 2. (To ``pixelate'' a vector by a factor of $k$ is to average groups of $k$ contiguous pixels together---for example, if we pixelated the vector [1,2,3,4,5,6] by a factor of 2, we would be left with the vector [1.5, 3.5, 5.5].) By this definition, we would need $\sigma$ to actually \emph{increase} linearly with $n$ in order to have the finer-discretized scenes be less-pixelated versions of the coarser ones! And this is a problem because we said that $\mu \gg \sigma$, and that needs to be true for all values of $n$, which will be be impossible if $\sigma$ grows with $n$ and $\mu$ shrinks with $n$. If this is hard to follow, see Figure~\ref{fig:pixelation} for an illustration of this issue.
+
+So what's the solution? The solution is for our model of the scene to include correlations between nearby pixels. We can do this by supposing that the covariance matrix of the scene includes off-diagonal elements:
+
+$$x \sim \mathcal{N}(Q, \sigma^2)$$
+
+The covariance matrix $Q$ captures the correlations between nearby pixels. In real scenes, the closer together two pixels are, the more correlated they'll become. Our model should be faithful to this as well---and in doing so, we will simultaneously create the situation we wanted before, in which scenes with different values of $n$ look qualitatively similar to each other, just at different levels of fidelity. 
+
+To make things concrete, I'll provide an example of a scene covariance matrix, which I'll call the \emph{exponential-decay prior}
 
 
-    
-    
-    
-    
-    
-    
-    
+
+
 
     Before I explain what the far-field assumption or 
     

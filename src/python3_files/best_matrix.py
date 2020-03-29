@@ -4,7 +4,7 @@ import sys
 import matplotlib.pyplot as p
 import matplotlib.patches as mpatches
 from search import randomBits, randomGreedySearch, \
-    randomGreedySearchReturnAllSteps
+    randomGreedySearchReturnAllSteps, exhaustiveSearch
 from math import log, sqrt, pi, floor, exp, cos, sin, ceil, atan, atan2, asin
 import pickle
 import string
@@ -24,6 +24,7 @@ import pylab
 import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import svm
+
 
 #n = int(sys.argv[1])
 
@@ -138,6 +139,8 @@ COMPLEX_OPT = False
 COMPLEX_OPT_2 = False
 COMPLEX_OPT_3 = False
 COMPLEX_OPT_4 = False
+BEST_MAT_WITH_BETA = False
+COMPARE_DIFFERENT_URAS = True
 
 def triangleFunc(x):
     return x
@@ -169,6 +172,18 @@ def fac(n):
         return 1
     else:
         return n*fac(n-1)
+
+def get1DAttenuationMatrix(n, beta):
+    Fn = dft(n)
+    D = np.diag([beta**i/n for i in range(n)])
+
+    return np.dot(np.dot(np.conj(Fn), D), Fn)
+
+def get1DAttenuationMatrixGeneral(n, freqFunc):
+    Fn = dft(n)
+    D = np.diag([freqFunc(i) for i in range(n)])
+
+    return np.dot(np.dot(np.conj(Fn), D), Fn)
 
 def choose(n, r):
     return fac(n)/(fac(r)*(fac(n-r)))
@@ -766,6 +781,29 @@ def logDetCircEfficient(l):
             return -1e10
 
         returnSum += log(abs(eig))
+
+    return returnSum
+
+def logDetCircEfficientWithFrequencyAttenuation(l, freqFunc):
+#    f = sorted(np.abs(np.fft.fft(l)))[::-1]
+    f = np.abs(np.fft.fft(l))
+#    print(f)
+
+    returnSum = 0
+
+    listOfModdedEigs = []
+
+    for i, eig in enumerate(f):
+#        if abs(eig) <= 0:
+#            return -1e10
+
+        freqFactor = freqFunc(i)
+
+        returnSum += log(1 + eig**2 * freqFactor)
+#        print(i, freqFactor)
+        listOfModdedEigs.append(1 + abs(eig)**2 * freqFactor)
+
+#    print(listOfModdedEigs)
 
     return returnSum
 
@@ -2044,6 +2082,9 @@ def blockMLS(n, logN, logBlockSize):
         return [1]*n
 
     return np.repeat(np.concatenate((mls(logN - logBlockSize)[0],[0]), axis=0), 2**logBlockSize)
+
+def repeatify(l, k):
+    return listSum([[i]*k for i in l])
 
 def phiFunc(x):
     return x * atan(x) - 0.5 * log(x**2 + 1)
@@ -6008,7 +6049,10 @@ if __name__ == "__main__":
     if SINGULAR_VALUES:
             n = 103
             x = 50
-            vec = ura(n)
+#            vec = ura(n)
+            vec = [1*(random.random() > 0.5) for _ in range(n)]
+#            vec = [1*(random.random() > 0.5) for _ in range(2*n-1)]
+
             vec = vec + vec[:-1]
 
 
@@ -6016,14 +6060,24 @@ if __name__ == "__main__":
 
             u,s1,vh = np.linalg.svd(mat1)
 
-            p.plot(s1)
-
-            mat2 = rectangularToeplitz(vec, 103-x,103+x)
-
-            u,s2,vh = np.linalg.svd(mat2)
-
-            p.plot(s2)
+            p.matshow(mat1)
             p.show()
+
+            print(s1)
+            eigs = np.linalg.eig(mat1)[0]
+
+            print(np.abs(eigs))
+            p.plot(sorted(np.abs(s1)))
+            p.plot(sorted(np.abs(eigs)))
+            p.show()
+#            p.plot(np.abs(s1))
+
+#            mat2 = rectangularToeplitz(vec, 103-x,103+x)
+
+#            u,s2,vh = np.linalg.svd(mat2)
+
+#            p.plot(np.abs(s2))
+#            p.show()
 
     if CHARLIE_PRIOR:
         n = 100
@@ -6773,6 +6827,77 @@ if __name__ == "__main__":
         p.plot([np.linalg.slogdet(circulant(brentDecimalList[cardinality-1]))[1] for _ in range(cardinality)])
         p.plot(randomLogDets)
         p.show()
+
+
+    if BEST_MAT_WITH_BETA:
+        n = 14
+        beta = 0.01
+
+        def freqFunc(i):
+            return beta**i/n
+
+
+        x = ura(n)
+#        x = repeatify(x, 3)
+#        n = n*3
+        Q = get1DAttenuationMatrixGeneral(n, freqFunc)
+
+        p.matshow(np.real(Q))
+        p.colorbar()
+        p.show()
+
+
+
+
+        def eval(x):
+            A = circulant(x)
+#            p.matshow(A)
+#            p.show()
+#            p.matshow(np.real(Q))
+#            p.show()
+
+#            print(np.linalg.det(np.dot(A, np.transpose(A))))
+#            print(np.dot(np.dot(A, Q), np.transpose(A)))
+            G = np.dot(np.dot(A, Q), np.transpose(A)) + np.identity(n)
+
+#            print("A eigs", np.abs(np.linalg.eig(A)[0]))
+#            print("Q eigs", np.abs(np.linalg.eig(Q)[0]))
+
+#            print(np.linalg.eig(G)[0])
+
+#            p.matshow(G)
+#            p.colorbar()
+#            p.show()
+
+            return np.linalg.det(G)
+
+        def eval2(x):
+            return logDetCircEfficientWithFrequencyAttenuation(x, lambda i: freqFunc(i)*n)
+
+#        p.plot(np.abs(np.fft.fft(x)))
+#        p.show()
+
+#        print(eval(x))
+#        print(log(eval(x)))
+#        print(logDetCircEfficientWithFrequencyAttenuation(x, lambda i: freqFunc(i)*n))
+
+        bestList = exhaustiveSearch(n, eval2, maxOrMin="max")
+        print(bestList)
+
+        A = circulant(bestList)
+
+
+        p.matshow(np.dot(A, np.transpose(A)))
+        p.colorbar()
+        p.show()
+
+    if COMPARE_DIFFERENT_URAS:
+        n = 1000
+
+        listOfUrasLessThanN = []
+
+        
+
 
     #        for i in np.abs(np.fft.fft(bestList)):
      #           assert abs(i - sqrt(cardinality)) < 1e-6

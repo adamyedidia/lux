@@ -12,7 +12,6 @@ from image_distortion_simulator import imageify, imageifyComplex, \
     make2DTransferMatrix
 from image_distortion_simulator import getPseudoInverse as getPseudoInverseSpatialPrior
 import random
-from sklearn.manifold import TSNE, Isomap, MDS, LocallyLinearEmbedding
 from sklearn.datasets import load_digits
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as p
@@ -24,6 +23,15 @@ from best_matrix import padIntegerWithZeros, allListsOfSizeX
 from scipy.optimize import minimize
 from scipy.signal import fftconvolve
 from scipy.spatial import KDTree
+
+#sys.path.insert(1, '/Users/adamyedidia/walls/src/python3_files/scikit-learn/sklearn/manifold')
+
+#from _t_sne import TSNE
+#from _isomap import Isomap
+#from _mds import MDS
+#from _locally_linear import LocallyLinearEmbedding
+from sklearn.manifold import TSNE, Isomap, MDS, LocallyLinearEmbedding
+
 
 MAKE_GAUSS_VID = False
 MAKE_IMPULSE_VID = False
@@ -1087,12 +1095,12 @@ if __name__ == "__main__":
 	#	X = np.array([[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 1]])
 		print(X.shape)
 
-	#	embedding = Isomap(n_components=2, n_neighbors=10, p=1)
+		embedding = Isomap(n_components=2, n_neighbors=5, p=1)
 	#	embedding = MDS(n_components=2, metric=False, verbose=True) # careful this one takes forever
 	#	embedding = PCA(n_components=2)
 	#	embedding = LocallyLinearEmbedding(n_components=2, reg=1e-3, n_neighbors=5)
-		embedding = TSNE(n_components=2, verbose=2, learning_rate=1000, early_exaggeration=1, \
-			perplexity=1000, init="pca", n_iter=250)
+	#	embedding = TSNE(n_components=2, verbose=2, learning_rate=1000, early_exaggeration=1, \
+	#		perplexity=1000, init="pca", n_iter=250)
 
 		correctEmbedding = []
 

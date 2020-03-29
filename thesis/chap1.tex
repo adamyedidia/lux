@@ -141,13 +141,278 @@ $$x \sim \mathcal{N}(Q, \sigma^2)$$
 
 The covariance matrix $Q$ captures the correlations between nearby pixels. In real scenes, the closer together two pixels are, the more correlated they'll become. Our model should be faithful to this as well---and in doing so, we will simultaneously create the situation we wanted before, in which scenes with different values of $n$ look qualitatively similar to each other, just at different levels of fidelity. 
 
-To make things concrete, I'll provide an example of a scene covariance matrix, which I'll call the \emph{exponential-decay prior}
+To make things concrete, I'll provide an example of a scene covariance matrix, which I'll call the \emph{exponential-decay prior}. Recall that an IID covariance matrix would just be a multiple of the identity, $Q = \frac{\theta}{n} I$, where $\theta$ is a constant in $n$. The exponential-decay prior is given by $\mathbf{Q} = \mathbf{F}^*_n\mathbf{D}^\star\mathbf{F}_n$, where $\mathbf{F}_n$ is the normalized DFT matrix of size $n$ and $\mathbf{D}^\star$ is a diagonal matrix with the following entries: $d_1=1$, $d_i^\star = d_{n-i+1}^\star = \frac{\theta}{n}\beta^{\frac{i-1}{\lceil(n-1)/2\rceil}}, i=2,\ldots,\lceil(n+1)/2\rceil$, for some frequency decay rate parameter $0 < \beta < 1$. A lower $\beta$ implies a more strongly correlated scene.
+
+That's a lot to take in at once. Here's the summary of what the above means, in English: let's say the scene has size 1. Then two pixels that are distance 1 from each other---that is, all the way across the scene from each other---will have a correlation of $\beta$. Naturally, each pixel will also have a correlation of 1 with itself---that is, with pixels that are at distance 0 from it. We interpolate between these two points (correlation $\beta$ at distance 1, correlation 1 at distance 0) using an exponential function.
+
+It will be easier to make sense of all this if you look at Figure~\ref{fig:correlations} to see for yourself what these covariance matrices look like, and what scenes generated from them look like.
+
+\subsection{Noise}
+
+Now that we have a model of the probability distribution over scenes, we need a model for the probability distribution over the noise. This crucially depends on what application it is we care about. We'll try and make the noise model general enough to apply well to all cases.
+
+We distinguish between two different types of noise.
+
+\noindent{\emph{(Thermal noise):}}~
+%\item[(Type-I)]:
+%Also known as \emph{thermal noise}, t
+This includes noise sources that are independent of the contribution to the measurements due to the scene of interest. That means that the thing causing the noise isn't light coming from the scene; it's light coming from somewhere else (i.e. ``glare''). We model it as additive Gaussian with variance $W/n$, where $W$ denotes the constant net noise power and each pixel absorbs power proportional to its size, giving rise to the $1/n$ factor. 
+
+\noindent{\emph{(Shot noise):}}~
+%\item[(Type-II)]: 
+%Also known as \emph{shot noise}, 
+This includes measurement noise that depends on the contribution due to the scene of interest. This results in additive Gaussian noise of variance  $\rho\cdot\frac{J}{n}$ (proportional to the net power of light that goes through the aperture). 
+%\end{itemize}
+
+Thermal noise should be more important in passive non-line-of-sight imaging applications using accidental cameras (in other words, the applications described in Chapter 3) because in that application, the bulk of the light reaching the observation will generally come from sources that aren't the scene of interest, like overhead lighting or sunlight.
+
+Shot noise should be more important in designer-camera applications using coded apertures (in other words, the applications most relevant to the considerations described in Chapter 2) because in those applications, the camera will presumably be designed in such a way as to prevent glare.
+
+Both of these sources of noise are in reality captured by a Poisson distribution, since that's the way light behaves in real-world scenarios. Fortunately, the limit of a Poisson distribution as the number of photons gets very large is a Gaussian, which is much more easily modeled. This approximation is extremely close to reality in the applications we're interested in, which are passive-imaging applications with plenty of light. In super-low-light applications, however, such as active-imaging scenarios where the scene is in perfect darkness except for light introduced by the experimenter through a laser, this modeling issue can become important.
+
+Now that we've established the noise model, we can finally write down the equation relating the scene to the observation.
+
+$$y = Ax + \eta$$
+$$x \sim \mathcal{N}(\mu\mathbf{1}, Q)$$
+$$\eta \sim \mathcal{N}(0,(W+\rho\cdot J)/n)$$
+
+We'll leave $Q$ ambiguous for now, and talk about it on a case-by-case basis depending on the application. $\mu = J/n$ as described earlier. $J$ is the total radiance of the scene, whereas $W$ is a parameter that describes the level of glare (the scene-independent noise).
+
+\subsection{Mutual Information}    
+
+\noindent{\textbf{Mutual information}}.~ The  mutual information (MI) between the measurements $y_j, j\in[n]$ and the unknowns $f_i, i\in[1,n]$ of the imaging problem is given as 
+$\MI = %\frac{1}{n}
+\log\det\big( \frac{1}{\sigma^2}\An\Q\An^T + \Id \big)$, where the noise variance $\sigma^2 = (W + \rho \cdot J)/n$.
+
+ 
+\section{High SNR, IID scene, Occluding mask}
+
+In this section, I will go into great detail about a regime that appears unphysical, but gives us a lot of insight into a variety of different important regimes. It also has important mathematical implications.
+
+Consider the mutual information equation from the previous section:
+
+$\MI = %\frac{1}{n}
+\log\det\big( \frac{1}{\sigma^2}\An\Q\An^T + \Id \big)$
+
+Suppose we make the following assumptions:
+
+\begin{enumerate}
+    \item The scene is IID, $Q = kI$.
+    \item The SNR is very good, $\sigma \ll k$, so we can ignore the identity term.
+    \item The intermediate frame only occludes light or lets it through; it doesn't redirect the light.
+    \item The far-field assumption applies. This point and the previous one let us assume that the transfer matrix $\An$ is a multiple of a binary-valued Toeplitz matrix.
+\end{enumerate}    
+
+Suppose now that we want to find the best possible intermediate frame under these conditions, i.e. we want to find the best possible transfer matrix that satisfies the constraints above. 
+
+What transfer matrix maximizes the mutual information? Naturally, it will be whichever transfer matrix maximizes $\log\det\big( \frac{1}{\sigma^2}\An\Q\An^T + \Id \big)$, which given our assumptions is equivalent to maximizing the determinant of $\An^T \An$. This corresponds to maximizing the product of the norms of the transfer matrix's singular values, since each eigenvalue of $\An^T \An$ corresponds to the norm squared of one of the eigenvalues of $\An$.
+
+If we further assume that $\An$ is circulant, not just Toeplitz, then that tells us that in fact the eigenvalues and singular values of $\An$ have the same norm. This is a convenient assumption that doesn't necessarily match reality. Under which real-world conditions will the transfer matrix actually be circulant rather than Toeplitz? This is somewhat unintuitive, but it corresponds to the scenario in which the occluding pattern of the intermediate frame repeats itself once. Once is enough! See Figure~\ref{fig:circulantisonerepetition} for a visual explanation of why this is.
+
+Assuming that the transfer matrix is circulant, not just Toeplitz, is tremendously convenient. It means that we can compute the mutual information between the scene and the observation extremely efficiently, since the eigenvalues $\lambda_i$ are given by the Fourier transform of the first row of the transfer matrix, for which the time to compute is log-linear in $n$ (as opposed to $O(n^3)$ for a general determinant). And since $|\lambda_i| = |\sigma_i|$, that gives us all the information we need to compute $\log \det (\An \An^T)$.
+
+But realistically speaking, can we restrict ourselves just to circulant transfer matrices rather than Toeplitz ones? After all, occluders that give rise to that kind of transfer matrix make up only a very small fraction of all possible occluders. The answer is that it depends on what you want, but if you're only concerned with finding the \emph{best} possible occluder, restricting your attention to circulant transfer matrices costs you very little. Here's why.
+
+%TODO make sure that this applies for singular values as well
+
+\subsection{Hadamard's Bound}
+
+The point of this section is to justify the following bound on all $\{0, 1\}$ matrices $B$. If this doesn't interest you, skip to the next section.
+
+\begin{equation}
+|\det B| = \le 2^{-n}(n+1)^{(n+1)/2},	\label{eq:Hadamard0}
+\end{equation}
+
+
+By a \emph{binary} matrix we mean a matrix whose elements are in one of the
+sets $\Sz := \{0,1\}$ or $\Spm := \{-1,1\}$. It will be clear from
+the context which of these two cases is being considered.
+A \emph{binary circulant} is a circulant matrix whose
+elements are in $\Sz$ or $\Spm$.
+
+There is a natural % one-to-one 
+correspondence between the integers
+\hbox{$\{0,1,\ldots 2^n-1\}$} and the binary circulant matrices of order
+$n$.  If $N\in \{0,1,\ldots,2^n-1\}$ has the representation
+\[N = \sum_{j=0}^{n-1} 2^{n-1-j\,}b_j,\]
+so may be written in binary as $b_0 \ldots b_{n-1}$,
+we associate $N$ with
+$\circulant(a_0,\ldots,a_{n-1})$,
+where $a_j = b_j$ in the case of $\Sz$, and $a_j = 2b_j-1$ in
+the case of $\Spm$.
+
+The \emph{maximal determinant problem} is concerned with the maximal value
+of $|\det A|$ for an $n\times n$ binary matrix $A$. 
+The \emph{Hadamard bound}~\cite{Hadamard93} states that, in the case of
+binary matrices $A$ over $\{\pm1\}$, we have 
+\begin{equation}
+|\det A| \le n^{n/2}.					\label{eq:Hadamard1}
+\end{equation}
+Moreover, Hadamard's inequality is sharp for infinitely many $n$, for
+example powers of two 
+% (Sylvester~\cite{Sylvester67}) 
+or $n$ of the form
+$q+1$ where $q$ is a prime power and 
+$q \equiv \modd 3 4$ (Paley~\cite{Paley33}).
+
+There is a well-known 
+% "folklore"
+connection between the determinants of
+$\{0,1\}$-matrices of order $n$ and
+$\{\pm1\}$-matrices of order $n+1$.
+This implies that an $(n+1)\times (n+1)$ $ \{\pm1\}$-matrix 
+always has determinant divisible
+by $ 2^{n}$.
+See \cite{Neubauer97} % or \cite[Lemma 3.1]{Osborn03} 
+for details.
+We give an example with $n=3$, starting with an $n\times n$ binary
+matrix $B$ and ending with an $(n+1)\times(n+1)$ $\{\pm1\}$-matrix $A$,
+with $\det A = 2^n\det(B)$.
+\[
+B = 
+\left(\begin{tabular}{ccc}
+$1$&$0$&$1$\\
+$1$&$1$&$0$\\
+$0$&$1$&$1$
+\end{tabular}\right)
+\begin{tabular}{c}
+\begin{tiny}{ double}\end{tiny}\\[-5pt]
+$\longrightarrow$
+\end{tabular}
+\left(\begin{tabular}{rrr}
+$2$&$0$&$2$\\
+$2$&$2$&$0$\\
+$0$&$2$&$2$
+\end{tabular}\right)
+\]
+
+\[
+\begin{tabular}{c}
+\begin{tiny}{ border}\end{tiny}\\[-5pt]
+$\longrightarrow$
+\end{tabular}
+\left(\begin{tabular}{rrrr}
+1&1&1&1\\
+$0$&$2$&$0$&$2$\\
+$0$&$2$&$2$&$0$\\
+$0$&$0$&$2$&$2$
+\end{tabular}\right)
+\begin{tabular}{c}
+\begin{tiny}{ subtract}\end{tiny}\\[-5pt]
+$\longrightarrow$\\[-7pt]
+\begin{tiny}{ first row}\end{tiny}
+\end{tabular}
+\left(\begin{tabular}{rrrr}
+$1$&$1$&$1$&$1$\\
+$-1$&$1$&$-1$&$1$\\
+$-1$&$1$&$1$&$-1$\\
+$-1$&$-1$&$1$&$1$
+\end{tabular}\right) = A.
+\]
+The doubling step is the
+only step where the determinant changes, and there it is multiplied
+by $2^n$.
+
+Thus, Hadamard's bound~\eqref{eq:Hadamard1} gives the bound
+\begin{equation}
+|\det B| = 2^{-n}|\det A| \le 2^{-n}(n+1)^{(n+1)/2},	\label{eq:Hadamard2}
+\end{equation}
+which applies for all $\{0,1\}$-matrices $B$ of order $n$.
+We shall refer to both \eqref{eq:Hadamard1} and \eqref{eq:Hadamard2} as
+\emph{Hadamard's inequality}, since it will be clear from the context
+which inequality is intended.\footnote{In fact, Hadamard 
+in~\cite{Hadamard93} proved a more
+general inequality than~\eqref{eq:Hadamard1}, and as far as we are aware he
+never stated~\eqref{eq:Hadamard2} explicitly.
+A simple proof of~\eqref{eq:Hadamard1} is given by Cameron~\cite{Cameron06}.
+}
+
+\subsection{Binary Circulants Achieving Hadamard's Bound}
+
+Now we get to the reason that, if you're only concerned with finding the \emph{best} possible occluder, restricting your attention to circulant transfer matrices costs you very little. The reason is that there are several constructions for binary circulant matrices that achieve Hadamard's bound---this \emph{despite} the fact that Hadamard's bound is general for all binary matrices, not just circulant ones! Please take a moment to reflect on how lucky it is that among the binary circulant matrices, which comprise a tiny subset of all binary matrices that, some of those binary circulant matrices achieve determinants as large as any from \emph{all} binary matrices of the same size. I'll call these remarkable binary circulants ``determinant-maximizing binary circulants,'' or DMBCs.
+
+There are four known constructions for DMBCs. All four of these constructions yield a matrix whose eigenvalues are all equal, save for the first; the first eigenvalue has a value of $(n+1)/2$, and every other eigenvalue has a value of $\sqrt(n+1)/2$. The dot product of any pair of rows in a DMBC from one of these four constructions is $(n+1)/4$. In each construction, there are $(n+1)/2$ 1s and $(n-1)/2$ -1s. It follows from that last sentence that if you take one of these constructions and replace all the 0s with -1s to yield a $\{1, -1\}$ matrix, the dot product of any pair of rows will be -1.
+
+Thanks to this last point, DMBCs have a close relationship to Hadamard matrices. Hadamard matrices are $\{1, -1\}$ matrices (not necessarily circulant) for which every pair of rows is orthogonal, that is, the dot product of any pair of rows is 0. (The same is true of pairs of columns.) Any size-$n$ DMBC from one of these four constructions can be easily adapted to create a size-$(n+1)$ Hadamard matrix as follows: replace all the 0s with -1s in the DMBC, and then add a first row and a first column of all -1s. The dot product of the first row with any other row will be 0 (because every other but the first is exactly half 1s and half -1s). The dot product of every row other than the first with any other row other than the first will also be 0 (because the dot product of each pair of rows before adding the extra row and column was -1, and then adding the extra column adds an extra 1 to the dot product). Hence each size-$n$ DMBC yields a size-$(n+1)$ Hadamard matrix.
+
+Hadamard matrices of this kind are known in the literature as ``Hadamard matrices with circulant core,'' for obvious reasons. Now I will go into a little bit more detail about the various constructions.
+
+\begin{theorem}[Hadamard circulant core construction]
+\label{thm:circulant_core}
+A Hadamard matrix of order $n+1$ with circulant core of order $n$ 
+exists if
+\begin{itemize}
+\item[(1)] $n \equiv \modd 3 4$ is a prime;
+\item[(2)] $n = p(p+2)$, where $p$ and $p+2$ are prime;
+\item[(3)] $n = 2^k-1$, where $k$ is a positive integer; or
+\item[(4)] $n = 4k^2 + 27$, where $k$ is a positive integer
+		and $n$ is a prime.
+\end{itemize}
+\end{theorem}
+\begin{proof}
+Case (1) is due to Paley~\cite{Paley33}; 
+case (2) is due to Stanton and Sprott~\cite{Stanton58} and
+also Whiteman~\cite{Whiteman62};
+case (3) is due to Singer~\cite{Singer38};
+and case (4) is due to Hall~\cite[Theorem 2.2]{Hall56}.
+\end{proof}
+
+Hall~\cite[p.~$980$]{Hall56} remarks
+that case~(4) % of Theorem~\ref{thm:circulant_core}
+is subsumed by case~(1), since $4k^2+27 \equiv \modd 3 4$, 
+but we mention case~(4) since
+Hall's construction is different from that of Paley.
+
+We do not know if the list given by Theorem~\ref{thm:circulant_core} is
+exhaustive.  The computational results given in
+Tables~\ref{tab:a}--\ref{tab:b} show that, for $1 \le n \le 52$,
+only those $n$
+given by Theorem~\ref{thm:circulant_core} can provide a Hadamard matrix of
+order $n+1$ with a circulant core.
+Also, a circulant $\{0,1\}$-matrix of order $n \le 52$ can achieve the upper
+bound \eqref{eq:01bound} if and only if $n \le 4$ or $n$ satisfies condition
+(1), (2) or (3) of Theorem~\ref{thm:circulant_core}.
+ 
+This gives us the four known constructions for DMBCs. Note that the fourth construction is completely redundant with the first, since any prime $n$ such that $n = 4k^2 + 27$ where $k$ is a positive integer is guaranteed to also be prime and congruent to 3 mod 4! It is only considered a separate construction because it yields an additional DMBC beyond the one given by the first construction (that isn't a trivial transformation). The fourth construction is therefore of no additional practical value to us: we can't use it to create a mask that images at a given level of resolution that we couldn't already. It's quite interesting mathematically, but doesn't help us solve an imaging problem.
+
+It's worth giving more detail about the first construction, since it's by far the most common one over the real numbers; there are many more primes congruent to 3 mod 4 than there are powers of 2 or products of twin primes! Indeed, it's common enough that no matter what level of resolution you need, there will be a reasonably suitable mask at a nearby resolution level, thanks to the first construction.
+
+The first construction, due to Paley, is as follows:
+
+If $n$ is prime and congruent to 3 mod 4:
+
+\[
+  x_i =
+  \begin{cases}
+                                   1 & \text{if } \legendre{i}{n} = 0 \text{ or } 1 \\
+                                   0 & \text{otherwise} \\
+  \end{cases}
+\]
+
+Here, $\legendre{i}{n}$ is the Legendre symbol. It's equal to 0 is a multiple of $n$, and is otherwise equal to 1 if $i$ is a quadratic residue (meaning a perfect square) modulo $p$ and -1 if not. It's very easily computed, since by Euler's criterion, we have, for any $a$ and any prime $p$:
+
+$$\legendre{a}{p} \equiv a^{(p-1)/2} \mod p$$
+
+Figure~\ref{fig:paleysequences} shows a few possible occluder frames built using the Paley construction. As you can see, it has a very ``random-looking'' appearance. Of course, the construction is very much non-random; what gives it that appearance, though, is its non-self-repeating character. All four constructions, in fact, try to repeat themselves as little as possible. That's not surprising from the point of view of wanting to keep the sequence's Fourier spectrum flat, of course. But the way I like to think of it from an imaging point of view is that these sequences try and make the different possible shadows cast by a light source in a variety of different locations as different as possible from each other. A light source at each possible point in the (implicitly planar) scene will yield a different rotation of the occluding sequence, so the best sequences for distinguishing light sources at different locations will be sequences that are orthogonal to their own rotations. See Figure~\ref{fig:paleysetup} for a visual explanation of this phenomenon.
+
+In any event, because DMBCs achieve the maximal possible mutual information of any binary matrix of their size, the fact that we restricted our attention to circulant matrices rather than considering all possible Toeplitz matrices doesn't matter, assuming the value of $n$ we're using admits the existence of a DMBC. We therefore know that the once-repeating occluder suggested by that DMBC outperforms all other possible occluding intermediate frames, including ones that don't repeat themslves.
+
+Why is this useful, if the notion of an IID scene doesn't make sense, as we explained in the previous section? After all, these sequences are only optimal assuming an IID scene, and each different value of $n$ yields a qualitatively difference scene model. How can we know which of these non-repeating sequences to apply in real life?
+
+The answer is that even if ``IID scenes'' with different values of $n$ are qualitatively different from each other, that doesn't mean that each one doesn't describe a reasonable approximation of reality. Each different value of $n$ can be thought of as describing a different model, with lower values of $n$ describing scenes with fewer ``effective pixels'' and higher values describing scenes with more ``effective pixels.'' What do I mean by the number of ``effective pixels'' that a scene has? Well, roughly speaking, it's the number of pixels you need to get a reasonable view of the scene; you can think of a 144p video as having 144 effective pixels, even if more pixels than that are used to display it on your screen. More correlated scenes will have fewer effective pixels, and less correlated scenes will have more; having a lower SNR will also mean you have fewer effective pixels, and a higher SNR will mean you have more.
 
 
 
 
 
-    Before I explain what the far-field assumption or 
+    
+    
+    
+
+
+
+
+
     
     
     

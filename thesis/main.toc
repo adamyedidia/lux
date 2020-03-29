@@ -1,17 +1,25 @@
-\contentsline {chapter}{\numberline {1}Introduction}{13}
-\contentsline {chapter}{\numberline {2}The Model and Assumptions}{15}
-\contentsline {section}{\numberline {2.1}Ray Optics and BRDFs}{15}
-\contentsline {section}{\numberline {2.2}The Far-Field Assumption}{19}
-\contentsline {subsection}{\numberline {2.2.1}A point light source and a nearby surface}{19}
-\contentsline {section}{\numberline {2.3}Section sample 1}{22}
-\contentsline {section}{\numberline {2.4}Section sample 2}{23}
-\contentsline {subsection}{\numberline {2.4.1}Subsection sample}{24}
-\contentsline {subsection}{\numberline {2.4.2}Subsection with list}{24}
-\contentsline {section}{\numberline {2.5}Section sample 3}{25}
-\contentsline {subsection}{\numberline {2.5.1}Another subsection sample}{25}
-\contentsline {chapter}{\numberline {3}Optimal Occluders}{29}
-\contentsline {section}{\numberline {3.1}The Mutual Information Model of IF Optimality}{29}
-\contentsline {subsection}{\numberline {3.1.1}The Scene Model}{29}
-\contentsline {subsection}{\numberline {3.1.2}The Noise Model}{29}
-\contentsline {chapter}{\numberline {A}Tables}{31}
-\contentsline {chapter}{\numberline {B}Figures}{33}
+\contentsline {chapter}{\numberline {1}Introduction}{13}{chapter.1}
+\contentsline {chapter}{\numberline {2}The Model and Assumptions}{15}{chapter.2}
+\contentsline {section}{\numberline {2.1}Ray Optics and BRDFs }{15}{section.2.1}
+\contentsline {section}{\numberline {2.2}The Far-Field Assumption}{19}{section.2.2}
+\contentsline {subsection}{\numberline {2.2.1}A point light source and a nearby surface}{19}{subsection.2.2.1}
+\contentsline {section}{\numberline {2.3}The Standard Setup}{22}{section.2.3}
+\contentsline {subsection}{\numberline {2.3.1}The Transfer Matrix}{22}{subsection.2.3.1}
+\contentsline {subsection}{\numberline {2.3.2}Noise}{24}{subsection.2.3.2}
+\contentsline {subsection}{\numberline {2.3.3}Noise}{27}{subsection.2.3.3}
+\contentsline {subsection}{\numberline {2.3.4}Mutual Information}{28}{subsection.2.3.4}
+\contentsline {section}{\numberline {2.4}High SNR, IID scene, Occluding mask}{29}{section.2.4}
+\contentsline {subsection}{\numberline {2.4.1}Hadamard's Bound}{30}{subsection.2.4.1}
+\contentsline {subsection}{\numberline {2.4.2}Binary Circulants Achieving Hadamard's Bound}{32}{subsection.2.4.2}
+\contentsline {section}{\numberline {2.5}Section sample 1}{35}{section.2.5}
+\contentsline {section}{\numberline {2.6}Section sample 2}{36}{section.2.6}
+\contentsline {subsection}{\numberline {2.6.1}Subsection sample}{37}{subsection.2.6.1}
+\contentsline {subsection}{\numberline {2.6.2}Subsection with list}{37}{subsection.2.6.2}
+\contentsline {section}{\numberline {2.7}Section sample 3}{38}{section.2.7}
+\contentsline {subsection}{\numberline {2.7.1}Another subsection sample}{38}{subsection.2.7.1}
+\contentsline {chapter}{\numberline {3}Optimal Occluders}{41}{chapter.3}
+\contentsline {section}{\numberline {3.1}The Mutual Information Model of IF Optimality}{41}{section.3.1}
+\contentsline {subsection}{\numberline {3.1.1}The Scene Model}{41}{subsection.3.1.1}
+\contentsline {subsection}{\numberline {3.1.2}The Noise Model}{41}{subsection.3.1.2}
+\contentsline {chapter}{\numberline {A}Tables}{43}{appendix.A}
+\contentsline {chapter}{\numberline {B}Figures}{45}{appendix.B}

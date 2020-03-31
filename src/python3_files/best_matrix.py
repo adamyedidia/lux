@@ -140,7 +140,8 @@ COMPLEX_OPT_2 = False
 COMPLEX_OPT_3 = False
 COMPLEX_OPT_4 = False
 BEST_MAT_WITH_BETA = False
-COMPARE_DIFFERENT_URAS = True
+COMPARE_DIFFERENT_URAS = False
+VISUALIZE_DIFFERENT_URAS = True
 
 def triangleFunc(x):
     return x
@@ -373,6 +374,18 @@ def viewFrequencies(arr, filename=None):
         p.show()
     else:
         p.savefig(filename)
+
+def stretchArrayEvenDistribution(arr, newLength):
+    returnArr = []
+    arrLength = len(arr)
+
+    progress = 0
+
+    for i in range(newLength):
+        progress = i*(arrLength/newLength)
+        returnArr.append(arr[int(progress)])
+
+    return returnArr
 
 def product(l):
     returnValue = 1
@@ -802,6 +815,40 @@ def logDetCircEfficientWithFrequencyAttenuation(l, freqFunc):
         returnSum += log(1 + eig**2 * freqFactor)
 #        print(i, freqFactor)
         listOfModdedEigs.append(1 + abs(eig)**2 * freqFactor)
+
+#    print(listOfModdedEigs)
+
+    return returnSum
+
+def logOnePlusX(x):
+    if x > 1e-4:
+        return log(1+x)
+    else:
+        return x
+
+def logDetCircEfficientWithFrequencyAttenuationAndSNR(l, freqFunc, snr):
+#    f = sorted(np.abs(np.fft.fft(l)))[::-1]
+    f = np.abs(np.fft.fft(l))
+
+#    print(f, sum([i**2 for i in f]))
+#    print(snr)
+
+    returnSum = 0
+
+    listOfModdedEigs = []
+
+    for i, eig in enumerate(f):
+#        if abs(eig) <= 0:
+#            return -1e10
+        
+
+        freqFactor = freqFunc(i)
+#        print(freqFactor)
+#        print(eig, snr, logOnePlusX(1 + snr * eig**2 * freqFactor/n))
+
+        returnSum += logOnePlusX(snr * eig**2 * freqFactor/n)
+#        print(i, freqFactor)
+        listOfModdedEigs.append(logOnePlusX(snr * abs(eig)**2 * freqFactor/n))
 
 #    print(listOfModdedEigs)
 
@@ -1397,6 +1444,9 @@ def convertToInt(l):
 
 def xorProduct(l1, l2):
     return [[(i + j) % 2 for j in l2] for i in l1]
+
+def xnorProduct(l1, l2):
+    return [[(i + j + 1) % 2 for j in l2] for i in l1]
 
 def findBestRotation(l):
     lowestValue = float("Inf")
@@ -2044,6 +2094,14 @@ def findWeirdPrimes7(maxP=10000):
                     listOfWeirdPrimes.append(p)
 
     return listOfWeirdPrimes
+
+def mlsFriendly(n):
+    if n == 1:
+        return [1]
+
+    else:
+        return mls(n)[0]
+
 
 def findWeirdPrimesChowla(maxP=1000000):
     _, listOfPrimes = sieveOfEratosthenes(maxP)
@@ -6834,7 +6892,7 @@ if __name__ == "__main__":
         beta = 0.01
 
         def freqFunc(i):
-            return beta**i/n
+            return beta**(i/n)
 
 
         x = ura(n)
@@ -6846,6 +6904,7 @@ if __name__ == "__main__":
         p.colorbar()
         p.show()
 
+        snr = 0.01
 
 
 
@@ -6858,7 +6917,7 @@ if __name__ == "__main__":
 
 #            print(np.linalg.det(np.dot(A, np.transpose(A))))
 #            print(np.dot(np.dot(A, Q), np.transpose(A)))
-            G = np.dot(np.dot(A, Q), np.transpose(A)) + np.identity(n)
+            G = np.dot(snr*np.dot(A, Q), np.transpose(A))/n**2 + np.identity(n)
 
 #            print("A eigs", np.abs(np.linalg.eig(A)[0]))
 #            print("Q eigs", np.abs(np.linalg.eig(Q)[0]))
@@ -6877,9 +6936,9 @@ if __name__ == "__main__":
 #        p.plot(np.abs(np.fft.fft(x)))
 #        p.show()
 
-#        print(eval(x))
-#        print(log(eval(x)))
-#        print(logDetCircEfficientWithFrequencyAttenuation(x, lambda i: freqFunc(i)*n))
+        print(eval(x))
+        print(log(eval(x)))
+        print(logDetCircEfficientWithFrequencyAttenuationAndSNR(x, lambda i: freqFunc(i), snr))
 
         bestList = exhaustiveSearch(n, eval2, maxOrMin="max")
         print(bestList)
@@ -6892,11 +6951,85 @@ if __name__ == "__main__":
         p.show()
 
     if COMPARE_DIFFERENT_URAS:
-        n = 1000
+#        p.matshow(circulant(ura(31)))
+#        p.show()
+#
+#        p.matshow(circulant(stretchArrayEvenDistribution(ura(31), 100)))
+#        p.show()
 
-        listOfUrasLessThanN = []
+        matrixOfPixelSizes = []
 
-        
+        numTicks = 100
+
+        log10Betas = np.linspace(-5, 0, numTicks)
+        log10SNRs = np.linspace(-3, 3, numTicks)
+
+        betas = [10**i for i in log10Betas]
+        SNRs = [10**i for i in log10SNRs]
+
+        uraSizes = range(1, 11)
+
+        n = 1023
+        for log10Beta in log10Betas:
+
+            matrixOfPixelSizes.append([])
+            beta = 10**log10Beta
+
+            print(beta)
+
+            def freqFunc(k):
+                return beta**(k/n)
+
+            for log10SNR in log10SNRs:
+                snr = 10**log10SNR
+                logBestUraSize = None
+                bestUraSize = None
+                bestUraVal = -float("Inf")
+
+ #               print(snr)
+
+                for logUraSize in uraSizes:
+#                    print(len(mlsFriendly(logUraSize)))
+
+                    extendedUra = stretchArrayEvenDistribution(mlsFriendly(logUraSize), n)
+
+                    val = logDetCircEfficientWithFrequencyAttenuationAndSNR(extendedUra, \
+                        freqFunc, snr)
+
+#                    print(beta, snr, logUraSize, val)
+
+#
+#                    print(beta, snr,2**logUraSize-1, val)
+
+                    if val > bestUraVal:
+                        bestUraSize = 2**logUraSize-1
+                        bestUraVal = val
+                        logBestUraSize = logUraSize
+
+                pixelSize = n/bestUraSize
+                matrixOfPixelSizes[-1].append(logBestUraSize)
+
+        p.contourf(SNRs, betas, matrixOfPixelSizes, uraSizes)
+        p.yscale("log")
+        p.xscale("log")
+        p.xlabel("SNR")
+        p.ylabel(r"$\beta$")
+        p.colorbar()
+        p.show()
+
+    if VISUALIZE_DIFFERENT_URAS:
+        uraSizes = range(1, 10)
+
+        n = 511
+
+        for logUraSize in uraSizes:
+            ura = stretchArrayEvenDistribution(mlsFriendly(logUraSize), n)
+
+            ura2Darray = np.array(xnorProduct(ura, ura))
+
+            viewFrame(imageify(ura2Darray), axisTicks=False, \
+                filename="thesis_images/mask2D_" + str(logUraSize) + ".png")
+
 
 
     #        for i in np.abs(np.fft.fft(bestList)):

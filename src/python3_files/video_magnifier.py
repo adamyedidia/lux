@@ -80,7 +80,8 @@ def batchIntoBigFrames(listOfFrames, batchSize):
 
 def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=False, \
     absoluteMeanSubtraction=False, filename=None, relax=False, subFrameShape=None,
-    adaptiveScaling=False, secondBiggest=False, colorbar=False, figsize=None):
+    adaptiveScaling=False, secondBiggest=False, colorbar=False, figsize=None, \
+    axisTicks=True):
 
     frameShape = frame.shape
 
@@ -149,6 +150,9 @@ def viewFrame(frame, magnification=1, differenceImage=False, meanSubtraction=Fal
 
     pylab.imshow(coercedFrame.astype(np.uint8))
 
+    if not axisTicks:
+        p.xticks([])
+        p.yticks([])
 
 
     if filename == None:

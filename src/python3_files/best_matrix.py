@@ -141,7 +141,11 @@ COMPLEX_OPT_3 = False
 COMPLEX_OPT_4 = False
 BEST_MAT_WITH_BETA = False
 COMPARE_DIFFERENT_URAS = False
-VISUALIZE_DIFFERENT_URAS = True
+VISUALIZE_DIFFERENT_URAS = False
+VISUALIZE_DIFFERENT_URAS_1D = False
+VISUALIZE_URA = False
+COMPARE_DIFFERENT_URAS_VARY_DEPTH = False
+VISUALIZE_DIFFERENT_DEPTHS = True
 
 def triangleFunc(x):
     return x
@@ -853,6 +857,32 @@ def logDetCircEfficientWithFrequencyAttenuationAndSNR(l, freqFunc, snr):
 #    print(listOfModdedEigs)
 
     return returnSum
+
+
+
+# depth must be between 0 and 1
+def logDetCircWithFrequencyAttenuationAndSNRVaryDepth(l, freqFuncMaker, snr, depth):
+    assert depth >= 0
+    assert depth <= 1
+
+    n = len(l)
+    lExtended = l[1:] + l
+
+    height = int(2*depth*n)
+    height = max(height, 1)
+    height = min(height, 2*n - 1)
+    width = 2*n - height
+
+    mat = rectangularToeplitz(lExtended, height, width)
+
+    Q = get1DAttenuationMatrixGeneral(width, freqFuncMaker(width))
+
+    return np.linalg.slogdet(snr*np.dot(np.dot(mat, Q), np.transpose(mat))/n**2 + np.identity(height))[1]
+
+
+
+
+
 
 def logDetCircEfficientIgnoreDC(l):
     f = np.fft.fft(l)
@@ -7023,17 +7053,134 @@ if __name__ == "__main__":
         n = 511
 
         for logUraSize in uraSizes:
-            ura = stretchArrayEvenDistribution(mlsFriendly(logUraSize), n)
+            ura = stretchArrayEvenDistribution(np.concatenate([mlsFriendly(logUraSize)[1:], \
+                mlsFriendly(logUraSize)]), n)
 
             ura2Darray = np.array(xnorProduct(ura, ura))
 
             viewFrame(imageify(ura2Darray), axisTicks=False, \
                 filename="thesis_images/mask2D_" + str(logUraSize) + ".png")
 
+    if VISUALIZE_DIFFERENT_URAS_1D:
+        uraSizes = range(1, 10)
 
+        rowThickness = 20
+
+        rowLength = 1000
+
+        returnMat = []
+
+        for uraSize in range(3, 205):   
+            if uraSize % 4 == 3 and isPrime(uraSize):
+                print(uraSize)
+                for _ in range(rowThickness):
+                    returnMat.append(stretchArrayEvenDistribution(ura(uraSize), rowLength))
+                returnMat.append([0]*rowLength)
+                returnMat.append([0]*rowLength)
+
+        viewFrame(imageify(np.array(returnMat).astype(float)), axisTicks=False)
+
+    if VISUALIZE_URA:
+        uraSize = 11
+
+
+
+        uraOnce = ura(uraSize)
+        uraRepeated = uraOnce[1:] + uraOnce
+
+        viewFlatFrame(imageify(np.array(uraOnce[1:])))
+
+        viewFlatFrame(imageify(np.array(uraOnce)))
+
+        viewFlatFrame(imageify(np.array(uraRepeated)))
+
+        viewFrame(imageify(circulant(ura(uraSize))), axisTicks=False)
 
     #        for i in np.abs(np.fft.fft(bestList)):
      #           assert abs(i - sqrt(cardinality)) < 1e-6
 
+    if COMPARE_DIFFERENT_URAS_VARY_DEPTH:
+#        p.matshow(circulant(ura(31)))
+#        p.show()
+#
+#        p.matshow(circulant(stretchArrayEvenDistribution(ura(31), 100)))
+#        p.show()
 
+        matrixOfPixelSizes = []
 
+        numTicks = 100
+
+#        log10Betas = np.linspace(-5, 0, numTicks)
+        beta = 1e-3
+        log10SNRs = np.linspace(-3, 3, numTicks)
+        depths = np.linspace(0, 1, numTicks)
+
+#        betas = [10**i for i in log10Betas]
+        SNRs = [10**i for i in log10SNRs]
+
+        uraSizes = range(1, 8)
+
+        def freqFuncMaker(n):
+            def freqFunc(k):
+                return beta**(k/n)
+            return freqFunc
+
+        n = 127
+        for depth in depths:
+
+            matrixOfPixelSizes.append([])
+#            beta = 10**log10Beta
+
+            print(depth)
+#            print(beta)
+
+            for log10SNR in log10SNRs:
+                snr = 10**log10SNR
+                logBestUraSize = None
+                bestUraSize = None
+                bestUraVal = -float("Inf")
+
+ #               print(snr)
+
+                for logUraSize in uraSizes:
+#                    print(len(mlsFriendly(logUraSize)))
+
+                    extendedUra = stretchArrayEvenDistribution(mlsFriendly(logUraSize), n)
+
+                    val = logDetCircWithFrequencyAttenuationAndSNRVaryDepth(extendedUra, \
+                        freqFuncMaker, snr, depth)
+
+#                    print(beta, snr, logUraSize, val)
+
+#
+#                    print(beta, snr,2**logUraSize-1, val)
+
+                    if val > bestUraVal:
+                        bestUraSize = 2**logUraSize-1
+                        bestUraVal = val
+                        logBestUraSize = logUraSize
+
+                pixelSize = n/bestUraSize
+                matrixOfPixelSizes[-1].append(logBestUraSize)
+
+        p.contourf(SNRs, depths, matrixOfPixelSizes, uraSizes)
+#        p.yscale("log")
+        p.xscale("log")
+        p.xlabel("SNR")
+        p.ylabel("depth")
+        p.colorbar()
+        p.show()
+
+    if VISUALIZE_DIFFERENT_DEPTHS:
+
+        n = 101
+
+        occ = 40*[1] + 21*[0] + 40*[1]
+
+        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0., 1.)), axisTicks=False) 
+        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0.25, 0.75)), axisTicks=False) 
+        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0.5, 0.5)), axisTicks=False) 
+        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0.75, 0.25)), axisTicks=False) 
+        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 1., 0.)), axisTicks=False) 
+
+        #mat = getToeplitzLikeTransferMatrixWithVariedDepth()

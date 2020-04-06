@@ -66,6 +66,13 @@ At first, this seems it argues for the alternate definition of a Lambertian surf
 \subsection{A point light source and a nearby surface}
 
     Let's suppose we live in a 2D world of Lambertian surfaces and diffuse light sources. (When I say a ``diffuse'' light source, I mean that the light source scatters light equally in all directions. Confusingly, this isn't quite the same thing as a ``diffuse'' surface---which is another way of saying a Lambertian surface, which actually doesn't quite scatter light equally in all directions, as I explained in the previous section---but that's how these terms are used.) Consider a point light source suspended at $(0, y_p)$, with a Lambertian surface at $y=0$ (see Figure~\ref{fig:pointline}). What pattern of illumination can we expect to see on the surface?
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/pointline.png}
+\caption{A diagram illustrating the following setup: a point light source at $(0, y_p)$, with a Lambertian surface at $y=0$. We are interested in the resulting illumination pattern on the Lambertian surface; to investigate it, we measure the illumination of a small chunk on the surface that extends from $(x_c, 0)$ to $(x_c + dx, 0)$. The illumination of that chunk will be proportional to the angle $\theta_c$ of the point source's light subtended by the chunk. \label{fig:pointline}}
+\end{center}
+\end{figure}
     
     The way we proceed with this analysis is to discretize the surface into many small chunks, and then to consider what fraction of the light radiating out of the point light source is hitting any single given small chunk of the surface. We assume each chunk is small enough that its luminance is constant across the chunk. Asking what fraction of light radiating out of the point light source hitting any given  chunk is equivalent to asking what angle over the light source is subtended by that chunk, and then dividing that angle by $2\pi$. 
     
@@ -78,6 +85,13 @@ $$\theta_c = \tan^{-1}\left(\frac{x_c+dx}{y_p}\right) - \tan^{-1}\left(\frac{x_c
     $$I(x) = \frac{y_p}{2\pi(x^2 + y_p^2)}$$
     
     This simple formula captures a lot of interesting phenomena. Consider for instance that we take $x = 0$, meaning we consider the illumination only of the closest point on the surface to the point source. The formula tells us then that the illumination of that point goes as $1/y_p$, meaning that it scales inversely with that point's distance from the point source. Now consider fixing $y_p = 1$ and varying $x$. This gives us a illumination pattern that scales with $1/(1+x^2)$, a nice ``hump'' pattern. The closer the surface is to the point source (meaning a smaller $y$), the narrower the hump will be. (See Fig.~\ref{fig:differenthumps}) Also note that no matter what $y_p$ is, we have:
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/differenthumps.png}
+\caption{Different illumination patterns depending on different possible values of $y_p$, with the Lambertian surface extending from $x=-10$ to $x=10$. As this plot shows, the far-field assumption starts to become reasonable for $y_p = 30$. \label{fig:differenthumps}}
+\end{center}
+\end{figure}
     
 \footnotetext{Readers who are unfamiliar with terms like ``luminance'' may be confused by a subtle distinction between what I mean by ``luminance'' versus ``illumination pattern'' or ``brightness.'' When I talk about the ``luminance'' of something, I'm referring to the absolute amount of light that thing emits. In contrast, when I use the term ``brightness'' or ``illumination pattern,'' I'm referring to the light emission \emph{density} of that thing. When you look at a surface, that surface's apparent brightness is proportional to how much light it emits per area of your vision it occupies. So whereas the \emph{luminance} of a small surface chunk in the example given above would be $dx (y/(2\pi(x^2 + y^2)))$, to get the \emph{brightness} of that same surface chunk we'd want to divide by its area; hence its brightness would be $y/(2\pi(x^2 + y^2))$. This makes sense: the apparent brightness of a surface shouldn't depend on how finely you choose to discretize it!}    
     
@@ -109,6 +123,13 @@ How do we know that such a matrix even exists for all intermediate frames? Well,
 
 Because we're assuming that combining light sources behaves linearly, most real-world objects we can put in between a scene and an observation plane should be representable by a transfer matrix $A$. But what do matrices like these actually look like? Well, they can look like a variety of different things; Figure~\ref{fig:transfermatexample} shows the action of a variety of example intermediate frames, with an example transfer matrix corresponding to one of them.
 
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.2]{figs/pinhole_illustration.png}
+\caption{Three imaging systems (left, top-to-bottom): no aperture, a pinhole and a lens. Arrows indicate paths light from the scene takes to a particular point on the imaging plane. On the right is an arbitrary mask, an illustration of its discretization and the corresponding transfer matrix. \label{fig:transfermatexample}}
+\end{center}
+\end{figure}
+
 So suppose we have a scene $x$, an observation $y$, and a transfer matrix $A$ that represents how the intermediate frame distorts the scene to produce the observation. If $y = Ax$, and we know $A$ and $y$, what transfer matrices $A$ are best? In the absence of noise, any full-rank transfer matrix $A$ should allow us in principle to perfectly reconstruct $x = A^{-1}y$. That makes the question of which transfer matrix not very interesting---it's a multi-way tie between all full-rank transfer matrices, which make up the vast majority of possible transfer matrices.
 
 \subsection{Noise}
@@ -133,7 +154,15 @@ We'll talk more about exactly what we mean by this concept later (i.e, how finel
 
 So first, we need to make sure that the total luminance of the scene (in other words, the total amount of light the scene emits) doesn't depend on $n$. But we said earlier that each entry of $x$ was IID with a mean of $\mu$, so at the moment the total luminance of the scene is $n \mu$. This means that $\mu$ is going to have to depend on $n$; in particular, we'll say that $\mu = J/n$, where $J$ is a constant that represents the total luminance of the scene.
 
-Our difficulties don't stop there, though. If each entry of $x$ is IID and drawn from a Gaussian, then if we want the scene to be qualitatively the same independent of $n$, $\sigma$ must also depend on $n$. In this case, what we mean by ``qualitatively the same'' is a little bit fuzzy, but we might make it formal by asking that scenes with $n=k$ be drawn from the same distribution as scenes with $n=2k$ that are then ``pixelated'' by a factor of 2. (To ``pixelate'' a vector by a factor of $k$ is to average groups of $k$ contiguous pixels together---for example, if we pixelated the vector [1,2,3,4,5,6] by a factor of 2, we would be left with the vector [1.5, 3.5, 5.5].) By this definition, we would need $\sigma$ to actually \emph{increase} linearly with $n$ in order to have the finer-discretized scenes be less-pixelated versions of the coarser ones! And this is a problem because we said that $\mu \gg \sigma$, and that needs to be true for all values of $n$, which will be be impossible if $\sigma$ grows with $n$ and $\mu$ shrinks with $n$. If this is hard to follow, see Figure~\ref{fig:pixelation} for an illustration of this issue.
+Our difficulties don't stop there, though. If each entry of $x$ is IID and drawn from a Gaussian, then if we want the scene to be qualitatively the same independent of $n$, $\sigma$ must also depend on $n$. In this case, what we mean by ``qualitatively the same'' is a little bit fuzzy, but we might make it formal by asking that scenes with $n=k$ be drawn from the same distribution as scenes with $n=2k$ that are then ``pixelated'' by a factor of 2. (To ``pixelate'' a vector by a factor of $k$ is to average groups of $k$ contiguous pixels together---for example, if we pixelated the vector [1,2,3,4,5,6] by a factor of 2, we would be left with the vector [1.5, 3.5, 5.5].) By this definition, we would need $\sigma$ to actually \emph{increase} linearly with $n$ in order to have the finer-discretized scenes be less-pixelated versions of the coarser ones! And this is a problem because we said that $\mu \gg \sigma$, and that needs to be true for all values of $n$, which will be impossible if $\sigma$ grows with $n$ and $\mu$ shrinks with $n$. If this is hard to follow, see Figure~\ref{fig:pixelation} for an illustration of this issue.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/pixelation.png}
+\caption{Top row: IID scenes with $\sigma=1$, with three different levels of scene discretization ($n=50$, $n=200$, and $n=1000$). Bottom row: each of those scenes, pixellated so that they have 50 pixels to a side. As you can see, the pixellated scenes look different from each other---this is a problem, because how finely we choose to discretize the scene shouldn't make a difference to what the scene looks like. This is why IID scenes of different levels of discretization are qualitatively different from each other, unlike correlated scenes whose covariance matrices are chosen carefully to scale properly with discretization level. \label{fig:pixelation}}
+\end{center}
+\end{figure}
+
 
 So what's the solution? The solution is for our model of the scene to include correlations between nearby pixels. We can do this by supposing that the covariance matrix of the scene includes off-diagonal elements:
 
@@ -143,9 +172,16 @@ The covariance matrix $Q$ captures the correlations between nearby pixels. In re
 
 To make things concrete, I'll provide an example of a scene covariance matrix, which I'll call the \emph{exponential-decay prior}. Recall that an IID covariance matrix would just be a multiple of the identity, $Q = \frac{\theta}{n} I$, where $\theta$ is a constant in $n$. The exponential-decay prior is given by $\mathbf{Q} = \mathbf{F}^*_n\mathbf{D}^\star\mathbf{F}_n$, where $\mathbf{F}_n$ is the normalized DFT matrix of size $n$ and $\mathbf{D}^\star$ is a diagonal matrix with the following entries: $d_1=1$, $d_i^\star = d_{n-i+1}^\star = \frac{\theta}{n}\beta^{\frac{i-1}{\lceil(n-1)/2\rceil}}, i=2,\ldots,\lceil(n+1)/2\rceil$, for some frequency decay rate parameter $0 < \beta < 1$. A lower $\beta$ implies a more strongly correlated scene.
 
-That's a lot to take in at once. Here's the summary of what the above means, in English: let's say the scene has size 1. Then two pixels that are distance 1 from each other---that is, all the way across the scene from each other---will have a correlation of $\beta$. Naturally, each pixel will also have a correlation of 1 with itself---that is, with pixels that are at distance 0 from it. We interpolate between these two points (correlation $\beta$ at distance 1, correlation 1 at distance 0) using an exponential function.
+%That's a lot to take in at once. Here's the summary of what the above means, in English: let's say the scene has size 1. Then two pixels that are distance 1 from each other---that is, all the way across the scene from each other---will have a correlation of $\beta$. Naturally, each pixel will also have a correlation of 1 with itself---that is, with pixels that are at distance 0 from it. We interpolate between these two points (correlation $\beta$ at distance 1, correlation 1 at distance 0) using an exponential function.
 
 It will be easier to make sense of all this if you look at Figure~\ref{fig:correlations} to see for yourself what these covariance matrices look like, and what scenes generated from them look like.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/correlations.png}
+\caption{Top row: Correlated $50 \times 50$ scenes with three different values of $\beta$. $\beta=1$ implies an IID scene, with increasing correlation as $\beta$ approaches 0. On bottom: the covariance matrix with $\beta=10^{-5}$. Note that the  covariance matrix is $2500 \times 2500$, since it describes the covariance of each of the 2500 scene pixels with each other pixel. The pattern of banding that you see depends on how we choose to flatten the $50 \times 50$ scene array into a $2500$-entry vector; here, the scene is flattened in reading order. \label{fig:correlations}}
+\end{center}
+\end{figure}
 
 \subsection{Noise}
 
@@ -393,7 +429,38 @@ Here, $\legendre{i}{n}$ is the Legendre symbol. It's equal to 0 is a multiple of
 
 $$\legendre{a}{p} \equiv a^{(p-1)/2} \mod p$$
 
-Figure~\ref{fig:paleysequences} shows a few possible occluder frames built using the Paley construction. As you can see, it has a very ``random-looking'' appearance. Of course, the construction is very much non-random; what gives it that appearance, though, is its non-self-repeating character. All four constructions, in fact, try to repeat themselves as little as possible. That's not surprising from the point of view of wanting to keep the sequence's Fourier spectrum flat, of course. But the way I like to think of it from an imaging point of view is that these sequences try and make the different possible shadows cast by a light source in a variety of different locations as different as possible from each other. A light source at each possible point in the (implicitly planar) scene will yield a different rotation of the occluding sequence, so the best sequences for distinguishing light sources at different locations will be sequences that are orthogonal to their own rotations. See Figure~\ref{fig:paleysetup} for a visual explanation of this phenomenon.
+Figure~\ref{fig:paleysequences} shows the first few sequences of the Paley construction. As you can see, it has a very ``random-looking'' appearance. Of course, the construction is very much non-random; what gives it that appearance, though, is its non-self-repeating character. All four constructions, in fact, try to repeat themselves as little as possible. That's not surprising from the point of view of wanting to keep the sequence's Fourier spectrum flat, of course. But the way I like to think of it from an imaging point of view is that these sequences try and make the different possible shadows cast by a light source in a variety of different locations as different as possible from each other. A light source at each possible point in the (implicitly planar) scene will yield a different rotation of the occluding sequence, so the best sequences for distinguishing light sources at different locations will be sequences that are orthogonal to their own rotations. See Figure~\ref{fig:paleysetup} for a visual explanation of this phenomenon.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/paleysequences.png}
+\caption{These are the first few Paley sequences, i.e. on-off patterns whose spectrum is flat and that yield a DMBC (determinant-maximizing binary circulant) when used as the first row of a circulant matrix. On the left is $n$, the number of on/off chunks used. Note that for a Paley sequence to exist, $n$ must be prime and congruent to 3 mod 4.\label{fig:paleysequences}}
+\end{center}
+\end{figure}
+
+%\begin{figure}
+%\begin{center}
+%\includegraphics[scale=0.6]{figs/paleysetup1.png}
+%\caption{These are the first few Paley sequences, i.e. on-off patterns whose spectrum is flat and that yield a DMBC (determinant-maximizing binary circulant) when used as the first row of a circulant matrix. On the left is $n$, the number of on/off chunks used. Note that for a Paley sequence to exist, $n$ must be prime and congruent to 3 mod 4.\label{fig:paleysetup}}
+%\end{center}
+%\end{figure}
+
+
+
+\begin{figure}
+\centering
+\begin{subfigure}[b]{.7\linewidth}
+\includegraphics[width=\linewidth]{figs/paleysetup1.png}
+%\caption{A gull}
+\end{subfigure}
+\caption{A visual explanation of Paley sequences, the ``optimal'' occluding masks that be constructed from them, and the transfer matrices associated with those masks. Top: we consider the Paley construction applied to the case $n=11$. The paley construction gives us a binary sequence, with 1's (white, or ``on'') element $i$ of the sequence if $i$ is 0 or a quadratic residue modulo $n$, and 0's (black, or ``off'') for elements $i$ of the sequence if $i$ is not a quadratic residue modulo $n$. From this sequence we get an occluding mask, which consists of the sequence twice; every element is repeated exactly once except for the $0$ element, which is in the center. Given the far-field assumption and assuming the occluder is halfway in between observation and scene, an impulse scene will cast a shadow that corresponds to half the occluder, which is some rotation of the original Paley sequence. Bottom: sequences given by the Paley construction (as well as any other flat sequence) are as different as possible from their own rotations; this means that depending on where the impulse light source is in the scene, the cast shadows will be as different as possible. This makes reconstructing the location of a point light source, given a cast shadow, as easy as possible.}
+\begin{subfigure}[b]{.7\linewidth}
+\includegraphics[width=\linewidth]{figs/paleysetup2.png}
+%\caption{A tiger}
+\end{subfigure}
+\label{fig:paleysetup}
+\end{figure}
+
 
 In any event, because DMBCs achieve the maximal possible mutual information of any binary matrix of their size, the fact that we restricted our attention to circulant matrices rather than considering all possible Toeplitz matrices doesn't matter, assuming the value of $n$ we're using admits the existence of a DMBC. We therefore know that the once-repeating occluder suggested by that DMBC outperforms all other possible occluding intermediate frames, including ones that don't repeat themslves.
 
@@ -401,12 +468,57 @@ Why is this useful, if the notion of an IID scene doesn't make sense, as we expl
 
 The answer is that even if ``IID scenes'' with different values of $n$ are qualitatively different from each other, that doesn't mean that each one doesn't describe a reasonable approximation of reality. Each different value of $n$ can be thought of as describing a different model, with lower values of $n$ describing scenes with fewer ``effective pixels'' and higher values describing scenes with more ``effective pixels.'' What do I mean by the number of ``effective pixels'' that a scene has? Well, roughly speaking, it's the number of pixels you need to get a reasonable view of the scene; you can think of a 144p video as having 144 effective pixels, even if more pixels than that are used to display it on your screen. More correlated scenes will have fewer effective pixels, and less correlated scenes will have more; having a lower SNR will also mean you have fewer effective pixels, and a higher SNR will mean you have more.
 
+Figure~\ref{fig:optimalpixelcount} is a plot of the approximate number of effective pixels in the system, as a function of the SNR and $\beta$ (i.e. the level of correlation in the scene).
 
+\begin{figure}
+\centering
+\begin{subfigure}[b]{.7\linewidth}
+\includegraphics[width=\linewidth]{figs/optimalpixelcount1.png}
+%\caption{A gull}
+\end{subfigure}
+\caption{Top: the approximate effective pixel count of scenes generated with a given level of correlation ($\beta$) and under a given signal-to-noise ratio (SNR). As expected, more correlated scenes and noisier scenes both have fewer effective pixels. Note, however, that even highly correlated scenes can have high effective pixel counts if the SNR is high enough, but if the SNR is low enough the scene will always have a low effective pixel count. Effective pixel count was estimated by choosing which of the nine spectrally-flat masks shown on bottom yielded the highest mutual information. Bottom: masks corresponding to each of the effective scene pixel counts. Note that these masks repeat themselves once in each dimension, so each mask is $2n - 1 \times 2n - 1$ if the effective pixel count is $n$. This is due to the phenomenon described in Figure~\ref{fig:fig:paleysetup}.}
+\begin{subfigure}[b]{.7\linewidth}
+\includegraphics[width=\linewidth]{figs/optimalpixelcount2.png}
+%\caption{A tiger}
+\end{subfigure}
+\label{fig:optimalpixelcount}
+\end{figure}
 
+\section{Varying the distance between observation, occluder, and scene}
 
+We continue examining each of the idealized model's assumptions one after the other. Next on the docket is the assumption that the occluder lies exactly halfway in between the scene and observation plane. This was a tremenously convenient assumption because it allowed us to assume that the occluder's transfer matrix had Toeplitz structure. But in the real world, the assumption is completely unrealistic. In a designer-mask camera application, the occluder will presumably be much closer to the camera's photosensitive material than to the scene, and even in an accidental-camera application, we can't assume that the occluder will be exactly halfway between the wall we're looking at and whatever it is we're trying to image. So let's try removing the assumption and seeing what happens. Note that we'll still be assuming that scene and occluder are both planar---we'll get to that eventually, but not yet. And we're still using the far-field assumption---meaning that regardless of what we are taking the \emph{relative} distances of the occluder to the scene and observation to be, we are always assuming that the distance between scene and observation to be much bigger than the size of the scene or observation.
 
+What exactly is it about an occluder halfway between the scene and observation that gives us Toeplitz transfer matrices? The answer is that when the occluder is halfway bewteen the scene and observation, the shadow cast by a moving light source will move at exactly the speed the light source is moving, but in the opposite direction. Try holding a flashlight (such as one from a smartphone) with your right hand, illuminating a table or a wall, and then hold your left hand halfway in between the flashlight and the table. (I encourage you to actually do this!) Keep your left hand steady, and then move the flashlight around. You can see that your hand's shadow moves at the same speed your flashlight does, and in the opposite direction. 
+
+Now try varying the height of your left hand relative to the table. What happens to the speed of your hand's shadow relative to the speed at which you move the flashlight? The answer is that when your hand is closer to the table than to the flashlight, your hand's shadow will move slower than the flashlight; and when your hand is closer to the flashlight than to the table, your hand's shadow will move faster than the flashlight. (Of course, your hand's shadow will always in the opposite direction from the shadow---that part won't change.) 
+
+In fact, to be more precise, the ``speed multiplier'' that your hand's shadow gets relative to the flashlight---that is, your hand's shadow's speed divided by the flashlight's speed---is the same as the distance between your hand and the table divided by the distance between your hand and the flashlight. Figure~\ref{fig:speedmultiplier} gives a visual explanation of this phenomenon.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/speedmultiplier.png}
+\caption{A simple layout that explains the phenomenon whereby the relative speeds of a light source and its shadow are given by the relative distances of the scene and the observation to the occluder. Suppose we have a pinspeck occluder, and a light source that moves by an amount $\Delta_1$ to the right. If we suppose that its shadow moves by an amount $\Delta_2$ to the left, and that the occluder has a perpendicular distance $d_1$ from the scene and $d_2$ from the observation, then the fact that the top and bottom triangles are similar tells us that $\Delta_1/\Delta_2 = d_1/d_2$. \label{fig:speedmultiplier}}
+\end{center}
+\end{figure}
+
+This ``speed multiplier'' conceit is crucial to understanding how varying the occluder's depth warps the resulting transfer matrix. Remember that each column of the transfer matrix tells us what the observation will look like in response to a point light source at each different location in the scene. If we imagine, then, a point light source moving at a constant speed of 1 space-unit per time-unit across the scene, then we can imagine the transfer matrix as a movie of the observation plane while that happens, with each column of the transfer matrix being one frame of that movie. 
+
+When the occluder is halfway in between the scene and observation plane, we know exactly what that movie should look like: the shadow should move at the same speed as the point light source. That is, it should move at a speed of 1 space-unit (1 ``bin,'' or $1/n$) per time unit (1 ``frame,'' or column of the transfer matrix), assuming we discretize the scene and the observation plane equally finely.
+
+It's for this reason that the occluder being halfway between the scene and observation gives us the perfect, constant diagonals that characterize a Toeplitz matrix. Compare a column of the transfer matrix to the column adjacent to it, and you should see a copy of that column, but shifted by one row.
+
+What if we continue to imagine that the transfer matrix is a movie of the shadow cast by a point light source moving a constant speed of 1 space-unit per time-unit---but now we supposed that the occluder was twice as close to the scene as it was to the observation plane? We know from Figure~\ref{fig:speedmultiplier} that that means that the shadow must move at a speed of 2 space-units per time-unit. Therefore, on the transfer matrix, moving one column (time-unit) to the right will cause the shadow to shift two rows (space-units) down. (Remember that we are sticking to our convention of labeling the observation plane right-to-left instead of left-to-right, as explained in Section~\ref{TODO}---if we weren't, that would cause the shadow to shift two rows \emph{up}!)
+
+Similarly, if the occluder was twice as close to the observation plane as to the scene, the shadow would move at a speed of 0.5 space-units per time-unit. And if the occluder was right up against the observation plane, the shadow wouldn't move at all---and if the occluder was right up against the scene, there would be no shadow! Figure~\ref{fig:tiltedtransfermatrices} shows some example transfer matrices for each of these scenarios.
+ 
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/tiltedtransfermatrices.png}
+\caption{Top row: five different scenarios with the occluder at five different depths. Bottom row: the transfer matrices corresponding to each different scenario. \label{fig:tiltedtransfermatrices}}
+\end{center}
+\end{figure}
     
-    
+If you look carefully at Figure~\ref{fig:tiltedtransfermatrices}---in particular the second and fourth setups, in which the occluder is a quarter or three-quarters of the way to the scene---you'll see that the transfer matrix 
     
 
 

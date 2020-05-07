@@ -518,122 +518,90 @@ Similarly, if the occluder was twice as close to the observation plane as to the
 \end{center}
 \end{figure}
     
-If you look carefully at Figure~\ref{fig:tiltedtransfermatrices}---in particular the second and fourth setups, in which the occluder is a quarter or three-quarters of the way to the scene---you'll see that the transfer matrix 
-    
+If you look carefully at Figure~\ref{fig:tiltedtransfermatrices}---in particular the second and fourth setups, in which the occluder is a quarter or three-quarters of the way to the scene---you'll see that the transfer matrix isn't perfectly binary, like some of the previous transfer matrices we've looked at. It contains a few entries that lie between 0 and 1. This isn't for any legitimate reason, like a partially opaque occluder; this is purely a modeling issue. It has to do with the fact that, in order to approximate the scene and observation, we've partitioned them both into discrete chunks. If they were both perfectly continuous, their transfer matrices would both be completely binary, as we'd hope to see. The problem is, though, this isn't quite a issue we can wish away by appealing to what happens in the limit as our discretization becomes finer and finer: even if our discretization was extremely fine, the absolute number of nonbinary elements in our transfer matrix wouldn't shrink; in fact, it would grow! Granted, the \emph{fraction} of nonbinary elements in our transfer matrix would shrink, but even that isn't true if we also suppose that our occluders become increasingly complex (with more and more interfaces between occluding and not-occluding). So our model remains annoyingly unfaithful to reality even when we discretize very finely.
+
+Why is having nonbinary elements in our transfer matrix a problem? Beyond the simple fact that it doesn't accurately describe reality, it will result in us  underestimating the mutual information of setups where the occluder is not exactly halfway in between scene and occluder. This is because nonbinary elements in the transfer matrix (or the occluder, for that reason!) tend to lead to low mutual information, for reasons described in more detail in Section~\ref{TODO}. This effect gets exacerbated when the occluder is just a little bit off from being halfway in between the scene and occluder. For example, suppose the occluder is $5/11$ of the way between the observation and the scene; the resulting transfer matrix will have its diagonals of constancy be terribly skew to the diagonals of the matrix, resulting in a lot of nonbinary elements. 
+
+Fortunately, there's an easy solution to this modeling issue, and it doesn't require us to treat everything as fully continuous. The key fact here is that we can relate the eigenvalues of the Gram matrix $A Q A^T + I$ derived from the true, continuous transfer matrix $A$ (which is square) to the eigenvalues of the equivalent Gram matrix $A_r Q A^T + I$ derived from a rectangular version $A_r$ of the transfer matrix $A$. 
+
+The way we obtain $A_r$ from $A$ is simply to ``stretch'' the matrix $A$ (whose lines of constancy lie skew to the diagonals of the transfer matrix) until we get a version whose diagonals align with the diagonals of the transfer matrix. Figure~\ref{fig:stretchy} shows how this works.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/stretchy.png}
+\caption{Top: a setup with a planar occluder not halfway in between the scene and the observation. If we take the distance between the scene and observation to be $d$, then the distance between the scene and occluder is $\frac{9}{22}d$ and the distance between the occluder and observation is $\frac{13}{22}d$. We take a discretization level of $n=11$ (so for computational reasons, we are modeling the scene and observation as vectors of $n=11$ constant entries, and the occluder as a vector of $2n-1 = 21$ constant entries). Bottom left: the true, continuous transfer matrix. Bottom middle: the naive discrete $11 \times 11$ approximation of the transfer matrix, using averaging to produce nonbinary elements. Bottom right: the ``stretched'' $9 \times 13$ approximation of the transfer matrix, yielding a rectangular matrix with Toeplitz structure and only binary elements. \label{fig:stretchy}}
+\end{center}
+\end{figure}
+
+To figure out how much to rescale in response to the stretching of the matrix, it is instructive to consider the all-ones transfer matrix (corresponding to no occlusion in the far-field limit). This is a helpful transfer matrix for gaining intuitions about these setups in general; it will be very helpful here.
+
+Because the all-ones transfer matrix corresponds to no occlusion, we can equivalently posit the occluder ``plane'' to be at any depth. Let's imagine it's $w/(w+h)$ of the way to the scene (meaning that if the distance between scene and observation is $d$, then the distance between the occluder and the scene is $hd/(w+h)$ and the distance between the occluder and the observation is $wd/(w+h)$.) As Figure~\ref{fig:stretchy} shows us, that tells us that if the true transfer matrix has a width-to-height ratio of 1:1, the stretched transfer matrix will have a width-to-height ratio of $w$:$h$. 
+
+This has two impacts on the value of the determinant of $A^T Q A + I$. The first is that $A^T Q A + I$ is a bigger matrix, which will cause the value of the determinant to increase. The second is that each entry of $A^T Q A$ is smaller, because $A^T$ is narrower and $A$ is shorter; this will cause the value of the determinant to decrease. To rectify the first effect, it is necessary to rescale $A^T Q A$ by a factor of $n^2/w^2$. To rectify the second, it is necessary to rescale each eigenvalue of the $A^T Q A$ by a factor of $n/h$ (so that taking the determinant of $A^T Q A + I$ means taking the product $\prod_i 1 + \lambda_i (n/h)$), where $\lambda_i$ denotes the $i^{\textrm{th}}$ eigenvalue of the (rescaled) matrix $A^T Q A$.
+
+To be a bit more concrete: recall our original formula for computing the mutual information of an occlusion-based system. Let $A$ be the transfer matrix of the system, scaled to be binary-valued. Now let $A_r$ be the rectangular equivalent of that transfer matrix, stretched so that the diagonals of constancy are the actual diagonals of the matrix. Ordinarily, we would write (as we described in Section~\ref{TODO}) that the mutual information $\MI$ is given by:
+
+$$\MI = \det(\sigma A^T Q(n) A/n^2 + I) = \prod_i (1 + \lambda_i(\sigma A^T Q(n) A/n^2))$$
+
+where $Q(n)$ is the covariance matrix of the scene, $\sigma$ is the signal-to-noise ratio, and $\lambda_i(A^T Q A)$ denotes the $i^\textrm{th}$ eigenvalue of $A^T Q A$.
+
+Instead of taking $A$ to be a square matrix with diagonals of constancy that are skew to the actual diagonals of the matrix, we stretch it so that its width to height ratio is $w$:$h$. Let's take its dimensions to be $w \times h$. Call this new, stretched matrix $A_r$. Now we can write:
+
+$$\MI = \prod_i (1 + \frac{n}{h}\lambda_i(\sigma A_r^T Q(w) A_r/w^2))$$
+
+In the limit of continuous transfer matrices, these two formulations are perfectly equivalent. But when we approximate the continuous transfer matrix by using a discrete matrix, the difference between these two ``equivalent'' formulations can be dramatic---and, of course, it's the rectangular formulation that gets closer to the truth. See Figure~\ref{fig:rectvssquarediff} for a side-by-side comparison.
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.6]{figs/rectvssquarediff.png}
+\caption{A comparison of observed mutual information using either a square matrix with non-binary averaged values, or a stretched rectangular matrix, appropriately rescaled. In this example, $n=61$. It is apparent that the effect of averaging values in the square matrix leads to a dramatic (and artifactual) decrease in the observed mutual information, as well as artifacts at depths that make there be fewer nonbinary values in the square matrix. \label{fig:rectvssquarediff}}
+\end{center}
+\end{figure}
+
+This trick lets us faithfully represent systems involving occluders at $2n-1$ different depths, where $n$ is the level of discretization of the scene. This is tremendously convenient! It lets us do an accurate study of how much having occluders not exactly halfway in between the scene and observation harms performance. We know, of course, that it must: DMBCs have diagonals of constancy in line with the matrix's diagonals, and skewing those diagonals decreases the rank of the resulting transfer matrix! But by how much is an interesting question. Figure~\ref{fig:depthval} gives an answer. Just like Figure~\ref{fig:optimalpixelcount}, it helps us estimate the effective pixel count of the setups involving occluders at different depths. As expected, moving the occluder away from the halfway point reduces the setup's effective pixel count---but interestingly, the effective pixel count doesn't change much until the occluder is moved far from the halfway point (e.g. 10\% or 90\% of the way to the scene). This tells us that using a good occluder matters a lot more than making sure it's exactly halfway between scene and observation, for the purposes of maximizing mutual information.
+
+\begin{figure}
+\centering
+\begin{subfigure}[b]{.7\linewidth}
+\includegraphics[width=\linewidth]{figs/depthval1.png}
+%\caption{A gull}
+\end{subfigure}
+\caption{Top: the approximate effective pixel count of scenes generated at different occluder depths. As expected, when the occluder is near the observation plane or the scene, it reduces the number of effective pixels. Here the scene correlation $\beta = 10^{-3}$. Bottom: masks corresponding to each of the effective scene pixel counts. Note that these masks repeat themselves once in each dimension, so each mask is $2n - 1 \times 2n - 1$ if the effective pixel count is $n$. This is due to the phenomenon described in Figure~\ref{fig:depthval}.}
+\begin{subfigure}[b]{.7\linewidth}
+\includegraphics[width=\linewidth]{figs/depthval2.png}
+%\caption{A tiger}
+\end{subfigure}
+\label{fig:optimalpixelcount}
+\end{figure}
+
+\section{Near-field scenes}
+
+Next, we tackle the question of what happens to our analysis when we discard the far-field assumption. Real scenes, after all, don't lie infinitely far away from our cameras. And though we saw in Section~\ref{TODO} that the far-field assumption is deceptively robust, because of the quadratic dependence on distance in the illumination function (see Equation~\ref{TODO}), that doesn't mean it's \emph{right}. So let's analyze our standard setup more carefully, without taking the far-field assumption.
+
+Way back in Section~\ref{TODO}, we decided to use a reversed labeling system, such that the scene vectors were ordered left-to-right (as normal) but the observation vectors were ordered right-to-left. This was so that the diagonals of constancy of the resulting transfer matrices would go from upper-left to lower-right. This lets us work with the more intuitive, well-studied circulant and Toeplitz matrices, rather than their less well-known and -studied Hankel cousins. Of course, in the end, it doesn't matter what labeling scheme we use: the math must work out the same in either case. However, this reverse labeling was more convenient in the previous sections.
+
+In this section, to avoid confusion, we'll stick with the same convention as we used in previous sections. Unfortunately, though, in this section, it won't buy us any convenience at all. The reason is this: the near-field effects map in exactly the opposite direction to the occlusion effects! Consider a setup with the scene plane at $y=1$, the observation plane at $y=-1$, and the occluder frame at $y=0$. Suppose that the occluder frame includes an aperture (meaning no occlusion) at the point $(x, y) = (0, 0)$. Now each point on the observation is guaranteed a contribution from the point across from it in the scene; that is, a point at $(x, -1)$ on the observation is guaranteed a contribution from point $(-x, 1)$ in the scene. It's that negation that drove us to swap the index order of scene and observation, so that scene went from $-x_{max}$ to $x_{max})$ and observation from $x_{max}$ to $-x_{max}$.
+
+But now let's think about the near-field effects. Ignoring the effects of occlusion, a point at $(x, -1)$ on the observation will get the most light from the point nearest to it in the scene---that is, $(x, 1)$. That light will fall off as $I = y/(x^2 + y^2)$, as we saw earlier. This is exactly the reverse of the occlusion phenomenon. So if the diagonals of constancy of transfer matrices in a world with occlusion but no near-field effects go from upper-left to lower-right, the diagonals of constancy of transfer matrices in a world \emph{without} occlusion, but \emph{with} near-field effects, must go from upper-right to lower-left. We just can't win!
+
+So what happens when we have both occlusion and near-field effects? The answer is simple: we take the Hadamard product---i.e. the elementwise product---of the two transfer matrices with each individual effect. And this leads to the next unfortunate consequence of considering near-field effects in our analysis: the Hadamard product is a ``disrespectful'' operation. By this I mean that it doesn't treat the matrices as functions of vectors to other vectors; rather, it treats them only as boxes of numbers. When you introduce disrespectful operations into your setup, it becomes very difficult to say anything analytically about the result. And so, even though it's easy for us to say a lot about the transfer matrix from occlusion, and also easy for us to say a lot about the transfer matrix from near-field effects, it's not at all easy for us to say much about the combined transfer matrix: their Hadamard product. At least, it's not easy for us to say much analytically. We can still say interesting things about it through a combination of common sense and simulations.
+
+Let's start with the common sense. When the scene is close enough to the observation plane, the near-field effects are effectively a blurry pinhole, but one that treats the scene as reversed relative to how an actual blurry pinhole would treat the scene. (See Figure~\ref{fig:blurryhole}.) When we take the Hadamard product of these two matrices, it's intuitive that it would the determinant of the matrix that results. After all, the determinant of a matrix is a sum of permutations; when we take the Hadamard product of these two matrices whose permutations are non-overlapping, it makes sense that they would interact destructively. In other words, it won't help to have both the near-field effect and the occlusion effect happening at once; the result won't be better than either having the near-field effect alone, or the occlusion effect alone. Which one of those two is better, of course depends on the details: what occluder are we talking about, and how strong is the near-field effect? 
+
+If we're to talk about which occluder is \emph{optimal} under these conditions, we might expect, then, that while near-field effects are week, the optimal occluder continues to be whatever was optimal without the near-field effects; as we gradually strengthen the near-field effects, at some point the optimal occluder will suddenly switch to being a completely open aperture. This should happen once a simple pinhole starts outperforming a spectrally-flat occluder that is being marred by increasingly strong near-field effects.
+
+And indeed, that's what we see in our simulations! See Figure~\ref{fig:nearfield}.
+
+\section{The Optimal Pinhole}
+
+What size of pinhole is optimal, given our standard assumptions? This might seem to be an irrelevant question---the optimal occluding frame is not a pinhole, so why should we care what size of pinhole is optimal?
+
+Well, it is a simple enough question that we are able to solve it analytically, which is nice. It can come up that you only have a pinhole and all you can control is its size. It is a good and intuitive test case for a lot of the mutual-information-based machinery that has been introduced so far. But more importantly, it will later be useful for us to have analyzed this question, as the idea of a ``wide pinhole'' will be a useful analogy for near-field effects.
+
+First of all, at a high level, what is the fundamental tradeoff around pinhole size? The answer is that smaller pinholes let in less light, but larger pinholes give you a blurrier image. If you're nearsighted, you can see this tradeoff in action by squinting---squinting lets you get sharper view of whatever it is you're looking at, but squint too much and you won't have enough light! It's intuitive, then, that a high SNR would make the optimal pinhole smaller (to get a sharper image), whereas a low SNR would make the optimal pinhole larger (to get more total light). Indeed, this is exactly what our pupils do! But it's satisfying to see this justified by our information-theoretic model.
 
 
 
+\section{Optimal phase arrays}
 
-
-    
-    
-    
-    
-
-
-
-
-
-
-%\end{align}    
-    
-
-
-
-
-
-The Lambertian BRDF is an excellent approximation for the reflectance properties of most objects.
-
-
-
-
-
-
-
-
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam quis sollicitudin metus. Quisque quam ex, tincidunt et porttitor quis, tincidunt faucibus quam. Nulla facilisi. Nam a libero posuere, mattis leo ac, ultrices est. Nullam auctor lacus eu metus venenatis, gravida consectetur felis laoreet. Nam non ante felis. Maecenas id dignissim turpis, eget pulvinar nisl. Cras nec mauris feugiat, aliquam elit ac, blandit ex \cite{article-full}.
-
-Nunc vehicula velit nibh, ut facilisis magna blandit semper. Fusce varius odio in velit mattis porttitor. Vivamus aliquam vulputate quam, non auctor augue ornare ut. Vivamus ac pretium sapien, sed gravida elit. Etiam facilisis risus libero, sed vulputate velit lobortis sed. Aliquam erat volutpat. Sed est orci, dignissim nec varius et, auctor non purus \cite{proceedings-minimal,phdthesis-full}. Morbi feugiat gravida ipsum. Sed maximus nibh eget feugiat tempor. Pellentesque nec urna varius, volutpat dolor at, mattis leo. Vivamus elit eros, pretium sed magna nec, faucibus egestas enim. Vivamus ipsum ex, condimentum eu felis ac, tempus feugiat metus discussed in section~\ref{ch1:sec}.
-
-\section{Section sample 1}
-
-Ut hendrerit risus egestas, sollicitudin mauris sit amet, fermentum ipsum. Donec vulputate enim in justo pellentesque rhoncus. Nunc a dui condimentum, egestas ipsum eu, fermentum enim. Duis condimentum iaculis luctus. Nam sodales pellentesque luctus. Aenean tristique ante mattis tellus tincidunt, vitae mattis nunc tristique. Ut nec mattis ante, eu sodales ex.
-
-Praesent pulvinar risus in diam mollis tincidunt. Nam aliquam lacus sed eleifend mattis. Ut at blandit ex, eget molestie massa. Morbi fermentum sit amet mauris ut placerat. Ut in eros pretium, congue felis sit amet, gravida justo. Suspendisse purus leo, posuere sed odio vel, mollis tempus nisi. Aenean est tortor, tincidunt et rhoncus ut, fermentum semper leo \cite{book-crossref}. Integer id viverra metus, a blandit neque. In in enim eu ipsum euismod hendrerit.
-
-Cras et pellentesque sapien. Maecenas vitae sollicitudin sapien. Sed elementum feugiat ligula, eu maximus nunc porttitor in. Etiam porttitor nisi ante, vel fermentum arcu pulvinar et. Sed bibendum diam nisl, vitae dapibus elit convallis congue. Ut vehicula lectus et enim consectetur cursus. Praesent non viverra augue, id bibendum risus. Maecenas lorem massa, dignissim ac purus in, tincidunt sodales nisi. Praesent condimentum tempus mauris. Etiam vitae sem maximus, auctor orci at, rhoncus diam. Donec pretium sodales sodales. Donec sodales ultrices metus ac pharetra. Mauris non ullamcorper urna. Mauris ac faucibus tortor, eu lobortis leo are described in detail in section~\ref{ch1:sec}.
-
-\section{Section sample 2}\label{ch1:sec}
-
-Phasellus sed elit vehicula, gravida odio in, vulputate quam. Quisque in elit enim. Vivamus finibus justo elit, sed semper turpis aliquam porttitor. Nulla posuere bibendum nunc sit amet consequat. Vivamus commodo lorem sed metus fermentum rhoncus. Etiam porta sodales purus, vel aliquet lacus facilisis et. Etiam ornare velit non dui auctor fermentum. In elit augue, fringilla at lacinia at, facilisis sit amet lectus. Sed et hendrerit ex. Morbi tristique felis a augue egestas commodo. Nulla porttitor ut urna nec dignissim. Fusce ac pharetra risus, id rhoncus ligula. Pellentesque euismod viverra sem, vel porttitor libero blandit quis. Phasellus orci augue, mattis nec dolor ut, cursus mattis quam. Sed tincidunt eu metus sed pulvinar. Ut a nulla at leo semper accumsan efficitur eget leo.
-
-Sed vel lectus ut dui tempor molestie. Suspendisse blandit sapien posuere quam tempor lobortis. Duis sollicitudin tincidunt dui, at aliquam lorem dictum sit amet. Aenean congue nibh lectus, ut faucibus turpis facilisis quis. Ut aliquet magna at placerat ultricies. Mauris convallis, risus efficitur gravida dapibus, lacus lorem malesuada ligula, eget porta diam felis non turpis. Nulla sed sem finibus, vehicula quam at, vulputate tellus\footnote{Here is a sample footnote referencing figures~\ref{arm:fig1}
-and~\ref{arm:fig2}.}  
-
-Quisque elit enim, molestie ac metus ut, condimentum convallis nibh:
-
-\subsection{Subsection sample}
-
-In tempus ex nibh, non eleifend risus iaculis ac. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Nullam in nisi eu arcu laoreet sollicitudin. Mauris consectetur venenatis arcu id finibus. Aenean pellentesque consectetur erat lacinia vulputate. Praesent tempus tempus lorem at dignissim. Proin at odio vitae tortor sollicitudin pretium. Quisque ac purus eu sem rutrum bibendum.
-
-% This is an example of how you would use tgrind to include an example
-% of source code; it is commented out in this template since the code
-% example file does not exist. To use it, you need to remove the '%' on the
-% beginning of the line, and insert your own information in the call.
-%
-%\tagrind[htbp]{code/pmn.s.tex}{Code sample}{opt:pmn}
-
-Pellentesque ac leo eget lorem vulputate mattis eu a nisl. Duis elit erat, consectetur vulputate ullamcorper a, finibus quis turpis. Vivamus tincidunt dui id purus bibendum malesuada. Fusce accumsan, ipsum quis feugiat sodales, enim est aliquet leo, ut ornare justo mauris quis ex. Sed eros magna, suscipit et blandit non, pretium id felis. Praesent a vehicula tortor. Donec blandit dolor a ipsum sodales, eget aliquet nisl fermentum.
-
-\subsection{Subsection with list}
-
-Ut sollicitudin, lectus eget posuere porttitor, risus dui facilisis risus, a pharetra lacus elit vel eros. Proin fermentum accumsan mauris, quis posuere nisi pharetra scelerisque. 
-\begin{enumerate}
-  \item Item 1.
-  \item Item 2.
-  \item Item 3.
-\end{enumerate}
-
-Cras nec ullamcorper mauris. Aliquam erat volutpat. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Suspendisse sed dui ac mi auctor scelerisque. Etiam at semper nisi. Cras nec dolor ac purus feugiat auctor. Nunc eget pulvinar massa.
-
-% This is an example of how you would use tgrind to include an example
-% of source code; it is commented out in this template since the code
-% example file does not exist.  To use it, you need to remove the '%' on the
-% beginning of the line, and insert your own information in the call.
-%
-%\tgrind[htbp]{code/be.s.tex}{Block Exponent}{opt:be}
-
-\section{Section sample 3}
-
-Quisque sed ultrices leo. Donec vestibulum auctor nibh, at faucibus libero mollis in. Quisque massa lorem, feugiat a lectus in, lobortis volutpat lectus. Donec accumsan dui erat, eu tempor tortor facilisis sed. Nulla ullamcorper augue et sapien dapibus, quis bibendum velit porta. Nullam mattis vehicula tortor porttitor porta. Interdum et malesuada fames ac ante ipsum primis in faucibus. Praesent suscipit, lorem vel viverra rhoncus, turpis orci dignissim dui, bibendum pulvinar justo sem vel lorem. Nam porttitor mollis tristique. Aliquam rhoncus magna quis nisl varius mattis. Sed rhoncus, diam in gravida iaculis, mauris tellus imperdiet turpis, at porttitor est leo vel velit. Praesent faucibus ornare sodales. Sed eu lorem purus.  
-
-\subsection{Another subsection sample}
-
-Nullam rhoncus posuere lacus, id volutpat nisi pulvinar viverra. Quisque quis ultricies ante. Duis sollicitudin sapien nec consequat vehicula. Vestibulum convallis erat in arcu aliquam eleifend. Nunc scelerisque lorem non luctus sodales. Curabitur eleifend odio et sagittis semper. Praesent sodales, diam nec vulputate iaculis, neque leo consectetur nunc, a luctus lacus purus et dui. Sed sit amet tortor ullamcorper, malesuada libero quis, imperdiet tortor. Cras tempor blandit massa, sit amet molestie sapien tincidunt quis. Nullam hendrerit venenatis massa, sed lacinia ligula tincidunt vitae.
-
-Nam efficitur et lacus sed eleifend. Aenean quis ipsum eget leo ultrices ornare. Nullam rhoncus ante odio, at dignissim neque posuere eu. Pellentesque sodales tortor est, nec egestas sapien mollis quis. In lectus sapien, pellentesque congue erat consequat, hendrerit aliquet elit. Pellentesque eleifend purus ac diam bibendum, ac auctor ipsum posuere. Cras suscipit leo nec velit fermentum, id varius erat eleifend. Proin sagittis purus id ante lacinia, et congue eros tincidunt. Pellentesque at cursus tellus. Quisque id semper nunc. Quisque viverra a ex at ullamcorper. Morbi mollis erat at ex viverra fringilla. Proin ante dolor, dignissim sodales nisl ac, finibus egestas urna.
-
-Nulla porta urna at pulvinar consectetur. Pellentesque suscipit, neque vitae ultricies rutrum, eros tellus iaculis dui, nec pulvinar justo nibh eu urna. Ut euismod massa nisi, et bibendum risus placerat quis. Integer pretium nulla id risus lobortis laoreet. Aenean quis quam fringilla, elementum odio non, lacinia purus. Vestibulum dui sapien, mollis sit amet massa vel, egestas faucibus velit. Phasellus non justo ut ante vestibulum dictum. Nam in nibh et libero malesuada aliquet. Donec in ex in magna luctus volutpat.
-
-Sed quis dapibus libero. Curabitur id finibus nulla, sed semper felis. Proin dapibus nulla interdum, bibendum tortor et, blandit sapien. Etiam pretium tristique tortor non lacinia. Aliquam dapibus turpis lorem, sit amet porta ex dignissim vitae. In neque felis, sagittis sed ullamcorper lacinia, lobortis ut turpis. Nam quis aliquet justo. Nam eros mi, aliquam vel massa ac, ornare dignissim erat.  This is done by using some combination of
-\begin{eqnarray*}
-a_i & = & a_j + a_k \\
-a_i & = & 2a_j + a_k \\
-a_i & = & 4a_j + a_k \\
-a_i & = & 8a_j + a_k \\
-a_i & = & a_j - a_k \\
-a_i & = & a_j \ll m \mbox{shift}
-\end{eqnarray*}
-instead of the multiplication.  For example, you could use:
-\begin{eqnarray*}
-r & = & 4s + s\\
-r & = & r + r
-\end{eqnarray*}
-Or by xx:
-\begin{eqnarray*}
-t & = & 2s + s \\
-r & = & 2t + s \\
-r & = & 8r + t
-\end{eqnarray*}
-Cras pharetra ligula nec lectus bibendum, euismod mattis purus cursus. Nullam ut mi molestie purus ultricies lacinia. Phasellus sed orci ac lacus convallis vestibulum. Quisque id nulla ut ipsum finibus vehicula. Curabitur scelerisque erat lobortis, dapibus purus eget, faucibus sapien. Nam enim leo, faucibus id ante sed, fringilla luctus eros. Morbi vulputate, purus at commodo aliquet, turpis dolor sollicitudin libero, id vehicula risus dui sit amet nulla. Sed auctor efficitur urna. Praesent sagittis tellus ac velit vestibulum dignissim. Vivamus justo enim, pellentesque eu posuere id, mattis vitae felis. Aliquam id tincidunt diam. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.
+The earlier bound on the determinants of 

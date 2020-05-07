@@ -145,7 +145,11 @@ VISUALIZE_DIFFERENT_URAS = False
 VISUALIZE_DIFFERENT_URAS_1D = False
 VISUALIZE_URA = False
 COMPARE_DIFFERENT_URAS_VARY_DEPTH = False
-VISUALIZE_DIFFERENT_DEPTHS = True
+VISUALIZE_DIFFERENT_DEPTHS = False
+VISUALIZE_DIFFERENT_DEPTHS_2 = False
+PLOT_DIFFERENT_DEPTHS = False
+SV_TEST = False
+NEAR_FIELD = True
 
 def triangleFunc(x):
     return x
@@ -861,7 +865,7 @@ def logDetCircEfficientWithFrequencyAttenuationAndSNR(l, freqFunc, snr):
 
 
 # depth must be between 0 and 1
-def logDetCircWithFrequencyAttenuationAndSNRVaryDepth(l, freqFuncMaker, snr, depth):
+def logDetCircWithFrequencyAttenuationAndSNRVaryDepthOld(l, freqFuncMaker, snr, depth):
     assert depth >= 0
     assert depth <= 1
 
@@ -878,6 +882,80 @@ def logDetCircWithFrequencyAttenuationAndSNRVaryDepth(l, freqFuncMaker, snr, dep
     Q = get1DAttenuationMatrixGeneral(width, freqFuncMaker(width))
 
     return np.linalg.slogdet(snr*np.dot(np.dot(mat, Q), np.transpose(mat))/n**2 + np.identity(height))[1]
+
+def logDetCircWithFrequencyAttenuationAndSNRSpecificMatrix(mat, freqFuncMaker, snr):
+    n = mat.shape[0]
+
+    Q = get1DAttenuationMatrixGeneral(n, freqFuncMaker(n))
+
+    return np.linalg.slogdet(snr*np.dot(np.dot(mat, Q), np.transpose(mat))/n**2 + np.identity(n))[1]
+
+
+def getRectMatOfDepth(l, depth):
+    n = len(l)
+#    print("n is", n)
+    lExtended = l
+
+    height = int(depth*n)
+    height = max(height, 1)
+    height = min(height, n - 1)
+    width = n - height + 1
+
+    mat = rectangularToeplitz(lExtended, height, width)
+    return mat
+
+def logDetCircWithFrequencyAttenuationAndSNRVaryDepth(l, freqFuncMaker, snr, depth):
+    assert depth >= 0
+    assert depth <= 1
+
+
+    n = len(l)
+#    print("n is", n)
+    lExtended = l[1:] + l
+
+    height = int(2*depth*n)
+    height = max(height, 1)
+    height = min(height, 2*n - 1)
+    width = 2*n - height
+
+    mat = rectangularToeplitz(lExtended, height, width)
+    if depth > 0.66 and depth < 0.67:
+        viewFrame(imageify(mat), axisTicks=False)
+        p.show()
+
+#    viewFrame(imageify(mat))
+
+    Q = get1DAttenuationMatrixGeneral(width, freqFuncMaker(width))
+
+#    p.matshow(mat)
+#    p.colorbar()
+#    p.show()
+
+#    p.matshow(np.real(np.dot(np.dot(mat, Q), np.transpose(mat)))/width**2 + np.identity(height))
+#    p.colorbar()
+#    p.show()
+
+    eigsOfGramMatrix = np.linalg.eig(snr*np.dot(np.dot(mat, Q), np.transpose(mat))/width**2)[0]
+
+    returnVal = 0
+
+    for eig in eigsOfGramMatrix:
+        returnVal += np.log(1+eig/height*n)
+
+    return returnVal    
+
+#    print("eigs 0", eigsOfGramMatrix[0])
+#    print("eigs 1", eigsOfGramMatrix[1])
+
+#    return np.linalg.slogdet(snr*np.dot(np.dot(mat, Q), np.transpose(mat))/width**2 + np.identity(height))[1]/log(1+height)*log(1+n)
+
+def generalMatWithFrequencyAttenuationAndSNR(mat, freqFunc, snr):
+
+    n = mat.shape[0]
+
+    Q = get1DAttenuationMatrixGeneral(n, freqFunc)
+
+    return np.linalg.slogdet(snr*np.dot(np.dot(mat, Q), np.transpose(mat))/n**2 + np.identity(n))[1]
 
 
 
@@ -1926,6 +2004,14 @@ def getToeplitzFromTFunc(tFunc, n):
     return toeplitz([tFunc(k, n) for k in range(0,-n,-1)], \
         [tFunc(k, n) for k in range(n)])
 
+def toeplitzOneListSquare(l):
+    n = len(l)
+    assert n % 2 == 1
+    l1 = l[:int((n+1)/2)]
+    l2 = l[int((n-1)/2):]
+
+    return toeplitz(l1, l2)
+
 def getEigNorms(mat):
     return sorted(np.abs(np.linalg.eig(mat)[0]))[::-1]
 
@@ -2235,6 +2321,7 @@ def evaluateEpsilonOptimizedMaker(aVec):
     return evaluateEpsilonOptimized
 
 def rectangularToeplitz(vec, height, width):
+    print(height+width-1, len(vec))
     assert height + width - 1 == len(vec)
 
 #    print(vec[:height][::-1])
@@ -2395,6 +2482,22 @@ def makeObsSetupPicture(curveFunc, obsWidth, sceneWidth):
         obsY2 = curveFunc(obsX2)
 
         p.plot([obsX1, obsX2], [obsY1, obsY2], "b-")
+
+def illuminationPattern(x, y):
+#    print(x, y)
+    return y/(2 * pi * (x**2 + y**2))
+
+def illuminationPatternFixedSNR(x, y):
+    return illuminationPattern(x, y)/illuminationPattern(0, y)
+
+
+def nearFieldMat(maxX, y, n):
+    return np.flip(np.array([[illuminationPattern(i, y) for i in np.linspace(x+maxX, x-maxX, n)] \
+        for x in np.linspace(-maxX, maxX, n)]), 0)
+
+def nearFieldMatFixedSNR(maxX, y, n):
+    return np.flip(np.array([[illuminationPatternFixedSNR(i, y) for i in np.linspace(x+maxX, x-maxX, n)] \
+        for x in np.linspace(-maxX, maxX, n)]), 0)
 
 
 def makeCurveSetupPicture(occ, curveFunc, curveFuncPrime, sceneDepths, sceneWidth, obsWidth):
@@ -7184,3 +7287,252 @@ if __name__ == "__main__":
         viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 1., 0.)), axisTicks=False) 
 
         #mat = getToeplitzLikeTransferMatrixWithVariedDepth()
+
+    if VISUALIZE_DIFFERENT_DEPTHS_2:
+
+
+        magnification = 10
+        n = 21 * magnification - 1
+
+        occ = [1]*6*magnification + [0]*4*magnification + [1]*8*magnification + [0]*2*magnification + [1]*1*(magnification-1)
+        print(len(occ))
+
+
+        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 9/22, 13/22)), axisTicks=False) 
+        viewFrame(imageify(getRectMatOfDepth(occ, 9.9/22)), axisTicks=False)
+
+#        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0.25, 0.75)), axisTicks=False) 
+#        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0.5, 0.5)), axisTicks=False) 
+#        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 0.75, 0.25)), axisTicks=False) 
+#        viewFrame(imageify(getToeplitzLikeTransferMatrixWithVariedDepth(occ, 1., 0.)), axisTicks=False) 
+
+        #mat = getToeplitzLikeTransferMatrixWithVariedDepth()
+
+
+    if PLOT_DIFFERENT_DEPTHS:
+        n = 61
+
+#        occ = 40*[1] + 21*[0] + 40*[1]
+#        occ = 50*[1] + 51*[0]
+        occ = [(random.random() < 0.5) for _ in range(n)]
+#        occ = [1]*n
+
+        beta = 0.1
+        snr = 1
+
+        mis = []
+        rectMis = []
+
+        def freqFunc(k):
+            return beta**(k/n)
+
+        def freqFuncMaker(n):
+            def freqFunc(k):
+                return beta**(k/n)
+            return freqFunc
+
+        depths = np.linspace(0, 1, n)
+
+        for depth in depths:
+            mat = getToeplitzLikeTransferMatrixWithVariedDepth(occ[1:] + occ, depth, 1-depth)
+#            viewFrame(imageify(mat))
+
+            mis.append(generalMatWithFrequencyAttenuationAndSNR(mat, \
+                        freqFunc, snr))
+
+            rectMis.append(logDetCircWithFrequencyAttenuationAndSNRVaryDepth(occ, freqFuncMaker, snr, depth))
+
+
+            if depth > 0.66 and depth < 0.67:
+                viewFrame(imageify(mat), axisTicks=False)
+                p.show()
+
+#        print(rectMis)
+
+        p.plot(depths, mis, label="Square matrix")
+        p.plot(depths, rectMis,label="Rescaled rectangular matrix")
+        p.xlabel("Occluder frame depth")
+        p.ylabel("Measured mutual information") 
+
+        p.legend()
+        p.show()
+
+
+    if SV_TEST:
+
+        beta = 0.1
+
+        n = 100
+
+        def freqFuncMaker(n):
+            def freqFunc(k):
+                return beta**(k/n)
+            return freqFunc
+
+        freqFunc = freqFuncMaker(n)
+
+        Q = get1DAttenuationMatrixGeneral(n, freqFuncMaker(n))
+
+#        p.matshow(np.real(Q)        )
+#        p.show()
+
+        l = [1*(random.random() > 0.5) for _ in range(n)]
+
+        A = circulant(l)
+
+        megaMat = np.dot(np.dot(A, Q), np.transpose(A)) + np.identity(n)
+
+#        print(megaMat)
+
+        eigs = sorted(np.linalg.eig(Q)[0])[::-1]
+        eigs2 = sorted([freqFunc(i)*n for i, \
+            val in enumerate(np.fft.fft(l))])[::-1]
+
+        eigs = sorted(np.linalg.eig(np.dot(np.dot(A, Q), np.transpose(A)))[0])[::-1]
+        eigs2 = sorted([np.abs(val)**2*freqFunc(i)*n for i, \
+            val in enumerate(np.fft.fft(l))])[::-1]
+
+        eigs = sorted(np.linalg.eig(megaMat)[0])[::-1]
+        eigs2 = sorted([1 + np.abs(val)**2 * freqFunc(i)*n for i, \
+            val in enumerate(np.fft.fft(l))])[::-1]
+
+        l = [1*(random.random() > 0.5) for _ in range(2*n-1)]
+
+        A = toeplitzOneListSquare(l)
+
+        megaMat = np.dot(np.dot(A, Q), np.transpose(A)) + np.identity(n)
+
+#        eigs = sorted(np.linalg.eig(megaMat)[0])[::-1]
+
+#        eigs2 = sorted([1 + np.abs(val)**2 * freqFunc(i)*n for i, \
+ #           val in enumerate(np.fft.fft(l))])[::-1]
+
+#        eigs = sorted(np.linalg.eig(np.dot(A, np.transpose(A)))[0])[::-1]
+#        eigs2 = sorted([val**2 for i, \
+#            val in enumerate(np.linalg.svd(A)[1])])[::-1]
+
+        print("sv", np.linalg.svd(A)[1])
+        eigs = sorted(np.linalg.eig(megaMat)[0])[::-1]
+        eigs2 = sorted([1 + np.abs(sv)**2 * freqFunc(i)*n for i, \
+                    sv in enumerate(np.linalg.svd(A)[1])])[::-1]
+
+
+        p.matshow(A)
+        p.show()
+
+        print(np.real(eigs))
+        print(np.real(eigs2))
+        p.plot(eigs)
+        p.plot(eigs2)
+        p.show()
+
+    if NEAR_FIELD:
+
+        n = 127
+        maxX = 1
+        numTicks = 100
+
+
+#        logYs = np.linspace(-2, 2, numTicks)
+        logYs = np.linspace(-0.1, 0.1, numTicks)
+        ys = [10**logY for logY in logYs]
+#        ys = [100]
+
+        matrixOfPixelSizes = []
+
+
+#        log10Betas = np.linspace(-5, 0, numTicks)
+        beta = 1e-3
+        log10SNRs = np.linspace(-3, 3, numTicks)
+
+#        betas = [10**i for i in log10Betas]
+        SNRs = [10**i for i in log10SNRs]
+
+        uraSizes = range(1, 8)
+
+        def freqFuncMaker(n):
+            def freqFunc(k):
+                return beta**(k/n)
+            return freqFunc
+
+
+        for y in ys:
+            print(y)
+
+            matrixOfPixelSizes.append([])
+#            beta = 10**log10Beta
+
+#           print(depth)
+#            print(beta)
+
+#            p.matshow(nearFieldMat(maxX, y, n)    )
+ #           p.colorbar()
+ #           p.show()
+
+#            print(np.max(nearFieldMatFixedSNR(maxX, y, n)))
+
+
+            for log10SNR in log10SNRs:
+                snr = 10**log10SNR
+                logBestUraSize = None
+                bestUraSize = None
+                bestUraVal = -float("Inf")
+
+ #               print(snr)
+
+                for logUraSize in uraSizes:
+#                    print(len(mlsFriendly(logUraSize)))
+
+                    extendedUra = stretchArrayEvenDistribution(mlsFriendly(logUraSize), n)
+#                    extendedUra = 
+
+
+
+                    transferMat = np.multiply(nearFieldMatFixedSNR(maxX, y, n), circulant(extendedUra))
+
+                    viewFlatFrame(imageify(np.array(extendedUra[1:] + extendedUra)))
+
+                    p.matshow(transferMat)
+                    p.show()
+
+#                    if log10SNR == log10SNRs[0]:
+#                        p.matshow(transferMat)
+ #                       p.colorbar()
+  #                      p.show()
+
+
+
+
+                    val = logDetCircWithFrequencyAttenuationAndSNRSpecificMatrix(transferMat, \
+                        freqFuncMaker, snr)
+
+#                    print(val)
+
+
+#                    print(beta, snr, logUraSize, val)
+
+#
+#                    print(beta, snr,2**logUraSize-1, val)
+
+                    if val > bestUraVal:
+                        bestUraSize = 2**logUraSize-1
+                        bestUraVal = val
+                        logBestUraSize = logUraSize
+
+                pixelSize = n/bestUraSize
+                matrixOfPixelSizes[-1].append(logBestUraSize)
+
+        p.contourf(SNRs, ys, matrixOfPixelSizes, uraSizes)
+        p.yscale("log")
+        p.xscale("log")
+        p.xlabel("SNR")
+        p.ylabel(r"$y$")
+        p.colorbar()
+        p.show()
+
+
+       # singValues = np.linalg.svd()
+
+#        for depth in range()
+
+
